@@ -1,0 +1,8 @@
+tipo_tramite,codigo_tramite,normativa_aplicable,requiere_pmu,requiere_calculo_dpms,requiere_unifilar,requiere_fotos_verif,requiere_plano_ubicacion,requiere_memoria_tecnica,requiere_acreditacion_existente,permite_vivienda,permite_comercio,permite_industria,permite_publica_concurrencia,factor_simultaneidad,motor_calculo,descripcion,observaciones
+Instalación Nueva,INST_NUEVA,AEA 90364-7-770/771,Sí,Sí,Sí,No,Sí,Sí,No,Sí,Sí,Sí,Sí,0.8,PMU_FS,Cálculo según superficie y grado,Proyecto completo desde cero según normativa vigente
+Instalación Existente,INST_EXIST,Res. General 54/2018,No,Sí,Sí,Sí,No,No,Sí,Sí,Sí,Sí,Sí,0.8,EXISTENTE,Verificación de seguridad (Pre-2017),Checklist: diferencial + tierra + estado cables - Motor de cálculo propio
+Suministro Transitorio Obra,TRANS_OBRA,AEA 90364-7-770,No,Sí,Sí,No,Sí,No,No,No,No,No,No,1.0,SIMPLE,Luz de obra temporal,Máximo 12 meses - Renovable - Solo vivienda/local hasta 10kW
+Suministro Transitorio Evento,TRANS_EVENTO,AEA 90364-7-770,No,Sí,Sí,No,Sí,No,No,No,No,No,Sí,1.0,SIMPLE,Eventos temporales,Máximo 30 días - No renovable
+Ampliación/Modificación,AMPLIACION,AEA 90364-7-770/771,Sí,Sí,Sí,No,No,Sí,No,Sí,Sí,Sí,Sí,0.8,PMU_FS,Modificación de instalación existente,Solo sectores nuevos o modificados
+Regularización,REGULAR,Res. General 54/2018,No,Sí,Sí,Sí,No,Sí,Sí,Sí,Sí,Sí,No,0.8,EXISTENTE,Puesta en regla de instalación informal,Requiere inspección previa ERSeP - Motor de cálculo existente
+

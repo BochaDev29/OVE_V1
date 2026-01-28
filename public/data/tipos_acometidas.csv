@@ -1,0 +1,13 @@
+﻿codigo,descripcion,tipo_instalacion,material,seccion_min_mono_mm2,seccion_min_tri_mm2,metodo_instalacion,requiere_pilar,max_longitud_m,clase,normativa,observaciones
+AEREA_MONO,Acometida Aérea Monofásica,Aérea,Cu,4.0,6.0,Exterior,No,30,II,AEA 770 / ET-21,Cable preensamblado desde poste (Clase II - sin PAT Servicio)
+AEREA_TRI,Acometida Aérea Trifásica,Aérea,Cu,6.0,10.0,Exterior,No,30,II,AEA 771 / ET-21,Cable preensamblado trifásico (Clase II - sin PAT Servicio)
+SUBTERRANEA_MONO,Acometida Subterránea Monofásica,Enterrada,Cu,6.0,10.0,Enterrado,Sí,50,II,AEA 770 / ET-21,Caño PVC pesado Schedule 40 (Clase II - sin PAT Servicio)
+SUBTERRANEA_TRI,Acometida Subterránea Trifásica,Enterrada,Cu,10.0,16.0,Enterrado,Sí,50,II,AEA 771 / ET-21,Caño PVC pesado Schedule 40 (Clase II - sin PAT Servicio)
+PILAR_MONO,Desde Pilar Monofásico,Mixta,Cu,4.0,6.0,Embutido,Sí,20,II,AEA 770 / ET-21,Pilar a medidor interior (Clase II - sin PAT Servicio)
+PILAR_TRI,Desde Pilar Trifásico,Mixta,Cu,6.0,10.0,Embutido,Sí,20,II,AEA 771 / ET-21,Pilar a medidor interior trifásico (Clase II - sin PAT Servicio)
+DIRECTA_MONO,Acometida Directa Monofásica,Embutida,Cu,4.0,6.0,Embutido,No,15,II,AEA 770 / ET-21,Medidor en muro perimetral (Clase II - sin PAT Servicio)
+DIRECTA_TRI,Acometida Directa Trifásica,Embutida,Cu,6.0,10.0,Embutido,No,15,II,AEA 771 / ET-21,Medidor en muro perimetral trifásico (Clase II - sin PAT Servicio)
+AEREA_MONO_ANTIGUA,Acometida Aérea Monofásica (Antigua),Aérea,Cu,4.0,6.0,Exterior,No,30,I,AEA 770 / ERSeP 06/2009,Caño metálico - Gabinete fundición (Clase I - CON PAT Servicio)
+AEREA_TRI_ANTIGUA,Acometida Aérea Trifásica (Antigua),Aérea,Cu,6.0,10.0,Exterior,No,30,I,AEA 771 / ERSeP 06/2009,Caño metálico - Gabinete fundición (Clase I - CON PAT Servicio)
+PILAR_MONO_ANTIGUA,Pilar Monofásico (Antiguo),Mixta,Cu,4.0,6.0,Embutido,Sí,20,I,AEA 770 / ERSeP 06/2009,Caño metálico - Gabinete fundición (Clase I - CON PAT Servicio)
+PILAR_TRI_ANTIGUA,Pilar Trifásico (Antiguo),Mixta,Cu,6.0,10.0,Embutido,Sí,20,I,AEA 771 / ERSeP 06/2009,Caño metálico - Gabinete fundición (Clase I - CON PAT Servicio)

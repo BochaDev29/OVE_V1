@@ -1,0 +1,70 @@
+norma,metodo,tension,seccion_mm2,iz_a,observaciones
+IRAM_NM_247-3,B1,220V,1,11,2 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,220V,1.5,15,2 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,220V,2.5,21,2 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,220V,4,28,2 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,220V,6,36,2 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,220V,10,50,2 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,220V,16,66,2 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,220V,25,88,2 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,220V,35,109,2 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,380V,1,10,3 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,380V,1.5,14,3 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,380V,2.5,18,3 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,380V,4,25,3 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,380V,6,32,3 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,380V,10,44,3 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,380V,16,59,3 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,380V,25,77,3 cables cargados + PE en cañería embutida
+IRAM_NM_247-3,B1,380V,35,96,3 cables cargados + PE en cañería embutida
+IRAM_2178,B2,220V,1,11,2 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,220V,1.5,14,2 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,220V,2.5,20,2 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,220V,4,26,2 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,220V,6,33,2 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,220V,10,45,2 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,220V,16,60,2 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,220V,25,78,2 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,220V,35,97,2 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,380V,1,10,3 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,380V,1.5,13,3 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,380V,2.5,17,3 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,380V,4,23,3 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,380V,6,30,3 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,380V,10,40,3 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,380V,16,54,3 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,380V,25,70,3 cables cargados + PE en bandeja perforada
+IRAM_2178,B2,380V,35,86,3 cables cargados + PE en bandeja perforada
+IRAM_2178,D2,220V,1.5,29,Cable enterrado directo en zanja - Monofásico
+IRAM_2178,D2,220V,2.5,39,Cable enterrado directo en zanja - Monofásico
+IRAM_2178,D2,220V,4,51,Cable enterrado directo en zanja - Monofásico
+IRAM_2178,D2,220V,6,65,Cable enterrado directo en zanja - Monofásico
+IRAM_2178,D2,220V,10,88,Cable enterrado directo en zanja - Monofásico
+IRAM_2178,D2,220V,16,112,Cable enterrado directo en zanja - Monofásico
+IRAM_2178,D2,220V,25,144,Cable enterrado directo en zanja - Monofásico
+IRAM_2178,D2,220V,35,173,Cable enterrado directo en zanja - Monofásico
+IRAM_2178,D2,380V,1.5,25,Cable enterrado directo en zanja - Trifásico
+IRAM_2178,D2,380V,2.5,34,Cable enterrado directo en zanja - Trifásico
+IRAM_2178,D2,380V,4,44,Cable enterrado directo en zanja - Trifásico
+IRAM_2178,D2,380V,6,55,Cable enterrado directo en zanja - Trifásico
+IRAM_2178,D2,380V,10,74,Cable enterrado directo en zanja - Trifásico
+IRAM_2178,D2,380V,16,95,Cable enterrado directo en zanja - Trifásico
+IRAM_2178,D2,380V,25,123,Cable enterrado directo en zanja - Trifásico
+IRAM_2178,D2,380V,35,147,Cable enterrado directo en zanja - Trifásico
+IRAM_2178,D1,220V,1.5,25,Cable en caño enterrado (PVC Schedule 40) - Monofásico
+IRAM_2178,D1,220V,2.5,33,Cable en caño enterrado (PVC Schedule 40) - Monofásico
+IRAM_2178,D1,220V,4,43,Cable en caño enterrado (PVC Schedule 40) - Monofásico
+IRAM_2178,D1,220V,6,53,Cable en caño enterrado (PVC Schedule 40) - Monofásico
+IRAM_2178,D1,220V,10,71,Cable en caño enterrado (PVC Schedule 40) - Monofásico
+IRAM_2178,D1,220V,16,91,Cable en caño enterrado (PVC Schedule 40) - Monofásico
+IRAM_2178,D1,220V,25,117,Cable en caño enterrado (PVC Schedule 40) - Monofásico
+IRAM_2178,D1,220V,35,140,Cable en caño enterrado (PVC Schedule 40) - Monofásico
+IRAM_2178,D1,380V,1.5,20,Cable en caño enterrado (PVC Schedule 40) - Trifásico
+IRAM_2178,D1,380V,2.5,27,Cable en caño enterrado (PVC Schedule 40) - Trifásico
+IRAM_2178,D1,380V,4,35,Cable en caño enterrado (PVC Schedule 40) - Trifásico
+IRAM_2178,D1,380V,6,44,Cable en caño enterrado (PVC Schedule 40) - Trifásico
+IRAM_2178,D1,380V,10,58,Cable en caño enterrado (PVC Schedule 40) - Trifásico
+IRAM_2178,D1,380V,16,75,Cable en caño enterrado (PVC Schedule 40) - Trifásico
+IRAM_2178,D1,380V,25,96,Cable en caño enterrado (PVC Schedule 40) - Trifásico
+IRAM_2178,D1,380V,35,115,Cable en caño enterrado (PVC Schedule 40) - Trifásico
+guar

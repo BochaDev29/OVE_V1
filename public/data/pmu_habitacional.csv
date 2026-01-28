@@ -1,0 +1,39 @@
+grado,ambiente,area_min,area_max,long_min,long_max,iug_base,iug_m2_step,iug_long_step,tug_base,tug_m2_step,tug_long_step,tug_min,observaciones
+Mínimo,sala_comedor_estudio,0,999,0,999,1,18,0,0,6,0,2,1 IUG c/18m2(min 1) - 1 TUG c/6m2 (min 2)
+Mínimo,dormitorio,0,10,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Mínimo,dormitorio,10,36,0,999,1,0,0,3,0,0,0,1 IUG / 3 TUG
+Mínimo,cocina,0,999,0,999,1,0,0,3,0,0,0,1 IUG / 3 TUG
+Mínimo,baño,0,999,0,999,1,0,0,1,0,0,0,1 IUG / 1 TUG
+Mínimo,vestibulo_garaje_hall,0,999,0,999,1,0,0,1,0,0,0,1 IUG / 1 TUG
+Mínimo,pasillo,0,999,0,999,1,0,5,0,0,0,0,1 IUG c/5m largo
+Mínimo,lavadero,0,999,0,999,1,0,0,1,0,0,0,1 IUG / 1 TUG
+Mínimo,balcon_galeria,0,999,0,999,1,5,0,0,0,0,0,1 IUG c/5m2
+Medio,sala_comedor_estudio,0,999,0,999,1,18,0,0,6,0,2,1 IUG c/18m2(min 1) - 1 TUG c/6m2 (min 2)
+Medio,dormitorio,0,10,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Medio,dormitorio,10,36,0,999,1,0,0,3,0,0,0,1 IUG / 3 TUG
+Medio,cocina,0,999,0,999,2,0,0,3,0,0,0,2 IUG / 3 TUG
+Medio,baño,0,999,0,999,1,0,0,1,0,0,0,1 IUG / 1 TUG
+Medio,vestibulo_garaje_hall,0,999,0,999,1,12,0,0,12,0,0,1 IUG c/12m2 - 1 TUG c/12m2
+Medio,pasillo,0,999,0,999,1,0,5,0,0,5,0,1 IUG c/5m - 1 TUG c/5m
+Medio,lavadero,0,999,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Medio,balcon_galeria,0,999,0,999,1,5,0,0,0,0,0,1 IUG c/5m2
+Elevado,sala_comedor_estudio,0,999,0,999,1,18,0,0,6,0,2,1 IUG c/18m2(min 1) - 1 TUG c/6m2 (min 2)
+Elevado,dormitorio,0,10,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Elevado,dormitorio,10,36,0,999,1,0,0,3,0,0,0,1 IUG / 3 TUG
+Elevado,dormitorio,36,999,0,999,2,0,0,3,0,0,0,2 IUG / 3 TUG
+Elevado,cocina,0,999,0,999,2,0,0,3,0,0,0,2 IUG / 3 TUG
+Elevado,baño,0,999,0,999,1,0,0,1,0,0,0,1 IUG / 1 TUG
+Elevado,vestibulo_garaje_hall,0,999,0,999,1,12,0,0,12,0,0,1 IUG c/12m2 - 1 TUG c/12m2
+Elevado,pasillo,0,999,0,999,1,0,5,0,0,5,0,1 IUG c/5m - 1 TUG c/5m
+Elevado,lavadero,0,999,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Elevado,balcon_galeria,0,999,0,999,1,5,0,0,0,0,0,1 IUG c/5m2
+Superior,sala_comedor_estudio,0,999,0,999,1,18,0,0,6,0,2,1 IUG c/18m2(min 1) - 1 TUG c/6m2 (min 2)
+Superior,dormitorio,0,10,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Superior,dormitorio,10,36,0,999,1,0,0,3,0,0,0,1 IUG / 3 TUG
+Superior,dormitorio,36,999,0,999,2,0,0,3,0,0,0,2 IUG / 3 TUG
+Superior,cocina,0,999,0,999,2,0,0,4,0,0,0,2 IUG / 4 TUG
+Superior,baño,0,999,0,999,1,0,0,1,0,0,0,1 IUG / 1 TUG
+Superior,vestibulo_garaje_hall,0,999,0,999,1,12,0,0,12,0,0,1 IUG c/12m2 - 1 TUG c/12m2
+Superior,pasillo,0,999,0,999,1,0,5,0,0,5,0,1 IUG c/5m - 1 TUG c/5m
+Superior,lavadero,0,999,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Superior,balcon_galeria,0,999,0,999,1,5,0,0,0,0,0,1 IUG c/5m2

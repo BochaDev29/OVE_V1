@@ -1,0 +1,8 @@
+grado,variante_index,total_circuitos,iug,tug,tue,libre,descripcion
+Mínimo,0,2,1,1,0,0,Variante única: 1 IUG + 1 TUG
+Medio,0,3,2,1,0,0,Variante a): 2 IUG + 1 TUG
+Medio,1,3,1,2,0,0,Variante b): 1 IUG + 2 TUG
+Elevado,0,5,2,3,0,0,Variante a): 2 IUG + 3 TUG
+Elevado,1,5,3,2,0,0,Variante b): 3 IUG + 2 TUG
+Superior,0,6,2,3,0,1,Variante a): 2 IUG + 3 TUG + 1 Libre
+Superior,1,6,3,2,0,1,Variante b): 3 IUG + 2 TUG + 1 Libre

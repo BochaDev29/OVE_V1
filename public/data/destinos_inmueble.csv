@@ -1,0 +1,16 @@
+codigo_destino,nombre_destino,categoria,requiere_categoria_profesional,max_potencia_cat3_kw,normativa_base,descripcion,observaciones
+vivienda,Vivienda unifamiliar,Residencial,3,10,AEA 770,Casa unifamiliar de uso residencial,Cat III hasta 10kW - Cat I/II mayor a 10kW
+departamento,Departamento en edificio,Residencial,3,10,AEA 770,Unidad funcional en edificio de departamentos,Cat III hasta 10kW - ALCANCE: Solo instalación interna desde TSG - Requiere certificado de acometida/edificio por Cat I/II
+departamento_ph,Departamento PH,Residencial,3,10,AEA 770,Departamento con acceso independiente (PH),Cat III hasta 10kW - Cat I/II mayor a 10kW
+vivienda_multifamiliar,Edificio multifamiliar completo,Residencial,1,999,AEA 770,Edificio completo de departamentos (áreas comunes),Siempre requiere Cat I/II - Instalación compleja
+comercio,Local comercial,Comercial,3,10,AEA 771,Negocio minorista o local comercial,Cat III hasta 10kW - Cat I/II mayor a 10kW
+oficina,Oficina,Comercial,3,10,AEA 771,Oficina administrativa o profesional,Cat III hasta 10kW - Cat I/II mayor a 10kW
+industria,Industria/Taller,Industrial,3,10,AEA 771,Pequeña industria o taller,Cat III hasta 10kW - Cat I/II mayor a 10kW
+medico,Consultorios/Uso Médico,Especial,3,10,AEA 771,Consultorios médicos y uso sanitario,ADVERTENCIA: Suele requerir Cat I/II por seguridad en electromedicina - Verifique habilitación local
+inflamable,Depósitos/Riesgo BE2,Especial,3,10,AEA 771,Depósitos con riesgo de incendio/explosión,ADVERTENCIA: Suele requerir Cat I/II por riesgo BE2 - Verifique habilitación local
+publica_concurrencia,Pública concurrencia,Especial,1,999,AEA 771,Escuelas hospitales teatros cines,PROHIBIDO para Cat III (Sección 718 AEA) - Solo Cat I/II
+provisorio_obra,Suministro provisorio obra,Temporal,3,10,AEA 770,Instalación temporal de obra en vivienda/local,Cat III hasta 10kW - Máximo 12 meses
+
+
+
+

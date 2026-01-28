@@ -1,0 +1,13 @@
+tipo_instalacion,codigo_material,cantidad,unidad,es_obligatorio,observaciones
+PAT_SIMPLE,JABALINA_1500,1,un,Sí,Jabalina principal de puesta a tierra
+PAT_SIMPLE,TOMA_CABLE_COMP,1,un,Sí,Conexión cable a jabalina
+PAT_SIMPLE,CAMARA_INSP_PAT,1,un,Sí,Cámara de inspección para acceso
+PAT_SIMPLE,CABLE_UNI_4_VDA,10,m,Sí,Cable de puesta a tierra desde jabalina a bornera
+PAT_REFORZADO,JABALINA_1500,2,un,Sí,Dos jabalinas en paralelo para mejor dispersión
+PAT_REFORZADO,TOMA_CABLE_COMP,2,un,Sí,Conexiones para ambas jabalinas
+PAT_REFORZADO,CAMARA_INSP_PAT,1,un,Sí,Cámara de inspección
+PAT_REFORZADO,CABLE_UNI_4_VDA,20,m,Sí,Cable de puesta a tierra
+PAT_EDIFICIO,JABALINA_1500,3,un,Sí,Tres jabalinas para edificios
+PAT_EDIFICIO,TOMA_CABLE_COMP,3,un,Sí,Conexiones para jabalinas
+PAT_EDIFICIO,CAMARA_INSP_PAT,2,un,Sí,Dos cámaras de inspección
+PAT_EDIFICIO,CABLE_UNI_4_VDA,30,m,Sí,Cable de puesta a tierra

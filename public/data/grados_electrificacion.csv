@@ -1,0 +1,18 @@
+destino,grado,superficie_min,superficie_max,normativa
+vivienda,Mínimo,0,60,AEA 770
+vivienda,Medio,60,130,AEA 770
+vivienda,Elevado,130,200,AEA 770
+vivienda,Superior,200,9999,AEA 770
+oficina,Mínimo,0,30,AEA 771
+oficina,Medio,30,75,AEA 771
+oficina,Elevado,75,150,AEA 771
+oficina,Superior,150,9999,AEA 771
+comercio,Mínimo,0,30,AEA 771
+comercio,Medio,30,75,AEA 771
+comercio,Elevado,75,150,AEA 771
+comercio,Superior,150,9999,AEA 771
+industria,Mínimo,0,300,AEA 771.8.VII
+industria,Medio,300,2000,AEA 771.8.VII
+industria,Elevado,2000,5000,AEA 771.8.VII
+industria,Superior,5000,9999,AEA 771.8.VII
+

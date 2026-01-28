@@ -1,0 +1,41 @@
+codigo_acometida,item_numero,descripcion_material,cantidad,unidad,norma_referencia,es_obligatorio,categoria,observaciones
+AEREA_MONO,1,Caño de entrada diámetro 1½" x 3m,1,pza,ET-21,Sí,Canalización,Acero cincado aislado interior y exteriormente - doble aislamiento
+AEREA_MONO,2,Tensor con aislador MN16,1,pza,MN16,Sí,Fijación,Para sujeción de acometida aérea
+AEREA_MONO,3,Curva de PVC diámetro 40mm,1,pza,ET-21,Sí,Canalización,Material sintético autoextinguible
+AEREA_MONO,4,Caja medidor monofásico con corte y bloqueo,1,pza,MN 127,Sí,Gabinete,Material sintético aislante autoextinguible
+AEREA_MONO,5,Caja tablero cliente IP43,1,pza,ET-21,Sí,Gabinete,Tablero Principal - Material sintético aislante autoextinguible
+AEREA_MONO,6,Caño flexible ¾",1,m,ET-21,Sí,Canalización,Material sintético autoextinguible
+AEREA_MONO,7,Cable unipolar PVC 4mm²,3,m,IRAM 247-3,Sí,Conductor,Debe ingresar sin empalmes al medidor
+AEREA_MONO,8,Interruptor termomagnético bipolar 25A,1,pza,ET-21,Sí,Protección,Dispositivo de protección principal
+AEREA_MONO,9,Interruptor diferencial 30mA,1,pza,IRAM 2301,No,Protección,Recomendado según AEA 90364-7-771
+AEREA_TRI,1,Caño de entrada diámetro 1½" x 3m,1,pza,ET-21,Sí,Canalización,Acero cincado aislado interior y exteriormente - doble aislamiento
+AEREA_TRI,2,Tensor con aislador MN16,1,pza,MN16,Sí,Fijación,Para sujeción de acometida aérea
+AEREA_TRI,3,Curva de PVC diámetro 40mm,1,pza,ET-21,Sí,Canalización,Material sintético autoextinguible
+AEREA_TRI,4,Caja medidor trifásico con corte y bloqueo,1,pza,MN 128,Sí,Gabinete,Material sintético aislante autoextinguible
+AEREA_TRI,5,Caja tablero cliente IP43,1,pza,ET-21,Sí,Gabinete,Tablero Principal - Material sintético aislante autoextinguible
+AEREA_TRI,6,Caño flexible 1½",1,pza,ET-21,Sí,Canalización,Material sintético autoextinguible
+AEREA_TRI,7,Cable unipolar PVC 6mm²,6,m,IRAM 247-3,Sí,Conductor,Debe ingresar sin empalmes al medidor
+AEREA_TRI,8,Interruptor termomagnético tetrapolar 25A,1,pza,ET-21,Sí,Protección,Dispositivo de protección principal
+AEREA_TRI,9,Interruptor diferencial 30mA,1,pza,IRAM 2301,No,Protección,Recomendado según AEA 90364-7-771
+SUBTERRANEA_MONO,1,Caja medidor monofásico con corte y bloqueo,1,pza,MN 127,Sí,Gabinete,Material sintético aislante autoextinguible
+SUBTERRANEA_MONO,2,Caja tablero cliente IP43,1,pza,ET-21,Sí,Gabinete,Tablero Principal - Material sintético aislante autoextinguible
+SUBTERRANEA_MONO,3,Caja de toma,1,pza,ET-21,Sí,Gabinete,Material sintético aislante autoextinguible - para fusibles NH
+SUBTERRANEA_MONO,4,Seccionador fusible NH-00,1,pza,ET-21,Sí,Protección,Base portafusible
+SUBTERRANEA_MONO,5,Fusible NH 63A,1,pza,ET-21,Sí,Protección,Fusible de protección
+SUBTERRANEA_MONO,6,Caño PVC rígido diámetro 90mm x 1.20m,1,pza,ET-21,Sí,Canalización,Para entrada subterránea
+SUBTERRANEA_MONO,7,Caño PVC 32mm diámetro interior mínimo,2,m,ET-21,Sí,Canalización,Material autoextinguible
+SUBTERRANEA_MONO,8,Cable unipolar PVC 4mm²,6,m,IRAM 247-3,Sí,Conductor,Sin empalmes
+SUBTERRANEA_MONO,9,Interruptor termomagnético bipolar 20A,1,pza,ET-21,Sí,Protección,Protección principal
+SUBTERRANEA_MONO,10,Llave de seccionamiento bipolar 63A,1,pza,ET-21,Sí,Maniobra,Dispositivo de corte
+SUBTERRANEA_MONO,11,Interruptor diferencial 30mA,1,pza,IRAM 2301,No,Protección,Recomendado según AEA 90364-7-771
+SUBTERRANEA_TRI,1,Caja medidor trifásico con corte y bloqueo,1,pza,MN 128,Sí,Gabinete,Material sintético aislante autoextinguible
+SUBTERRANEA_TRI,2,Caja tablero cliente IP43,1,pza,ET-21,Sí,Gabinete,Tablero Principal - Material sintético aislante autoextinguible
+SUBTERRANEA_TRI,3,Caja de toma,1,pza,ET-21,Sí,Gabinete,Material sintético aislante autoextinguible - para fusibles NH
+SUBTERRANEA_TRI,4,Seccionador fusible NH-00,3,pza,ET-21,Sí,Protección,Base portafusible trifásica
+SUBTERRANEA_TRI,5,Fusible NH 63A,3,pza,ET-21,Sí,Protección,Fusibles de protección (uno por fase)
+SUBTERRANEA_TRI,6,Caño PVC rígido diámetro 90mm x 1.20m,1,pza,ET-21,Sí,Canalización,Para entrada subterránea
+SUBTERRANEA_TRI,7,Caño PVC 32mm diámetro interior mínimo,2,m,ET-21,Sí,Canalización,Material autoextinguible
+SUBTERRANEA_TRI,8,Cable unipolar PVC 6mm²,12,m,IRAM 247-3,Sí,Conductor,Sin empalmes
+SUBTERRANEA_TRI,9,Interruptor termomagnético tetrapolar 20A,1,pza,ET-21,Sí,Protección,Protección principal
+SUBTERRANEA_TRI,10,Llave de seccionamiento tetrapolar 63A,1,pza,ET-21,Sí,Maniobra,Dispositivo de corte
+SUBTERRANEA_TRI,11,Interruptor diferencial 30mA,1,pza,IRAM 2301,No,Protección,Recomendado según AEA 90364-7-771

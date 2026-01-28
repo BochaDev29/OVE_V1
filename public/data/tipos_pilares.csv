@@ -1,0 +1,8 @@
+codigo,descripcion,tipo_medidor,max_usuarios,tension,requiere_base,altura_min_m,altura_max_m,seccion_pat_mm2,normativa,observaciones
+PILAR_SIMPLE_MONO,Pilar Simple Monofásico,Simple,1,220V,Sí,1.8,2.2,4.0,ET-21 Sección 3.2,Un solo medidor - Base de hormigón
+PILAR_SIMPLE_TRI,Pilar Simple Trifásico,Simple,1,380V,Sí,1.8,2.2,6.0,ET-21 Sección 3.2,Un solo medidor trifásico - Base de hormigón
+PILAR_MULTIPLE_2,Pilar Múltiple 2 Medidores,Múltiple,2,220V,Sí,1.8,2.5,4.0,ET-21 Sección 3.3,Hasta 2 usuarios - Caja normalizada
+PILAR_MULTIPLE_4,Pilar Múltiple 4 Medidores,Múltiple,4,220V,Sí,2.0,2.5,6.0,ET-21 Sección 3.3,Hasta 4 usuarios - Caja normalizada
+PILAR_MULTIPLE_6,Pilar Múltiple 6 Medidores,Múltiple,6,220V,Sí,2.0,3.0,6.0,ET-21 Sección 3.3,Hasta 6 usuarios - Caja normalizada
+PILAR_EDIFICIO,Pilar de Edificio,Múltiple,999,380V,Sí,2.5,4.0,10.0,ET-21 Sección 3.4,Edificios multifamiliares - Requiere proyecto específico
+PILAR_COMERCIAL,Pilar Comercial/Industrial,Simple,1,380V,Sí,2.0,3.0,10.0,ET-21 Sección 3.5,Comercios e industrias - Mayor capacidad

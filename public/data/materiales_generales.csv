@@ -1,0 +1,74 @@
+codigo_material,categoria,subcategoria,descripcion,especificacion_tecnica,norma_referencia,unidad,observaciones
+CABLE_UNI_1.5_NEG,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,1.5mm² - Negro,IRAM NM 247-3,m,Conductor de fase
+CABLE_UNI_1.5_CEL,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,1.5mm² - Celeste,IRAM NM 247-3,m,Conductor neutro
+CABLE_UNI_2.5_NEG,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,2.5mm² - Negro,IRAM NM 247-3,m,Conductor de fase
+CABLE_UNI_2.5_CEL,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,2.5mm² - Celeste,IRAM NM 247-3,m,Conductor neutro
+CABLE_UNI_2.5_MAR,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,2.5mm² - Marrón,IRAM NM 247-3,m,Conductor retorno
+CABLE_UNI_2.5_BLA,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,2.5mm² - Blanco,IRAM NM 247-3,m,Conductor retorno
+CABLE_UNI_2.5_VDA,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,2.5mm² - Verde/Amarillo,IRAM NM 247-3,m,Conductor de protección (PE)
+CABLE_UNI_4_MAR,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,4mm² - Marrón,IRAM NM 247-3,m,Conductor de fase
+CABLE_UNI_4_CEL,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,4mm² - Celeste,IRAM NM 247-3,m,Conductor neutro
+CABLE_UNI_4_VDA,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,4mm² - Verde/Amarillo,IRAM NM 247-3,m,Conductor de protección (PE)
+CABLE_SUB_2X4,Conductores,Cable subterráneo,Cable tipo subterráneo aislación PVC,2x4mm²,IRAM 2178,m,Para instalación directamente enterrada
+CABLE_SUB_2X6,Conductores,Cable subterráneo,Cable tipo subterráneo aislación PVC,2x6mm²,IRAM 2178,m,Para instalación directamente enterrada
+PIA_2P_10A_B,Protecciones,Interruptor termomagnético,Interruptor termomagnético bipolar,10A - Curva B - 230/400V 50Hz,IEC 60898,un,Protección circuitos iluminación
+PIA_2P_10A_C,Protecciones,Interruptor termomagnético,Interruptor termomagnético bipolar,10A - Curva C - 230/400V 50Hz,IEC 60898,un,Protección circuitos tomas
+PIA_2P_16A_C,Protecciones,Interruptor termomagnético,Interruptor termomagnético bipolar,16A - Curva C - 230/400V 50Hz,IEC 60898,un,Protección circuitos tomas
+PIA_2P_20A_C,Protecciones,Interruptor termomagnético,Interruptor termomagnético bipolar,20A - Curva C - 230/400V 50Hz,IEC 60898,un,Protección circuitos tomas
+PIA_2P_25A_C,Protecciones,Interruptor termomagnético,Interruptor termomagnético bipolar,25A - Curva C - 230/400V 50Hz,IEC 60898,un,Protección circuitos especiales
+PIA_2P_32A_C,Protecciones,Interruptor termomagnético,Interruptor termomagnético bipolar,32A - Curva C - 230/400V 50Hz,IEC 60898,un,Protección circuitos especiales
+PIA_4P_10A_C,Protecciones,Interruptor termomagnético,Interruptor termomagnético tetrapolar,10A - Curva C - 230/400V 50Hz,IEC 60898,un,Protección circuitos trifásicos
+PIA_4P_16A_C,Protecciones,Interruptor termomagnético,Interruptor termomagnético tetrapolar,16A - Curva C - 230/400V 50Hz,IEC 60898,un,Protección circuitos trifásicos
+PIA_4P_20A_C,Protecciones,Interruptor termomagnético,Interruptor termomagnético tetrapolar,20A - Curva C - 230/400V 50Hz,IEC 60898,un,Protección circuitos trifásicos
+PIA_4P_25A_C,Protecciones,Interruptor termomagnético,Interruptor termomagnético tetrapolar,25A - Curva C - 230/400V 50Hz,IEC 60898,un,Protección circuitos trifásicos
+PIA_4P_32A_C,Protecciones,Interruptor termomagnético,Interruptor termomagnético tetrapolar,32A - Curva C - 230/400V 50Hz,IEC 60898,un,Protección circuitos trifásicos
+ID_2P_40A_30MA,Protecciones,Interruptor diferencial,Interruptor diferencial,2P - 40A - 30mA,IEC 61008,un,Protección contra contactos indirectos
+ID_2P_63A_30MA,Protecciones,Interruptor diferencial,Interruptor diferencial,2P - 63A - 30mA,IEC 61008,un,Protección contra contactos indirectos
+ID_4P_40A_30MA,Protecciones,Interruptor diferencial,Interruptor diferencial,4P - 40A - 30mA,IEC 61008,un,Protección contra contactos indirectos trifásico
+ID_4P_63A_30MA,Protecciones,Interruptor diferencial,Interruptor diferencial,4P - 63A - 30mA,IEC 61008,un,Protección contra contactos indirectos trifásico
+CANO_RIGID_20,Canalizaciones,Caño rígido,Caño rígido semipesado de PVC,20mm - Autoextinguible,IRAM 62386-21,m,Para instalación exterior/a la vista
+CANO_RIGID_25,Canalizaciones,Caño rígido,Caño rígido semipesado de PVC,25mm - Autoextinguible,IRAM 62386-21,m,Para instalación exterior/a la vista
+CANO_CORRUG_20,Canalizaciones,Caño corrugado,Caño corrugado flexible de PVC,20mm - Autoextinguible,IRAM 62386,m,Para instalación embutida
+CANO_CORRUG_25,Canalizaciones,Caño corrugado,Caño corrugado flexible de PVC,25mm - Autoextinguible,IRAM 62386,m,Para instalación embutida
+CAJA_OCT_PVC,Canalizaciones,Caja de derivación,Caja octogonal de PVC,9x9cm,IRAM 2005,un,Para puntos de luz
+CAJA_RECT_PVC,Canalizaciones,Caja de derivación,Caja rectangular de PVC,5x10cm,IRAM 2005,un,Para tomas y llaves
+CONECTOR_20,Canalizaciones,Conector,Conector de PVC para caño rígido,20mm,IRAM 62386,un,Unión de caños
+CONECTOR_25,Canalizaciones,Conector,Conector de PVC para caño rígido,25mm,IRAM 62386,un,Unión de caños
+GABINETE_IP65_4P,Gabinetes,Tablero principal,Gabinete estanco,4 polos - IP65,IEC 60670 / IRAM 2346,un,Tablero principal exterior
+GABINETE_IP41_8P,Gabinetes,Tablero seccional,Gabinete para embutir,8 polos - IP41,IEC 60439 / IRAM 2181,un,Tablero seccional embutido
+GABINETE_IP41_12P,Gabinetes,Tablero seccional,Gabinete para embutir,12 polos - IP41,IEC 60439 / IRAM 2181,un,Tablero seccional embutido
+GABINETE_IP41_16P,Gabinetes,Tablero seccional,Gabinete para embutir,16 polos - IP41,IEC 60439 / IRAM 2181,un,Tablero seccional embutido
+GABINETE_IP41_24P,Gabinetes,Tablero seccional,Gabinete para embutir,24 polos - IP41,IEC 60439 / IRAM 2181,un,Tablero seccional embutido
+TAPA_100X50_3M,Módulos,Tapa,Tapa para bastidor,100x50mm - 3 módulos - Blanca,IRAM 2005,un,Tapa para módulos
+BASTIDOR_100X50_3M,Módulos,Bastidor,Bastidor para módulos,100x50mm - 3 módulos,IRAM 2005,un,Soporte para módulos
+MOD_INT_COMB_10A,Módulos,Interruptor,Módulo interruptor combinado,10A - 220V,IRAM-NM 60669-1,un,Llave combinada (punto/escalera)
+MOD_INT_UNI_10A,Módulos,Interruptor,Módulo interruptor unipolar,10A - 220V,IRAM-NM 60669-1,un,Llave simple
+MOD_TOMA_10A,Módulos,Tomacorriente,Módulo tomacorriente,10A - 250V - 2P+T,IRAM 2071,un,Toma con puesta a tierra
+MOD_TOMA_20A,Módulos,Tomacorriente,Módulo tomacorriente,20A - 250V - 2P+T,IRAM 2071,un,Toma con puesta a tierra
+MOD_TAPA_CIEGA,Módulos,Tapa ciega,Módulo tapa ciega,Estándar,IRAM 2005,un,Relleno para bastidores
+PORTALAMP_E27,Iluminación,Portalámparas,Portalámparas tipo Edison,E27,IRAM 2010,un,Base para lámpara
+LAMPARA_LED_10W,Iluminación,Lámpara,Lámpara LED,10W - E27,IEC 62560,un,Iluminación eficiente
+JABALINA_1500,PAT,Jabalina,Jabalina de puesta a tierra,1500mm - AC/CU - 3/4",IRAM 2309,un,Electrodo de puesta a tierra
+TOMA_CABLE_COMP,PAT,Conector,Toma cable a compresión,Para jabalina 3/4",IRAM 2343 / IRAM 2309,un,Conexión cable-jabalina
+CAMARA_INSP_PAT,PAT,Cámara,Cámara de inspección de PVC,Para puesta a tierra,IRAM 2309,un,Acceso a PAT
+CABLE_UNI_6_NEG,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,6mm� - Negro,IRAM NM 247-3,m,Conductor de fase
+CABLE_UNI_6_CEL,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,6mm� - Celeste,IRAM NM 247-3,m,Conductor neutro
+CABLE_UNI_6_VDA,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,6mm� - Verde/Amarillo,IRAM NM 247-3,m,Conductor de protecci�n (PE)
+CABLE_UNI_10_NEG,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,10mm� - Negro,IRAM NM 247-3,m,Conductor de fase
+CABLE_UNI_10_CEL,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,10mm� - Celeste,IRAM NM 247-3,m,Conductor neutro
+CABLE_UNI_10_VDA,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,10mm� - Verde/Amarillo,IRAM NM 247-3,m,Conductor de protecci�n (PE)
+CABLE_UNI_16_NEG,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,16mm� - Negro,IRAM NM 247-3,m,Conductor de fase
+CABLE_UNI_16_CEL,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,16mm� - Celeste,IRAM NM 247-3,m,Conductor neutro
+CABLE_UNI_16_VDA,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,16mm� - Verde/Amarillo,IRAM NM 247-3,m,Conductor de protecci�n (PE)
+CABLE_UNI_25_NEG,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,25mm� - Negro,IRAM NM 247-3,m,Conductor de fase
+CABLE_UNI_25_CEL,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,25mm� - Celeste,IRAM NM 247-3,m,Conductor neutro
+CABLE_UNI_25_VDA,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,25mm� - Verde/Amarillo,IRAM NM 247-3,m,Conductor de protecci�n (PE)
+CABLE_UNI_35_NEG,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,35mm� - Negro,IRAM NM 247-3,m,Conductor de fase
+CABLE_UNI_35_CEL,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,35mm� - Celeste,IRAM NM 247-3,m,Conductor neutro
+CABLE_UNI_35_VDA,Conductores,Cable unipolar,Cable unipolar flexible con aislante de PVC,35mm� - Verde/Amarillo,IRAM NM 247-3,m,Conductor de protecci�n (PE)
+PIA_2P_40A_C,Protecciones,Interruptor termomagn�tico,Interruptor termomagn�tico bipolar,40A - Curva C - 230/400V 50Hz,IEC 60898,un,Protecci�n circuitos principales
+PIA_2P_50A_C,Protecciones,Interruptor termomagn�tico,Interruptor termomagn�tico bipolar,50A - Curva C - 230/400V 50Hz,IEC 60898,un,Protecci�n circuitos principales
+PIA_2P_63A_C,Protecciones,Interruptor termomagn�tico,Interruptor termomagn�tico bipolar,63A - Curva C - 230/400V 50Hz,IEC 60898,un,Protecci�n circuitos principales
+PIA_4P_40A_C,Protecciones,Interruptor termomagn�tico,Interruptor termomagn�tico tetrapolar,40A - Curva C - 230/400V 50Hz,IEC 60898,un,Protecci�n circuitos principales
+PIA_4P_50A_C,Protecciones,Interruptor termomagn�tico,Interruptor termomagn�tico tetrapolar,50A - Curva C - 230/400V 50Hz,IEC 60898,un,Protecci�n circuitos principales
+PIA_4P_63A_C,Protecciones,Interruptor termomagn�tico,Interruptor termomagn�tico tetrapolar,63A - Curva C - 230/400V 50Hz,IEC 60898,un,Protecci�n circuitos principales

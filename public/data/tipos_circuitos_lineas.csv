@@ -1,0 +1,18 @@
+tipo_circuito,designacion,sigla,max_bocas,max_proteccion_a,seccion_min_mm2,seccion_min_tri_mm2,permite_vivienda,permite_comercio,permite_industria,permite_publica_concurrencia,permite_transitorio,requiere_nueva,requiere_existente,calculo_auto,observaciones,normativa
+uso_general,Iluminación uso general,IUG,15,16,1.5,1.5,Sí,Sí,Sí,Sí,Sí,Sí,Sí,Sí,Circuito estándar iluminación,AEA 770/771
+uso_general,Tomacorriente uso general,TUG,15,20,2.5,2.5,Sí,Sí,Sí,Sí,Sí,Sí,Sí,Sí,Circuito estándar tomas,AEA 770/771
+uso_especial,Iluminación uso especial,IUE,12,32,2.5,2.5,Sí,Sí,Sí,Sí,No,Sí,No,Sí,Cargas especiales iluminación,AEA 770/771
+uso_especial,Tomacorriente uso especial,TUE,12,32,2.5,2.5,Sí,Sí,Sí,Sí,No,Sí,Sí,Sí,Cargas especiales tomas,AEA 770/771
+uso_especifico,Alimentación MBTF,MBTF,15,20,1.5,1.5,Sí,Sí,Sí,No,No,Sí,No,No,Muy baja tensión funcional,AEA 770
+uso_especifico,Alimentación pequeños motores,APM,15,25,2.5,2.5,Sí,Sí,Sí,No,No,Sí,No,No,Motores hasta 1.5HP,AEA 770
+uso_especifico,Alimentación tensión estabilizada,ATE,15,-1,2.5,2.5,Sí,Sí,Sí,Sí,No,Sí,Sí,No,Cálculo por proyectista,AEA 770
+uso_especifico,Circuitos MBTS,MBTS,-1,-1,2.5,2.5,Sí,Sí,Sí,No,No,Sí,No,No,Sin puesta a tierra,AEA 770
+uso_especifico,Iluminación trifásica específica,ITE,12,-1,2.5,2.5,No,Sí,Sí,Sí,No,Sí,No,No,Prohibido viviendas,AEA 771
+uso_especifico,Alimentación carga única,ACU,1,-1,2.5,2.5,Sí,Sí,Sí,Sí,Sí,Sí,Sí,No,Aire acondicionado típico,AEA 770
+uso_especifico,Otros circuitos específicos,OCE,-1,-1,2.5,2.5,Sí,Sí,Sí,Sí,Sí,Sí,Sí,No,Casos especiales,AEA 770
+uso_especifico,Alimentación vivienda provisoria,AVP,1,-1,2.5,2.5,No,No,No,No,Sí,Sí,No,No,Solo suministro transitorio,AEA 770
+linea_principal,Línea medidor-TP,LP,0,-1,4.0,4.0,Sí,Sí,Sí,Sí,Sí,Sí,Sí,Sí,Acometida principal,AEA 770
+circuito_seccional,Línea TP-TS,CS,0,-1,2.5,2.5,Sí,Sí,Sí,Sí,No,Sí,Sí,Sí,Alimentación seccional,AEA 770
+cable_proteccion,Cable PE,PE,0,0,2.5,2.5,Sí,Sí,Sí,Sí,Sí,Sí,Sí,No,Puesta a tierra usuarios,IRAM 2281
+cable_proteccion,PAT monofásico,PAT,0,0,4.0,4.0,Sí,No,No,No,Sí,Sí,Sí,No,Jabalina a bornera monofásico,IRAM 2281
+cable_proteccion,PAT trifásico,PAT,0,0,6.0,6.0,No,Sí,Sí,Sí,No,Sí,Sí,No,Jabalina a bornera trifásico,IRAM 2281

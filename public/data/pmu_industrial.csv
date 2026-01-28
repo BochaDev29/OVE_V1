@@ -1,0 +1,13 @@
+grado,altura_min,altura_max,m2_por_boca_iug,m_perimetro_por_boca_tug,m_perimetro_por_boca_tue,bocas_min_iug,bocas_min_tug,bocas_min_tue
+Mínimo,2.5,3.5,15,9,0,2,2,0
+Mínimo,3.5,5.0,25,9,0,2,2,0
+Mínimo,5.0,999,35,9,0,2,2,0
+Medio,2.5,3.5,15,9,18,8,2,1
+Medio,3.5,5.0,32,9,18,8,2,1
+Medio,5.0,999,55,9,18,8,2,1
+Elevado,2.5,3.5,15,9,18,36,2,1
+Elevado,3.5,5.0,32,9,18,36,2,1
+Elevado,5.0,999,55,9,18,36,2,1
+Superior,2.5,3.5,15,9,18,90,2,1
+Superior,3.5,5.0,32,9,18,90,2,1
+Superior,5.0,999,55,9,18,90,2,1

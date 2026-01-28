@@ -1,0 +1,65 @@
+tipo_circuito,metodo_instalacion,codigo_material,cantidad_por_boca,cantidad_fija,formula_calculo,observaciones
+IUG,Embutido,CABLE_UNI_1.5_NEG,6,0,bocas * 6,Cable fase por boca (ida y vuelta + retorno)
+IUG,Embutido,CABLE_UNI_1.5_CEL,3,0,bocas * 3,Cable neutro por boca
+IUG,Embutido,CABLE_UNI_2.5_VDA,3,0,bocas * 3,Cable PE por boca
+IUG,Embutido,CANO_CORRUG_20,6,0,bocas * 6,Caño corrugado embutido
+IUG,Embutido,CAJA_OCT_PVC,1,0,bocas,Caja por cada punto de luz
+IUG,Embutido,PORTALAMP_E27,1,0,bocas,Portalámparas por boca
+IUG,Embutido,LAMPARA_LED_10W,1,0,bocas,Lámpara por boca
+IUG,Embutido,PIA_2P_10A_B,0,1,1,Una térmica por circuito
+IUG,Exterior,CABLE_UNI_1.5_NEG,6,0,bocas * 6,Cable fase por boca
+IUG,Exterior,CABLE_UNI_1.5_CEL,3,0,bocas * 3,Cable neutro por boca
+IUG,Exterior,CABLE_UNI_2.5_VDA,3,0,bocas * 3,Cable PE por boca
+IUG,Exterior,CANO_RIGID_20,6,0,bocas * 6,Caño rígido exterior
+IUG,Exterior,CONECTOR_20,2,0,bocas * 2,Conectores para caño rígido
+IUG,Exterior,CAJA_OCT_PVC,1,0,bocas,Caja por cada punto de luz
+IUG,Exterior,PORTALAMP_E27,1,0,bocas,Portalámparas por boca
+IUG,Exterior,LAMPARA_LED_10W,1,0,bocas,Lámpara por boca
+IUG,Exterior,PIA_2P_10A_B,0,1,1,Una térmica por circuito
+TUG,Embutido,CABLE_UNI_2.5_NEG,6,0,bocas * 6,Cable fase por boca
+TUG,Embutido,CABLE_UNI_2.5_CEL,3,0,bocas * 3,Cable neutro por boca
+TUG,Embutido,CABLE_UNI_2.5_VDA,3,0,bocas * 3,Cable PE por boca
+TUG,Embutido,CANO_CORRUG_20,6,0,bocas * 6,Caño corrugado embutido
+TUG,Embutido,CAJA_RECT_PVC,1,0,bocas,Caja rectangular por toma
+TUG,Embutido,TAPA_100X50_3M,1,0,bocas,Tapa por toma
+TUG,Embutido,BASTIDOR_100X50_3M,1,0,bocas,Bastidor por toma
+TUG,Embutido,MOD_TOMA_10A,1,0,bocas,Módulo toma por boca
+TUG,Embutido,PIA_2P_20A_C,0,1,1,Una térmica por circuito
+TUG,Exterior,CABLE_UNI_2.5_NEG,6,0,bocas * 6,Cable fase por boca
+TUG,Exterior,CABLE_UNI_2.5_CEL,3,0,bocas * 3,Cable neutro por boca
+TUG,Exterior,CABLE_UNI_2.5_VDA,3,0,bocas * 3,Cable PE por boca
+TUG,Exterior,CANO_RIGID_20,6,0,bocas * 6,Caño rígido exterior
+TUG,Exterior,CONECTOR_20,2,0,bocas * 2,Conectores para caño rígido
+TUG,Exterior,CAJA_RECT_PVC,1,0,bocas,Caja rectangular por toma
+TUG,Exterior,TAPA_100X50_3M,1,0,bocas,Tapa por toma
+TUG,Exterior,BASTIDOR_100X50_3M,1,0,bocas,Bastidor por toma
+TUG,Exterior,MOD_TOMA_10A,1,0,bocas,Módulo toma por boca
+TUG,Exterior,PIA_2P_20A_C,0,1,1,Una térmica por circuito
+TUE,Embutido,CABLE_UNI_2.5_NEG,6,0,bocas * 6,Cable fase por boca
+TUE,Embutido,CABLE_UNI_2.5_CEL,3,0,bocas * 3,Cable neutro por boca
+TUE,Embutido,CABLE_UNI_2.5_VDA,3,0,bocas * 3,Cable PE por boca
+TUE,Embutido,CANO_CORRUG_25,6,0,bocas * 6,Caño corrugado 25mm para TUE
+TUE,Embutido,CAJA_RECT_PVC,1,0,bocas,Caja rectangular por toma
+TUE,Embutido,TAPA_100X50_3M,1,0,bocas,Tapa por toma
+TUE,Embutido,BASTIDOR_100X50_3M,1,0,bocas,Bastidor por toma
+TUE,Embutido,MOD_TOMA_20A,1,0,bocas,Módulo toma 20A por boca
+TUE,Embutido,PIA_2P_25A_C,0,1,1,Una térmica por circuito
+TUE,Exterior,CABLE_UNI_2.5_NEG,6,0,bocas * 6,Cable fase por boca
+TUE,Exterior,CABLE_UNI_2.5_CEL,3,0,bocas * 3,Cable neutro por boca
+TUE,Exterior,CABLE_UNI_2.5_VDA,3,0,bocas * 3,Cable PE por boca
+TUE,Exterior,CANO_RIGID_25,6,0,bocas * 6,Caño rígido 25mm exterior
+TUE,Exterior,CONECTOR_25,2,0,bocas * 2,Conectores 25mm
+TUE,Exterior,CAJA_RECT_PVC,1,0,bocas,Caja rectangular por toma
+TUE,Exterior,TAPA_100X50_3M,1,0,bocas,Tapa por toma
+TUE,Exterior,BASTIDOR_100X50_3M,1,0,bocas,Bastidor por toma
+TUE,Exterior,MOD_TOMA_20A,1,0,bocas,Módulo toma 20A por boca
+TUE,Exterior,PIA_2P_25A_C,0,1,1,Una térmica por circuito
+LP,Enterrado,CABLE_SUB_2X6,1,10,10 + longitud_acometida,Cable subterráneo para LP enterrada
+LP,Embutido,CABLE_UNI_4_MAR,1,0,longitud_acometida,Cable fase LP embutida
+LP,Embutido,CABLE_UNI_4_CEL,1,0,longitud_acometida,Cable neutro LP embutida
+LP,Embutido,CABLE_UNI_4_VDA,1,0,longitud_acometida,Cable PE LP embutida
+LP,Embutido,CANO_CORRUG_25,1,0,longitud_acometida,Caño para LP embutida
+CS,Embutido,CABLE_UNI_2.5_NEG,1,0,longitud_cs,Cable fase CS
+CS,Embutido,CABLE_UNI_2.5_CEL,1,0,longitud_cs,Cable neutro CS
+CS,Embutido,CABLE_UNI_2.5_VDA,1,0,longitud_cs,Cable PE CS
+CS,Embutido,CANO_CORRUG_20,1,0,longitud_cs,Caño para CS

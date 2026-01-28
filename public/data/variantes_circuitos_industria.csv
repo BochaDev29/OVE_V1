@@ -1,0 +1,11 @@
+grado,variante_index,total_circuitos,iug,tug,iue,tue,descripcion
+Mínimo,0,3,1,1,1,0,IUG+TUG+IUE
+Mínimo,1,3,1,1,0,1,IUG+TUG+TUE
+Mínimo,2,3,2,1,0,0,2IUG+TUG
+Mínimo,3,3,1,2,0,0,IUG+2TUG
+Medio,0,5,2,2,1,0,2IUG+2TUG+IUE
+Medio,1,5,2,2,0,1,2IUG+2TUG+TUE
+Elevado,0,7,4,2,0,1,4IUG+2TUG+TUE
+Elevado,1,7,3,3,0,1,3IUG+3TUG+TUE
+Superior,0,11,7,3,0,1,7IUG+3TUG+TUE
+Superior,1,11,6,4,0,1,6IUG+4TUG+TUE

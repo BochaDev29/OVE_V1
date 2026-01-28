@@ -1,0 +1,29 @@
+grado,ambiente,area_min,area_max,long_min,long_max,iug_base,iug_m2_step,iug_long_step,tug_base,tug_m2_step,tug_long_step,tug_min,observaciones
+Mínimo,salon_general,0,999,0,999,0,9,0,0,9,0,2,1 IUG c/9m2 - 1 TUG c/9m2 (min 2)
+Mínimo,sala_de_reuniones,0,999,0,999,0,9,0,0,9,0,2,1 IUG c/9m2 - 1 TUG c/9m2 (min 2)
+Mínimo,despacho,0,999,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Mínimo,cocina,0,999,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Mínimo,baño,0,999,0,999,1,0,0,1,0,0,0,1 IUG / 1 TUG
+Mínimo,vestibulo_recepcion,0,999,0,999,1,9,0,0,18,0,1,1 IUG c/9m2 (min 1)- 1 TUG c/18m2 (min 1)
+Mínimo,pasillo,0,999,0,999,1,0,5,0,0,5,1,1 IUG c/5m largo(min 1)- 1 TUG c/5m largo(min 1)
+Medio,salon_general,0,999,0,999,0,9,0,0,9,0,2,1 IUG c/9m2 - 1 TUG c/9m2 (min 2)
+Medio,sala_de_reuniones,0,999,0,999,0,9,0,0,9,0,2,1 IUG c/9m2 - 1 TUG c/9m2 (min 2)
+Medio,despacho,0,999,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Medio,cocina,0,999,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Medio,baño,0,999,0,999,1,0,0,1,0,0,0,1 IUG / 1 TUG
+Medio,vestibulo_recepcion,0,999,0,999,1,9,0,0,18,0,1,1 IUG c/9m2 (min 1)- 1 TUG c/18m2 (min 1)
+Medio,pasillo,0,999,0,999,1,0,5,0,0,5,1,1 IUG c/5m largo(min 1)- 1 TUG c/5m largo(min 1)
+Elevado,salon_general,0,999,0,999,0,9,0,0,9,0,2,1 IUG c/9m2 - 1 TUG c/9m2 (min 2)
+Elevado,sala_de_reuniones,0,999,0,999,0,9,0,0,9,0,2,1 IUG c/9m2 - 1 TUG c/9m2 (min 2)
+Elevado,despacho,0,999,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Elevado,cocina,0,999,0,999,2,0,0,3,0,0,0,1 IUG / 2 TUG
+Elevado,baño,0,999,0,999,1,18,0,2,0,0,0,1 IUG c/18m2 / 2 TUG
+Elevado,vestibulo_recepcion,0,999,0,999,1,9,0,0,18,0,1,1 IUG c/9m2 (min 1)- 1 TUG c/18m2 (min 1)
+Elevado,pasillo,0,999,0,999,1,0,5,0,0,5,1,1 IUG c/5m largo(min 1)- 1 TUG c/5m largo(min 1)
+Superior,salon_general,0,999,0,999,0,9,0,0,9,0,2,1 IUG c/9m2 - 1 TUG c/9m2 (min 2)
+Superior,sala_de_reuniones,0,999,0,999,0,9,0,0,9,0,2,1 IUG c/9m2 - 1 TUG c/9m2 (min 2)
+Superior,despacho,0,999,0,999,1,0,0,2,0,0,0,1 IUG / 2 TUG
+Superior,cocina,0,999,0,999,2,0,0,3,0,0,0,1 IUG / 2 TUG
+Superior,baño,0,999,0,999,1,18,0,2,0,0,0,1 IUG c/18m2 / 2 TUG
+Superior,vestibulo_recepcion,0,999,0,999,1,9,0,0,18,0,1,1 IUG c/9m2 (min 1)- 1 TUG c/18m2 (min 1)
+Superior,pasillo,0,999,0,999,1,0,5,0,0,5,1,1 IUG c/5m largo(min 1)- 1 TUG c/5m largo(min 1)
