@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Download, Minus, Activity, Trash2, XCircle, Ruler, Image as ImageIcon, Lock, Unlock } from 'lucide-react';
+import { Download, Minus, Activity, Trash2, XCircle, Ruler, Image as ImageIcon, Lock, Unlock, MoreHorizontal } from 'lucide-react';
 
 export type Tool = 'select' | 'wall' | 'pipe' | 'outlet' | 'light' | 'wall_light' | 'switch' | 'board' | 'fan' | 'ac' | 'tpu' | 'ground' | 'text' | 'table' | 'aux_line' | 'cp' | 'calibrate' |
   'feed_point' | 'meter' | 'main_breaker' | 'tm_1p' | 'tm_2p' | 'tm_4p' | 'diff_switch' | 'dist_block' | 'load_arrow' | 'door' | 'window' | 'dimension';
@@ -9,6 +9,8 @@ interface PlannerToolbarProps {
   setCurrentCircuitColor: (color: string) => void;
   currentPipeType: 'straight' | 'curved';
   setCurrentPipeType: (type: 'straight' | 'curved') => void;
+  currentPipeDashMode: 'solid' | 'dashed'; // 🆕 Trazo (sólido vs segmentado)
+  setCurrentPipeDashMode: (mode: 'solid' | 'dashed') => void; // 🆕
   onDownloadPDF: () => void;
   onDeleteSelected: () => void;
   onClearAll: () => void;
@@ -26,6 +28,8 @@ export default function PlannerToolbar({
   setCurrentCircuitColor,
   currentPipeType,
   setCurrentPipeType,
+  currentPipeDashMode, // 🆕
+  setCurrentPipeDashMode, // 🆕
   onDownloadPDF,
   onDeleteSelected,
   onClearAll,
@@ -76,10 +80,30 @@ export default function PlannerToolbar({
 
       <hr className="w-8 border-slate-200 my-1" />
 
-      {/* CAÑERÍA */}
+      {/* CAÑERÍA - FORMA */}
       <div className="flex flex-col gap-2 w-full items-center px-1">
         <button onClick={() => setCurrentPipeType('straight')} className={`p-2 rounded-xl transition-all ${currentPipeType === 'straight' ? 'bg-blue-100 text-blue-600 shadow-inner' : 'text-slate-400 hover:bg-slate-50'}`} title="Recta"><Minus className="w-5 h-5 -rotate-45" /></button>
         <button onClick={() => setCurrentPipeType('curved')} className={`p-2 rounded-xl transition-all ${currentPipeType === 'curved' ? 'bg-blue-100 text-blue-600 shadow-inner' : 'text-slate-400 hover:bg-slate-50'}`} title="Curva"><Activity className="w-5 h-5" /></button>
+      </div>
+
+      <hr className="w-8 border-slate-200 my-1" />
+
+      {/* CAÑERÍA - TRAZO */}
+      <div className="flex flex-col gap-2 w-full items-center px-1">
+        <button
+          onClick={() => setCurrentPipeDashMode('solid')}
+          className={`p-2 rounded-xl transition-all ${currentPipeDashMode === 'solid' ? 'bg-green-100 text-green-600 shadow-inner' : 'text-slate-400 hover:bg-slate-50'}`}
+          title="Línea Sólida"
+        >
+          <Minus className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setCurrentPipeDashMode('dashed')}
+          className={`p-2 rounded-xl transition-all ${currentPipeDashMode === 'dashed' ? 'bg-orange-100 text-orange-600 shadow-inner' : 'text-slate-400 hover:bg-slate-50'}`}
+          title="Línea Punteada"
+        >
+          <MoreHorizontal className="w-5 h-5" />
+        </button>
       </div>
 
       <hr className="w-8 border-slate-200 my-1" />

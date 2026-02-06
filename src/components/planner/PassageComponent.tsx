@@ -1,10 +1,10 @@
 import { Group, Line, Circle } from 'react-konva';
-import type { WindowOpening } from '../../types/openings';
+import type { Opening } from '../../types/openings';
 import type { Wall } from '../../types/planner';
 import { getOpeningPosition, getRelativePositionOnWall, validateOpeningPosition } from '../../lib/planner/utils/openingGeometry';
 
-interface WindowComponentProps {
-    window: WindowOpening;
+interface PassageComponentProps {
+    passage: Opening;
     wall: Wall;
     roomGroupX: number;
     roomGroupY: number;
@@ -16,11 +16,11 @@ interface WindowComponentProps {
     isSelected?: boolean;
     onUpdatePosition?: (newPosition: number) => void;
     onSelect?: (openingId: string) => void;
-    onEdit?: (opening: WindowOpening) => void;
+    onEdit?: (opening: Opening) => void;
 }
 
-export const WindowComponent = ({
-    window,
+export const PassageComponent = ({
+    passage,
     wall,
     roomGroupX,
     roomGroupY,
@@ -33,7 +33,7 @@ export const WindowComponent = ({
     onUpdatePosition,
     onSelect,
     onEdit
-}: WindowComponentProps) => {
+}: PassageComponentProps) => {
     // 1. Longitud local del muro
     const lx1 = wall.points[0];
     const ly1 = wall.points[1];
@@ -41,10 +41,10 @@ export const WindowComponent = ({
     const ly2 = wall.points[3];
     const wallLengthPx = Math.sqrt((lx2 - lx1) ** 2 + (ly2 - ly1) ** 2);
 
-    // 2. Calcular posición de la ventana (usaremos las locales ya que estamos dentro de un Group)
+    // 2. Calcular posición del paso (usaremos las locales ya que estamos dentro de un Group)
     const { localX, localY, localAngle } = getOpeningPosition(
         wall,
-        window.position,
+        passage.position,
         roomGroupX,
         roomGroupY,
         roomGroupRotation,
@@ -59,15 +59,15 @@ export const WindowComponent = ({
     const effectiveScale = isVertical ? parentScaleY : parentScaleX;
 
     // 4. Determinar ancho en píxeles (Sincronizado con escala global y compensado por Transformer)
-    const windowWidthPx = (window.width * pixelsPerMeter) / effectiveScale;
-    const halfWidth = windowWidthPx / 2;
+    const passageWidthPx = (passage.width * pixelsPerMeter) / effectiveScale;
+    const halfWidth = passageWidthPx / 2;
 
-    // Puntos de la línea de la ventana
-    const lineStart = {
+    // Puntos del trazo blanco
+    const whiteLineStart = {
         x: localX - Math.cos(localAngle) * halfWidth,
         y: localY - Math.sin(localAngle) * halfWidth
     };
-    const lineEnd = {
+    const whiteLineEnd = {
         x: localX + Math.cos(localAngle) * halfWidth,
         y: localY + Math.sin(localAngle) * halfWidth
     };
@@ -93,27 +93,26 @@ export const WindowComponent = ({
 
                 const result = getRelativePositionOnWall(wall, relPos.x, relPos.y);
 
-                const validPos = validateOpeningPosition(result.position, window.width, wallLengthPx, pixelsPerMeter);
+                const validPos = validateOpeningPosition(result.position, passage.width, wallLengthPx, pixelsPerMeter);
 
                 onUpdatePosition(validPos);
                 group.position({ x: 0, y: 0 });
             }}
             onDragEnd={(e) => {
                 e.cancelBubble = true;
-                // Reset group position to prevent visual drag, as position is updated via prop
                 e.target.position({ x: 0, y: 0 });
             }}
             onClick={(e) => {
                 e.cancelBubble = true;
-                if (onSelect) onSelect(window.id);
+                if (onSelect) onSelect(passage.id);
             }}
             onDblClick={(e) => {
                 e.cancelBubble = true;
-                if (onEdit) onEdit(window);
+                if (onEdit) onEdit(passage);
             }}
             onTap={(e) => {
                 e.cancelBubble = true;
-                if (onSelect) onSelect(window.id);
+                if (onSelect) onSelect(passage.id);
             }}
         >
             {/* Hitbox táctil (Invisible por defecto) */}
@@ -126,33 +125,27 @@ export const WindowComponent = ({
                 strokeWidth={2 / effectiveScale}
             />
 
-            {/* Recuadro de la ventana */}
+            {/* Trazo blanco que rompe el muro (Corte limpio) */}
             <Line
-                points={[lineStart.x, lineStart.y, lineEnd.x, lineEnd.y]}
+                points={[whiteLineStart.x, whiteLineStart.y, whiteLineEnd.x, whiteLineEnd.y]}
                 stroke="white"
-                strokeWidth={8 / effectiveScale}
+                strokeWidth={(isSelected ? 10 : 7) / effectiveScale}
                 lineCap="square"
                 strokeScaleEnabled={false}
             />
-            <Line
-                points={[lineStart.x, lineStart.y, lineEnd.x, lineEnd.y]}
-                stroke={isSelected ? "#3b82f6" : "#666666"}
-                strokeWidth={2 / effectiveScale}
-                strokeScaleEnabled={false}
-            />
 
-            {/* Líneas dobles típicas de ventana */}
-            <Line
-                points={[
-                    lineStart.x + Math.cos(localAngle + Math.PI / 2) * (2 / effectiveScale),
-                    lineStart.y + Math.sin(localAngle + Math.PI / 2) * (2 / effectiveScale),
-                    lineEnd.x + Math.cos(localAngle + Math.PI / 2) * (2 / effectiveScale),
-                    lineEnd.y + Math.sin(localAngle + Math.PI / 2) * (2 / effectiveScale)
-                ]}
-                stroke={isSelected ? "#3b82f6" : "#666666"}
-                strokeWidth={1 / effectiveScale}
-                strokeScaleEnabled={false}
-            />
+            {/* Marcador de selección (Dashed blue) */}
+            {isSelected && (
+                <Line
+                    points={[whiteLineStart.x, whiteLineStart.y, whiteLineEnd.x, whiteLineEnd.y]}
+                    stroke="#3b82f6"
+                    strokeWidth={2 / effectiveScale}
+                    dash={[4, 4]}
+                    lineCap="square"
+                    strokeScaleEnabled={false}
+                />
+            )}
         </Group>
     );
 };
+

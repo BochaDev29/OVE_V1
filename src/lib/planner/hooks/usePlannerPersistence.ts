@@ -26,6 +26,7 @@ interface PersistenceConfig {
         setPipes: (pipes: any[]) => void;
         setAuxLines: (auxLines: any[]) => void;
         setPixelsPerMeter: (ppm: number) => void;
+        setFloors: (floors: any[]) => void;
         getState: () => any;
     };
     backgroundState?: {
@@ -74,11 +75,13 @@ export const usePlannerPersistence = (config: PersistenceConfig) => {
 
                     // Cargar en canvas (modo floorPlan por defecto)
                     const initialData = drawingData.floorPlan;
-                    canvasState.setSymbols(initialData.symbols);
-                    canvasState.setWalls(initialData.walls);
-                    canvasState.setPipes(initialData.pipes);
-                    canvasState.setAuxLines(initialData.auxLines || []);
-                    canvasState.setPixelsPerMeter(initialData.pixelsPerMeter);
+                    if (initialData.floors) {
+                        canvasState.setFloors(initialData.floors);
+                    } else {
+                        // Compatibilidad con formato viejo (si existiera, aunque el hook dice que no)
+                        console.warn('⚠️ No se encontraron floors en floorPlan, usando fallback');
+                    }
+                    canvasState.setPixelsPerMeter(initialData.pixelsPerMeter || 50);
 
                     // Restaurar imagen de fondo (si existe)
                     if (drawingData.backgroundBase64 && backgroundState) {
@@ -122,11 +125,11 @@ export const usePlannerPersistence = (config: PersistenceConfig) => {
             } else {
                 // Cargar desde BD
                 console.log('🔍 Intentando cargar desde Supabase...');
-                const { data: projectData, error } = await supabase
-                    .from('projects')
+                const { data: projectData, error } = await (supabase
+                    .from('projects' as any)
                     .select('calculation_data')
                     .eq('id', projectId)
-                    .single();
+                    .single() as any);
 
                 console.log('📊 Respuesta de Supabase:', { projectData, error });
 
@@ -205,11 +208,11 @@ export const usePlannerPersistence = (config: PersistenceConfig) => {
                     }
                 };
 
-                const { data, error } = await supabase
-                    .from('projects')
-                    .insert([projectData as any])
+                const { data, error } = await (supabase
+                    .from('projects' as any)
+                    .insert([projectData as any] as any)
                     .select()
-                    .single() as any;
+                    .single() as any);
 
                 if (error) throw error;
 

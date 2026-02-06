@@ -9,6 +9,7 @@ export interface UserProfile {
     phone: string;
     email: string;
     address: string;
+    province?: string; // Nuevo campo: Provincia
     logo_base64: string | null;
     tax_status?: TaxStatus;
     tax_id?: string;
@@ -43,6 +44,7 @@ export const ProfileService = {
                     phone: profile.phone,
                     email: profile.email,
                     address: profile.address,
+                    province: profile.province, // Guardar provincia
                     logo_base64: profile.logo_base64,
                     tax_status: profile.tax_status,
                     tax_id: profile.tax_id

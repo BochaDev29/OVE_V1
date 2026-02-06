@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Stage, Layer, Line, Transformer, Rect, Circle, Group, Text, Path, Image as KonvaImage } from 'react-konva';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Calculator, Download } from 'lucide-react';
+import { ArrowLeft, Save, Calculator, Download, X } from 'lucide-react';
 import jsPDF from 'jspdf';
 
 // Componentes hijos
@@ -25,12 +25,16 @@ import type { TradeCatalog, SymbolItem, Wall, Pipe, AuxLine } from '../../types/
 import { useCanvasState } from '../../lib/planner/hooks/useCanvasState';
 import { useDrawingTools } from '../../lib/planner/hooks/useDrawingTools';
 import { usePlannerPersistence } from '../../lib/planner/hooks/usePlannerPersistence';
+import { useCircuitLayers } from '../../lib/planner/hooks/useCircuitLayers';
+import { usePipeRenderer } from '../../lib/planner/hooks/usePipeRenderer';
+import { PipeRenderer } from './PipeRenderer'; // 🆕 Circuit-based layers
 
 // Generación de Ambientes
 import { RightSidebar } from './RightSidebar';
 import { DoorComponent } from './DoorComponent';
 import { WindowComponent } from './WindowComponent';
 import { generateRoomWalls, getRoomCenter } from '../../lib/planner/utils/roomGenerator';
+import { PassageComponent } from './PassageComponent';
 
 // Sistema de Múltiples Plantas y Capas
 import { FloorTabs } from './FloorTabs';
@@ -40,10 +44,14 @@ import { EditFloorModal } from './EditFloorModal';
 import { OpeningConfigModal, type DoorConfig, type WindowConfig } from './OpeningConfigModal';
 import type { PaperFormat } from '../../types/floors';
 import type { Opening } from '../../types/openings';
-import { createDoor, createWindow } from '../../types/openings';
+import { createDoor, createWindow, createPassage } from '../../types/openings';
 import { findNearestWall } from '../../lib/planner/utils/openingGeometry';
 import { createDimension } from '../../types/dimensions';
 import { DimensionComponent } from './DimensionComponent';
+
+// 🆕 Rótulo IRAM 4508
+import { TITLE_BLOCK_CONFIG } from '../../lib/planner/constants/titleBlockLayout';
+import { mmToPixels, calculateStandardScale, IRAM_MARGINS, getUsableDimensions } from '../../lib/planner/utils/geometryConverter';
 
 export default function PlannerCanvas() {
   const navigate = useNavigate();
@@ -57,8 +65,15 @@ export default function PlannerCanvas() {
   const [tool, setTool] = useState<Tool>('select');
   const [currentCircuitColor, setCurrentCircuitColor] = useState<string>('#dc2626');
   const [currentPipeType, setCurrentPipeType] = useState<'straight' | 'curved'>('curved');
+  const [currentPipeDashMode, setCurrentPipeDashMode] = useState<'solid' | 'dashed'>('solid'); // 🆕 Trazo por defecto
   const [projectData, setProjectData] = useState<ProjectData>({
-    projectName: '', address: '', installer: '', category: '1:50', date: new Date().toLocaleDateString('es-AR')
+    projectName: '',
+    address: '',
+    installer: '',
+    licenseNumber: '', // 🆕
+    planNumber: 'IE-01', // 🆕
+    category: '',    // Se usará para mostrar la escala calculada
+    date: new Date().toLocaleDateString('es-AR')
   });
 
   // --- DUAL MODE STATE ---
@@ -95,6 +110,7 @@ export default function PlannerCanvas() {
     walls,
     pipes,
     auxLines,
+    dimensions,
     roomGroups,
     pixelsPerMeter,
     selectedId,
@@ -102,12 +118,14 @@ export default function PlannerCanvas() {
     setWalls,
     setPipes,
     setAuxLines,
+    setDimensions,
     setRoomGroups,
     setPixelsPerMeter,
     selectShape,
     addSymbol,
     addWall,
     addPipe,
+    addDimension,
     addAuxLine
   } = canvasState;
 
@@ -119,9 +137,12 @@ export default function PlannerCanvas() {
   const [showOpeningModal, setShowOpeningModal] = useState(false);
   const [openingType, setOpeningType] = useState<'door' | 'window'>('door');
   const [openingConfig, setOpeningConfig] = useState<DoorConfig | WindowConfig | null>(null);
-  const [dimensionFirstPoint, setDimensionFirstPoint] = useState<{ x: number; y: number } | null>(null);
   const [calculationData, setCalculationData] = useState<any>(null);
   const [profileData, setProfileData] = useState<any>(null);
+  const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null);
+  const [backgroundBase64, setBackgroundBase64] = useState<string | null>(null);
+  const [backgroundProps, setBackgroundProps] = useState({ x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 });
+  const [isBackgroundLocked, setIsBackgroundLocked] = useState(false);
 
   // --- CATALOG SYSTEM ---
   const catalogLoader = useMemo(() => new CatalogLoader(), []);
@@ -142,15 +163,8 @@ export default function PlannerCanvas() {
   // --- EXPORT STATE ---
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportNotes, setExportNotes] = useState(
-    "Las cajas de tomacorrientes y llaves se han instalado a 0.40m y 1.10m del NPT respectivamente, salvo indicación en contrario. Se utilizó cañería de PVC ignífugo y conductores normalizados IRAM NM-247-3. El conductor de protección (PE) recorre toda la instalación."
+    "Instalación eléctrica ejecutada según normas AEA 90364. Se utilizó cañería de PVC ignífugo y conductores normalizados IRAM NM-247-3. El conductor de protección (PE) recorre toda la instalación."
   );
-
-  // --- BLUEPRINT STATE ---
-  const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null);
-  const [backgroundBase64, setBackgroundBase64] = useState<string | null>(null);
-  const [isBackgroundLocked, setIsBackgroundLocked] = useState(false);
-  // Posición inicial del fondo
-  const [backgroundProps, setBackgroundProps] = useState({ x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 });
 
   // ZOOM / PAN
   const [stageScale, setStageScale] = useState(1);
@@ -159,20 +173,101 @@ export default function PlannerCanvas() {
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
 
+  // --- OPENING INTERACTIVITY STATE ---
+  const [selectedOpeningId, setSelectedOpeningId] = useState<string | null>(null);
+  const [editingOpening, setEditingOpening] = useState<Opening | null>(null);
+  const [isOpeningConfigOpen, setIsOpeningConfigOpen] = useState(false);
+
+  // 🆕 Obtener estado de obra para validaciones y UI
+  const projectConfig = calculationData?.config || {};
+  const estadoObra = projectConfig.estadoObra || 'nueva';
+
+  // 🆕 HOOK: Circuit-Based Layers (DEBE estar ANTES de useDrawingTools)
+  // Genera automáticamente layer-0 (arquitectura) + 1 layer por circuito del Wizard
+  const circuitLayers = useCircuitLayers(calculationData?.config);
+
+
+
+  // 🆕 SYNCHRONIZATION: Reemplazar DEFAULT_LAYERS con circuitLayers dinámicos en todas las plantas
+  useEffect(() => {
+    if (circuitLayers.length > 0 && floors.length > 0) {
+      // Verificar si alguna planta no está sincronizada
+      const needsSync = floors.some(floor => {
+        const currentLayers = floor.layers;
+        return currentLayers.length !== circuitLayers.length ||
+          !currentLayers.every((l, i) => l.id === circuitLayers[i].id);
+      });
+
+      if (needsSync) {
+        console.log('🔄 Sincronizando capas del Wizard en TODAS las plantas:', circuitLayers.length, 'circuitos');
+
+        const updatedFloors = floors.map(floor => ({
+          ...floor,
+          layers: [...circuitLayers]
+        }));
+
+        (canvasState as any).setFloors(updatedFloors);
+
+        if (!circuitLayers.some(l => l.id === currentLayerId)) {
+          setCurrentLayerId('layer-0');
+        }
+      }
+    }
+  }, [circuitLayers, floors, currentLayerId, canvasState, setCurrentLayerId]);
+
+  // 🆕 HELPER: Obtener datos del circuito desde calculationData
+  const getCircuitData = useCallback((circuitId?: string) => {
+    if (!circuitId || !calculationData?.config?.circuitInventoryForCAD) {
+      return null;
+    }
+
+    return calculationData.config.circuitInventoryForCAD.find(
+      (c) => c.id === circuitId
+    );
+  }, [calculationData]);
+
+  // 🎨 CONSTANTES: Visualización de nature y method
+  const NATURE_OPACITY = {
+    proyectado: 1.0,
+    relevado: 0.6
+  };
+
+  const NATURE_COLORS = {
+    relevado: {
+      stroke: '#94a3b8',  // Gris
+      fill: '#f1f5f9'     // Gris claro
+    }
+  };
+
+  const METHOD_DASH = {
+    dashPatterns: {
+      dashed: [10, 5],                   // D1, D2
+      solid: undefined                   // B1, B2
+    }
+  };
+
+  // ✅ HOOK: Pipe Renderer (DEBE estar ANTES de useDrawingTools)
+  const { getPipeDash, getPipeStyle, registerPipe } = usePipeRenderer();
+
   // ✅ HOOK: Herramientas de Dibujo
   const drawingTools = useDrawingTools(
     {
       tool,
       currentCircuitColor,
       currentPipeType,
+      currentPipeDashMode, // 🆕 Modo de trazo
       pixelsPerMeter,
       stageRef,
       onCalibrationComplete: (newPixelsPerMeter) => {
         setPixelsPerMeter(newPixelsPerMeter);
         console.log('🎯 Escala actualizada globalmente:', newPixelsPerMeter, 'px/m');
-      }
+      },
+      // 🆕 Circuit-based layers
+      currentLayerId,
+      circuitLayers,
+      estadoObra, // 🆕 Para validaciones
     },
-    { addSymbol, addWall, addPipe, addAuxLine, selectShape }
+    { addSymbol, addWall, addPipe, addAuxLine, addDimension, selectShape, registerPipe } // 🆕 registerPipe
   );
   const {
     handleMouseDown,
@@ -183,7 +278,10 @@ export default function PlannerCanvas() {
     currentPipePreview,
     calibrationLine,
     pipeStartPoint,
-    getCursorStyle
+    dimensionFirstPoint,
+    dimensionPreview,
+    getCursorStyle,
+    cancelDrawing
   } = drawingTools;
 
   // ✅ HOOK: Persistencia
@@ -363,10 +461,19 @@ export default function PlannerCanvas() {
   }, [selectedId]);
 
 
-  // Cargar Perfil del Matriculado (para PDF)
+  // Cargar Perfil del Matriculado (para PDF y Rótulo)
   useEffect(() => {
     if (user) {
-      ProfileService.getProfile(user.id).then(p => setProfileData(p)).catch(console.error);
+      ProfileService.getProfile(user.id).then(p => {
+        setProfileData(p);
+        if (p) {
+          setProjectData(prev => ({
+            ...prev,
+            installer: prev.installer || p.business_name || '',
+            licenseNumber: prev.licenseNumber || p.license_number || '',
+          }));
+        }
+      }).catch(console.error);
     }
   }, [user]);
 
@@ -384,66 +491,63 @@ export default function PlannerCanvas() {
       return;
     }
 
+    // [NUEVO] Obtener el estado real de floors desde el hook
+    const currentFloorsState = canvasState.floors;
+
     // 1. Guardar estado actual en el store antes de persistir
-    modeStore.current[activeMode] = { symbols, walls, pipes, auxLines, pixelsPerMeter };
+    // Importante: Guardamos el array de floors completo en el slot del modo activo
+    modeStore.current[activeMode] = {
+      floors: currentFloorsState,
+      pixelsPerMeter
+    };
 
     const drawingData = {
-      // Estructura Dual
+      // Estructura Dual (ahora basada en Floors)
       floorPlan: modeStore.current.floorPlan,
       singleLine: modeStore.current.singleLine,
 
-      // Fondo Global (asociado a floorPlan conceptualmente, pero guardado en root por simpleza actual o mover a floorPlan)
-      // Mantener en root funciona bien para este refactor sin romper todo.
+      // Fondo Global
       backgroundBase64,
       backgroundProps
     };
 
-    const projectData = {
-      user_id: user.id,
-      client_name: calculationData.config.clientName,
-      surface_area: calculationData.config.surfaceArea,
-      property_type: (calculationData.config.destination || 'vivienda').toLowerCase(),
-      electrification_grade: calculationData.calculation.grade,
-      project_type: calculationData.config.workType === 'certification_only' ? 'certificacion' : 'presupuesto',
-      voltage_type: calculationData.config.voltage || '220V',
-      client_cuit: calculationData.config.ownerDetail?.dniCuit || null,
-      client_address: calculationData.config.ownerDetail?.address || null,
-      client_city: calculationData.config.ownerDetail?.city || null,
-      client_catastro: calculationData.config.ownerDetail?.catastro || null,
-      drawing_data: drawingData,
-      // PRESERVAR calculation_data para no perder la receta
-      calculation_data: {
-        config: calculationData.config,
-        environments: calculationData.environments,
-        calculation: calculationData.calculation
-      }
-    };
-
     try {
       if (projectId && projectId !== 'draft') {
-        // ACTUALIZAR PROYECTO EXISTENTE (PlanService)
-        // Solo guardamos el dibujo en drawing_data
+        // ACTUALIZAR PROYECTO EXISTENTE
         await PlanService.savePlan(projectId, drawingData);
-
-        // Opcional: Si queremos actualizar metadatos del proyecto (nombre, etc) deberíamos llamar a ProjectService
-        // Pero por ahora solo actualizamos el dibujo como se pidió.
-
-        // FEEDBACK VISUAL EXPLÍCITO
         alert('✅ Proyecto y Dibujo actualizados correctamente');
         console.log('✅ Proyecto actualizado:', projectId);
       } else {
-        // Crear nuevo proyecto - ESTO NO SE PUEDE HACER SOLO CON savePlan (necesita ID)
-        // Mantenemos lógica de insertar todo el objeto
+        // Crear nuevo proyecto
+        const projectMetadata = {
+          user_id: user.id,
+          client_name: calculationData.config.clientName,
+          surface_area: calculationData.config.surfaceArea,
+          property_type: (calculationData.config.destination || 'vivienda').toLowerCase(),
+          electrification_grade: calculationData.calculation.grade,
+          project_type: calculationData.config.workType === 'certification_only' ? 'certificacion' : 'presupuesto',
+          voltage_type: calculationData.config.voltage || '220V',
+          client_cuit: calculationData.config.ownerDetail?.dniCuit || null,
+          client_address: calculationData.config.ownerDetail?.address || null,
+          client_city: calculationData.config.ownerDetail?.city || null,
+          client_catastro: calculationData.config.ownerDetail?.catastro || null,
+          drawing_data: drawingData,
+          calculation_data: {
+            config: calculationData.config,
+            environments: calculationData.environments,
+            calculation: calculationData.calculation
+          }
+        };
+
         const { data, error } = await supabase
           .from('projects')
-          .insert([projectData as any])
+          .insert([projectMetadata as any])
           .select()
           .single() as any;
 
         if (error) throw error;
         alert('✅ Proyecto guardado correctamente');
 
-        // Actualizar URL con el nuevo ID
         if (data?.id) {
           navigate(`/taller/${data.id}`, { replace: true });
           sessionStorage.setItem('oveCurrentProjectId', data.id);
@@ -455,8 +559,70 @@ export default function PlannerCanvas() {
     }
   };
 
+  const handleOpeningUpdatePosition = (roomId: string, openingId: string, newPosition: number) => {
+    setRoomGroups(prev => prev.map(g =>
+      g.id === roomId
+        ? {
+          ...g,
+          openings: g.openings.map(o =>
+            o.id === openingId ? { ...o, position: newPosition } : o
+          )
+        }
+        : g
+    ));
+  };
+
+  const handleOpeningSelect = (openingId: string) => {
+    setSelectedOpeningId(openingId);
+    setSelectedGroupId(null);
+    if (transformerRef.current) {
+      transformerRef.current.nodes([]);
+    }
+  };
+
+  const handleOpeningEdit = (opening: Opening) => {
+    setEditingOpening(opening);
+    setIsOpeningConfigOpen(true);
+  };
+
+  const handleOpeningUpdateConfig = (config: DoorConfig | WindowConfig | PassageConfig) => {
+    if (!editingOpening) return;
+
+    setRoomGroups(prev => prev.map(g =>
+      g.id === editingOpening.roomGroupId
+        ? {
+          ...g,
+          openings: g.openings.map(o =>
+            o.id === editingOpening.id
+              ? { ...o, ...config }
+              : o
+          )
+        }
+        : g
+    ));
+
+    setEditingOpening(null);
+    setIsOpeningConfigOpen(false);
+  };
+
   const handleDeleteSelected = () => {
+    // 🆕 Eliminar abertura seleccionada (Puerta, Ventana, Paso)
+    if (selectedOpeningId) {
+      setRoomGroups(prev => prev.map(g => ({
+        ...g,
+        openings: g.openings.filter(o => o.id !== selectedOpeningId)
+      })));
+      setSelectedOpeningId(null);
+      return;
+    }
+
     if (selectedId) {
+      // 🆕 Eliminar imagen de fondo si está seleccionada
+      if (selectedId === 'blueprint-bg') {
+        handleDeleteImage();
+        return;
+      }
+
       // Verificar si es un grupo de ambiente
       if (selectedId.startsWith('room-')) {
         // Encontrar el grupo
@@ -468,6 +634,20 @@ export default function PlannerCanvas() {
           setSymbols(prev => prev.filter(item => item.id !== group.labelId));
           console.log('🗑️ Ambiente eliminado:', selectedId);
         }
+      }
+      // 🆕 Eliminar Cota
+      else if (dimensions.find(d => d.id === selectedId)) {
+        setDimensions(prev => prev.filter(d => d.id !== selectedId));
+        console.log('🗑️ Cota eliminada:', selectedId);
+      }
+      else if (selectedOpeningId) {
+        // Eliminar abertura individual
+        setRoomGroups(prev => prev.map(g => ({
+          ...g,
+          openings: g.openings.filter(o => o.id !== selectedOpeningId)
+        })));
+        console.log('🗑️ Abertura eliminada:', selectedOpeningId);
+        setSelectedOpeningId(null);
       } else {
         // Eliminar elemento individual (símbolo, pared, pipe, etc.)
         setSymbols(prev => prev.filter(item => item.id !== selectedId));
@@ -489,7 +669,8 @@ export default function PlannerCanvas() {
 
   // Handler: Agregar nueva planta
   const handleAddFloor = (name: string, format: PaperFormat) => {
-    addFloor(name, `${format.name}-${format.orientation}`);
+    // Pasar circuitLayers para que la nueva planta herede las capas del Wizard
+    addFloor(name, format.name + '-' + format.orientation, circuitLayers);
     setShowNewFloorModal(false);
   };
 
@@ -509,23 +690,53 @@ export default function PlannerCanvas() {
     }
   };
 
-  // Handler: Abrir modal de abertura (puerta o ventana)
-  const handleOpeningTool = (type: 'door' | 'window') => {
-    setOpeningType(type);
-    setShowOpeningModal(true);
+  // Handler: Eliminar planta
+  const handleDeleteFloor = () => {
+    if (!editingFloorId) return;
+
+    // Protección adicional en lógica
+    if (floors.length <= 1 || floors[0].id === editingFloorId) {
+      alert("No se puede eliminar la planta original del proyecto.");
+      return;
+    }
+
+    if (window.confirm(`¿Estás seguro de que deseas eliminar la planta "${floors.find(f => f.id === editingFloorId)?.name}"? Esta acción no se puede deshacer.`)) {
+      removeFloor(editingFloorId);
+      setShowEditFloorModal(false);
+      setEditingFloorId(null);
+    }
   };
 
-  // Handler: Confirmar configuración de abertura
-  const handleOpeningConfirm = (config: DoorConfig | WindowConfig) => {
+  // Handler: Abrir modal de abertura (puerta o ventana)
+  const handleOpeningTool = (type: 'door' | 'window' | 'passage') => {
+    setOpeningType(type);
+    setEditingOpening(null); // Asegurar que no estamos editando
+    setIsOpeningConfigOpen(true);
+  };
+
+  // Handler: Confirmar configuración de abertura (Creación)
+  const handleOpeningConfirmNew = (config: DoorConfig | WindowConfig | PassageConfig) => {
     // Guardar configuración y activar herramienta
     setOpeningConfig(config);
     setTool(config.type);
-    console.log(`🚪 Herramienta ${config.type} activada:`, config);
+    setIsOpeningConfigOpen(false);
+    console.log(`🚪 Herramienta ${config.type} activada (Nueva):`, config);
   };
 
   // Handler: Click en Stage para insertar abertura
   const handleStageClick = (e: any) => {
-    // HERRAMIENTA: DIMENSION (Cota)
+    // DESELECCION: Si clickeamos el fondo o el papel, limpiar selecciones
+    const clickedOnStage = e.target === e.target.getStage();
+    const clickedOnPaper = e.target.name() === 'paper-bg';
+
+    if (clickedOnStage || clickedOnPaper) {
+      if (selectedOpeningId) setSelectedOpeningId(null);
+      if (selectedId) selectShape(null);
+      if (selectedGroupId) setSelectedGroupId(null);
+    }
+
+    // HERRAMIENTA: DIMENSION (Cota) - 🆕 ELIMINADO PARA EVITAR CONFLICTO
+    /*
     if (tool === 'dimension') {
       const stage = e.target.getStage();
       const pointerPos = stage.getPointerPosition();
@@ -545,7 +756,7 @@ export default function PlannerCanvas() {
           dimensionFirstPoint,
           { x: clickX, y: clickY },
           pixelsPerMeter,
-          'layer-0'
+          currentLayerId || 'layer-0'
         );
 
         // Agregar a la planta actual
@@ -568,10 +779,11 @@ export default function PlannerCanvas() {
       }
       return;
     }
+    */
 
-    // HERRAMIENTA: DOOR o WINDOW (Aberturas)
-    // Solo procesar si la herramienta es door o window
-    if (tool !== 'door' && tool !== 'window') return;
+    // HERRAMIENTA: DOOR, WINDOW o PASSAGE (Aberturas)
+    // Solo procesar si la herramienta es door, window o passage
+    if (tool !== 'door' && tool !== 'window' && tool !== 'passage') return;
     if (!openingConfig) return;
 
     const stage = e.target.getStage();
@@ -608,16 +820,23 @@ export default function PlannerCanvas() {
             result.wallIndex,
             result.position,
             openingConfig.width,
-            openingConfig.doorSwing
+            (openingConfig as DoorConfig).doorSwing
           );
-        } else {
+        } else if (openingConfig.type === 'window') {
           newOpening = createWindow(
             group.id,
             result.wallIndex,
             result.position,
             openingConfig.width,
-            openingConfig.height,
-            openingConfig.sillHeight
+            (openingConfig as WindowConfig).height,
+            (openingConfig as WindowConfig).sillHeight
+          );
+        } else {
+          newOpening = createPassage(
+            group.id,
+            result.wallIndex,
+            result.position,
+            openingConfig.width
           );
         }
 
@@ -628,7 +847,7 @@ export default function PlannerCanvas() {
             : g
         ));
 
-        console.log(`✅ ${openingConfig.type === 'door' ? 'Puerta' : 'Ventana'} insertada en muro ${result.wallIndex} del ambiente ${group.id}`);
+        console.log(`✅ ${openingConfig.type === 'door' ? 'Puerta' : openingConfig.type === 'window' ? 'Ventana' : 'Paso'} insertado en muro ${result.wallIndex} del ambiente ${group.id}`);
         foundOpening = true;
         break;
       }
@@ -683,20 +902,33 @@ export default function PlannerCanvas() {
   const handleSwitchMode = (newMode: 'floorPlan' | 'singleLine') => {
     if (newMode === activeMode) return;
 
-    // 1. Guardar estado actual en store
-    modeStore.current[activeMode] = { symbols, walls, pipes, auxLines, pixelsPerMeter };
+    // 1. Guardar estado actual (array de floors completo) en store
+    modeStore.current[activeMode] = {
+      floors: canvasState.floors,
+      pixelsPerMeter
+    };
 
     // 2. Cambiar modo
     setActiveMode(newMode);
 
     // 3. Cargar estado del nuevo modo
     const nextData = modeStore.current[newMode];
-    setSymbols(nextData.symbols);
-    setWalls(nextData.walls);
-    setPipes(nextData.pipes);
-    setAuxLines(nextData.auxLines); // En unifilar seguramente vacío, pero útil
-    setPixelsPerMeter(nextData.pixelsPerMeter);
+
+    // Si hay datos previos para ese modo (o son los iniciales vacíos)
+    if (nextData && nextData.floors) {
+      canvasState.setFloors(nextData.floors);
+      // Resetear IDs de planta y capa actuales si es necesario (asumimos que la primera planta es la de trabajo)
+      if (nextData.floors.length > 0) {
+        canvasState.setCurrentFloorId(nextData.floors[0].id);
+        canvasState.setCurrentLayerId('layer-0');
+      }
+      setPixelsPerMeter(nextData.pixelsPerMeter || 50);
+    }
+
     selectShape(null);
+    setSelectedOpeningId(null);
+    setSelectedGroupId(null);
+    console.log(`🔄 Modo cambiado a: ${newMode}`);
   };
 
 
@@ -749,10 +981,73 @@ export default function PlannerCanvas() {
   };
 
   const renderGrid = () => {
-    const step = pixelsPerMeter;
+    const floor = getCurrentFloor();
+    // Dimensiones útiles (sin márgenes)
+    const { width: uWmm, height: uHmm } = getUsableDimensions(
+      floor?.format.widthMm || 297,
+      floor?.format.heightMm || 210
+    );
+    const sheetW = mmToPixels(uWmm);
+    const sheetH = mmToPixels(uHmm);
+
     const lines = [];
-    for (let i = 0; i < 1000; i += step) lines.push(<Line key={`v${i}`} points={[i, 0, i, 700]} stroke="#f1f5f9" strokeWidth={1} listening={false} />);
-    for (let j = 0; j < 700; j += step) lines.push(<Line key={`h${j}`} points={[0, j, 1000, j]} stroke="#f1f5f9" strokeWidth={1} listening={false} />);
+    const minorStep = 10;
+    const majorStep = 50;
+
+    // Líneas secundarias (cada 10px) - Muy sutiles
+    for (let i = 0; i <= sheetW; i += minorStep) {
+      if (i % majorStep === 0) continue;
+      lines.push(
+        <Line
+          key={`vm${i}`}
+          points={[i, 0, i, sheetH]}
+          stroke="#f8fafc"
+          strokeWidth={0.5}
+          strokeScaleEnabled={false}
+          listening={false}
+        />
+      );
+    }
+    for (let j = 0; j <= sheetH; j += minorStep) {
+      if (j % majorStep === 0) continue;
+      lines.push(
+        <Line
+          key={`hm${j}`}
+          points={[0, j, sheetW, j]}
+          stroke="#f8fafc"
+          strokeWidth={0.5}
+          strokeScaleEnabled={false}
+          listening={false}
+        />
+      );
+    }
+
+    // Líneas principales (cada 50px) - Referencia tipo Hoja Milimetrada
+    for (let i = 0; i <= sheetW; i += majorStep) {
+      lines.push(
+        <Line
+          key={`vM${i}`}
+          points={[i, 0, i, sheetH]}
+          stroke="#e2e8f0"
+          strokeWidth={1}
+          strokeScaleEnabled={false}
+          listening={false}
+        />
+      );
+    }
+    for (let j = 0; j <= sheetH; j += majorStep) {
+      lines.push(
+        <Line
+          key={`hM${j}`}
+          points={[0, j, sheetW, j]}
+          stroke="#e2e8f0"
+          strokeWidth={1}
+          strokeScaleEnabled={false}
+          listening={false}
+        />
+      );
+    }
+
     return <Group name="grid">{lines}</Group>;
   };
 
@@ -805,6 +1100,7 @@ export default function PlannerCanvas() {
           onDragEnd={(e) => handleSymbolDragEnd(sym.id, e)}
           onClick={(e) => { e.cancelBubble = true; if (tool === 'select') selectShape(sym.id); }}
           onDblClick={(e) => { e.cancelBubble = true; handleUpdateLabel(sym.id, sym.label); }}
+          opacity={sym.nature === 'relevado' ? NATURE_OPACITY.relevado : NATURE_OPACITY.proyectado}
         />
       );
     }
@@ -896,11 +1192,12 @@ export default function PlannerCanvas() {
       >
         <Path
           data={symbolDef.svgPath}
-          stroke={symbolDef.strokeColor}
+          stroke={sym.nature === 'relevado' ? NATURE_COLORS.relevado.stroke : symbolDef.strokeColor}
           strokeWidth={2}
-          fill={symbolDef.fillColor || 'transparent'}
+          fill={sym.nature === 'relevado' ? NATURE_COLORS.relevado.fill : (symbolDef.fillColor || 'transparent')}
           lineCap="round"
           lineJoin="round"
+          opacity={sym.nature === 'relevado' ? NATURE_OPACITY.relevado : NATURE_OPACITY.proyectado}
         />
         {sym.label && (
           <Text
@@ -931,9 +1228,17 @@ export default function PlannerCanvas() {
     elementsToHide.forEach(sel => stageRef.current.findOne(sel)?.hide());
     if (transformerRef.current) transformerRef.current.nodes([]);
 
+    const floor = getCurrentFloor();
+    const { width: uWmm, height: uHmm } = getUsableDimensions(
+      floor?.format.widthMm || 297,
+      floor?.format.heightMm || 210
+    );
+    const sheetW = mmToPixels(uWmm);
+    const sheetH = mmToPixels(uHmm);
+
     setTimeout(() => {
       try {
-        const dataUri = stageRef.current.toDataURL({ pixelRatio: 2, x: 0, y: 0, width: 1000, height: 700 });
+        const dataUri = stageRef.current.toDataURL({ pixelRatio: 2, x: 0, y: 0, width: sheetW, height: sheetH });
 
         stageRef.current.scale({ x: oldScale, y: oldScale }); stageRef.current.position(oldPos);
         elementsToHide.forEach(sel => stageRef.current.findOne(sel)?.show());
@@ -941,7 +1246,9 @@ export default function PlannerCanvas() {
         // 1. Crear documento VERTICAL (Para Carátula y Notas)
         const doc = new jsPDF('p', 'mm', 'a4');
 
-        // 2. Preparar Datos
+        /**
+         * ELIMINACIÓN DE PLANTAS
+         */
         const coverTitle = activeMode === 'floorPlan' ? 'PLANO DE PLANTA' : 'ESQUEMA UNIFILAR';
         const pdfProjectData = {
           wizardData: {
@@ -1026,30 +1333,72 @@ export default function PlannerCanvas() {
           });
         }
 
-        // 6. PÁGINA FINAL: EL DIBUJO (Landscape)
-        // (Será Pag 3 en Planta, Pag 4 en Unifilar)
-        doc.addPage('a4', 'l');
+        // 6. PÁGINA FINAL: EL DIBUJO (Dinamizado)
+        const format = floor?.format.name.toLowerCase() || 'a4';
+        const orientation = floor?.format.orientation === 'landscape' ? 'l' : 'p';
+        doc.addPage(format as any, orientation);
 
         const pw = doc.internal.pageSize.getWidth();
         const ph = doc.internal.pageSize.getHeight();
-        const iw = 277;
-        const ih = 190;
-        const ix = (pw - iw) / 2;
-        const iy = (ph - ih) / 2;
 
+        // Dimensiones útiles según IRAM_MARGINS
+        const { width: iw, height: ih } = getUsableDimensions(pw, ph);
+        const ix = IRAM_MARGINS.left;
+        const iy = IRAM_MARGINS.top;
+
+        // Captura e inserción exacta
         doc.addImage(dataUri, 'PNG', ix, iy, iw, ih);
-        doc.setDrawColor(0); doc.setLineWidth(0.5); doc.rect(ix, iy, iw, ih);
 
-        // Rótulo del Plano (Pag 3)
-        const rx = (ix + iw) - 70;
-        const ry = (iy + ih) - 25;
-        doc.setFontSize(10); doc.setFillColor(255, 255, 255); doc.rect(rx, ry, 70, 25, 'FD');
-        doc.setFontSize(7);
-        doc.text(`OBRA: ${projectData.projectName.substring(0, 35)}`, rx + 2, ry + 4);
-        doc.text(`DOMICILIO: ${projectData.address.substring(0, 35)}`, rx + 2, ry + 8.5);
-        doc.text(`INSTALADOR: ${projectData.installer.substring(0, 35)}`, rx + 2, ry + 13);
-        doc.text(`ESCALA: ${projectData.category}`, rx + 2, ry + 17.5);
-        doc.text(`FECHA: ${projectData.date}`, rx + 2, ry + 22);
+        // Marco exterior
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.3);
+        doc.rect(ix, iy, iw, ih);
+
+        // Rótulo del Plano IRAM 4508 (Esquina inferior derecha del área de dibujo)
+        const rbW = TITLE_BLOCK_CONFIG.width;
+        const rbH = TITLE_BLOCK_CONFIG.height;
+        const rx = (ix + iw) - rbW;
+        const ry = (iy + ih) - rbH;
+        const calculatedScale = calculateStandardScale(pixelsPerMeter);
+
+        doc.setDrawColor(0);
+        doc.setFillColor(255, 255, 255);
+        doc.rect(rx, ry, rbW, rbH, 'FD');
+
+        TITLE_BLOCK_CONFIG.cells.forEach(cell => {
+          const cx = rx + cell.x;
+          const cy = ry + cell.y;
+          const cw = cell.width;
+          const ch = cell.height;
+
+          // Borde de celda
+          doc.setLineWidth(0.2);
+          doc.rect(cx, cy, cw, ch);
+
+          // Etiqueta (Label)
+          doc.setFontSize(5);
+          doc.setTextColor(100);
+          doc.setFont("helvetica", "italic");
+          doc.text(cell.label, cx + 1, cy + 3);
+
+          // Valor
+          let value = "";
+          if (cell.dataKey === 'calculatedScale') value = calculatedScale;
+          else if (cell.dataKey === 'clientName') value = calculationData?.config?.clientName || "---";
+          else value = (projectData as any)[cell.dataKey || ""] || "";
+
+          doc.setFontSize(cell.fontSize * 0.7);
+          doc.setTextColor(0);
+          doc.setFont("helvetica", cell.isBold ? "bold" : "normal");
+
+          const textValue = String(value).substring(0, 45);
+
+          if (cell.align === 'center') {
+            doc.text(textValue, cx + (cw / 2), cy + (ch / 2) + 2, { align: 'center' });
+          } else {
+            doc.text(textValue, cx + 1, cy + (ch / 2) + 2);
+          }
+        });
 
         doc.save(`plano_${activeMode}_${projectData.projectName || 'proyecto'}.pdf`);
       } catch (e) {
@@ -1066,148 +1415,168 @@ export default function PlannerCanvas() {
           1. h-16: Altura suficiente para botones grandes.
           2. relative: Contexto de posición.
       */}
-      <div className="flex items-center justify-between px-3 bg-white border-b shadow-sm z-30 h-16 relative">
-
-        {/* LADO IZQUIERDO: TÍTULO Y BOTONES DE NAVEGACIÓN */}
-        <div className="flex items-center space-x-3 pr-6 bg-white z-20 h-full flex-shrink-0">
+      <header className="flex items-center justify-between px-4 bg-white border-b shadow-sm z-30 h-16 min-h-[64px] relative shrink-0">
+        {/* LADO IZQUIERDO: Navegación + Título + Badge + Modos */}
+        <div className="flex items-center space-x-4">
           <button
             onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-slate-100 rounded-full"
+            className="p-2 hover:bg-slate-100 rounded-full transition-colors shrink-0"
             title="Volver al Dashboard"
           >
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
 
-          <div className="flex flex-col">
-            <h1 className="text-base font-bold text-slate-700 whitespace-nowrap">Taller CAD</h1>
+          <div className="flex flex-col justify-center">
+            <div className="flex items-center gap-3">
+              <h1 className="text-sm font-bold text-slate-800 whitespace-nowrap">Taller CAD</h1>
 
-            {/* TABS DE MODO */}
-            <div className="flex space-x-1 mt-1 bg-slate-100 rounded p-1">
-              <button
-                onClick={() => handleSwitchMode('floorPlan')}
-                className={`px-2 py-0.5 text-xs rounded font-medium transition-colors ${activeMode === 'floorPlan' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:bg-slate-200'}`}
+              {/* 🆕 Badge de Estado de Obra - Más prominente */}
+              <div
+                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border shadow-sm ${estadoObra === 'nueva'
+                  ? 'bg-blue-600 text-white border-blue-700'
+                  : estadoObra === 'existente'
+                    ? 'bg-yellow-400 text-gray-900 border-yellow-500'
+                    : estadoObra === 'modificacion'
+                      ? 'bg-orange-500 text-white border-orange-600'
+                      : 'bg-purple-600 text-white border-purple-700'
+                  }`}
               >
-                Planta
-              </button>
-              <button
-                onClick={() => handleSwitchMode('singleLine')}
-                className={`px-2 py-0.5 text-xs rounded font-medium transition-colors ${activeMode === 'singleLine' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-500 hover:bg-slate-200'}`}
-              >
-                Unifilar
-              </button>
+                {estadoObra === 'existente' ? '🏗️ Existente' :
+                  estadoObra === 'modificacion' ? '🔧 Modif' :
+                    estadoObra === 'provisoria' ? '⚡ Provis' : '🆕 Obra Nueva'}
+              </div>
+
+              {/* TABS DE MODO - Integrados en la misma fila si hay espacio o justo debajo */}
+              <div className="flex space-x-1 bg-slate-100 rounded p-1 ml-4">
+                <button
+                  onClick={() => handleSwitchMode('floorPlan')}
+                  className={`px-2 py-0.5 text-[11px] rounded font-medium transition-colors ${activeMode === 'floorPlan' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:bg-slate-200'}`}
+                >
+                  Planta
+                </button>
+                <button
+                  onClick={() => handleSwitchMode('singleLine')}
+                  className={`px-2 py-0.5 text-[11px] rounded font-medium transition-colors ${activeMode === 'singleLine' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-500 hover:bg-slate-200'}`}
+                >
+                  Unifilar
+                </button>
+              </div>
             </div>
 
-            {/* BOTONES DE ABERTURAS */}
-            <div className="flex space-x-1 ml-2">
+          </div>
+        </div>
+
+        {/* CENTRO: Herramientas Arquitectura (SOLO EN MODO PLANTA) */}
+        {
+          activeMode === 'floorPlan' && (
+            <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-lg p-1 shadow-inner">
               <button
                 onClick={() => handleOpeningTool('door')}
-                className={`px-3 py-1 text-sm rounded font-medium transition-colors flex items-center gap-1 ${tool === 'door'
-                  ? 'bg-blue-500 text-white shadow-sm'
-                  : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${tool === 'door'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-600 hover:bg-slate-200'
                   }`}
-                title="Insertar Puerta"
               >
                 🚪 Puerta
               </button>
               <button
                 onClick={() => handleOpeningTool('window')}
-                className={`px-3 py-1 text-sm rounded font-medium transition-colors flex items-center gap-1 ${tool === 'window'
-                  ? 'bg-blue-500 text-white shadow-sm'
-                  : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${tool === 'window'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-600 hover:bg-slate-200'
                   }`}
-                title="Insertar Ventana"
               >
                 🪟 Ventana
               </button>
-            </div>
-
-            {/* BOTÓN DE COTA */}
-            <div className="flex space-x-1 ml-2">
               <button
-                onClick={() => {
-                  setTool('dimension');
-                  setDimensionFirstPoint(null);
-                }}
-                className={`px-3 py-1 text-sm rounded font-medium transition-colors flex items-center gap-1 ${tool === 'dimension'
-                  ? 'bg-blue-500 text-white shadow-sm'
-                  : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                onClick={() => handleOpeningTool('passage')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${tool === 'passage'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-600 hover:bg-slate-200'
                   }`}
-                title="Insertar Cota/Dimensión"
+              >
+                ⬜ Paso
+              </button>
+              <button
+                onClick={() => { setTool('dimension'); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${tool === 'dimension'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-600 hover:bg-slate-200'
+                  }`}
               >
                 📏 Cota
               </button>
             </div>
-          </div>
+          )
+        }
 
-          {/* Botón Volver a Calculadora */}
-          {calculationData && (
+        {/* LADO DERECHO: Acciones + Sidebar */}
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
+
+            {/* Botón Volver a Calculadora */}
+            {calculationData && (
+              <button
+                onClick={() => {
+                  // Guardar datos para abrir wizard en modo edición
+                  sessionStorage.setItem('editProjectData', JSON.stringify(calculationData));
+                  sessionStorage.setItem('openWizardOnDashboard', 'true');
+                  navigate('/dashboard');
+                }}
+                className="flex items-center justify-center w-9 h-9 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                title="Volver a la Calculadora"
+              >
+                <Calculator className="w-5 h-5" />
+              </button>
+            )}
+
             <button
-              onClick={() => {
-                // Guardar datos para abrir wizard en modo edición
-                sessionStorage.setItem('editProjectData', JSON.stringify(calculationData));
-                sessionStorage.setItem('openWizardOnDashboard', 'true');
-                navigate('/dashboard');
-              }}
-              className="flex items-center justify-center w-9 h-9 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
-              title="Volver a la Calculadora"
+              onClick={handleSaveProject}
+              className="w-9 h-9 flex items-center justify-center bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+              title="Guardar Proyecto"
             >
-              <Calculator className="w-5 h- 5" />
+              <Save className="w-5 h-5" />
             </button>
-          )}
-
-          {/* Botón Guardar Proyecto */}
-          <button
-            onClick={handleSaveProject}
-            className="flex items-center justify-center w-9 h-9 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-            title="Guardar Proyecto"
-          >
-            <Save className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* LADO DERECHO: BARRA DE HERRAMIENTAS
-            absolute: Se posiciona libremente.
-            inset-x-0: Ocupa todo el ancho.
-            flex justify-end: Alinea botones a la derecha.
-            pl-[140px]: Relleno izquierdo "duro" para que NUNCA pise al título.
-            z-10: Capa inferior (se esconde detrás del título si falta espacio).
-        */}
-        <div className="absolute inset-x-0 h-full flex items-center justify-end pl-[140px] pr-2 z-10 pointer-events-none">
-          {/* pointer-events-auto para que los botones funcionen */}
-          <div className="pointer-events-auto overflow-x-auto no-scrollbar max-w-full flex justify-end">
-            <PlannerSidebar
-              tool={tool}
-              setTool={setTool}
-              activeMode={activeMode}
-              onOpenReport={() => setShowMaterialModal(true)}
-              onOpenProjectInfo={() => setShowProjectInfoModal(true)}
-            />
           </div>
+
+          <PlannerSidebar
+            tool={tool}
+            setTool={setTool}
+            activeMode={activeMode}
+            onOpenReport={() => setShowMaterialModal(true)}
+            onOpenProjectInfo={() => setShowProjectInfoModal(true)}
+          />
         </div>
-      </div>
+      </header>
 
       {/* FLOOR TABS - Sistema de Múltiples Plantas */}
-      <FloorTabs
+      < FloorTabs
         floors={floors}
         currentFloorId={currentFloorId}
         onFloorChange={setCurrentFloorId}
-        onAddFloor={() => setShowNewFloorModal(true)}
+        onAddFloor={() => setShowNewFloorModal(true)
+        }
         onEditFloor={handleEditFloor}
       />
 
       <div className="flex flex-1 overflow-hidden relative">
         <PlannerToolbar
-          currentCircuitColor={currentCircuitColor} setCurrentCircuitColor={setCurrentCircuitColor}
-          currentPipeType={currentPipeType} setCurrentPipeType={setCurrentPipeType}
-          onDownloadPDF={handleOpenExportModal} onDeleteSelected={handleDeleteSelected} onClearAll={handleClearAll}
+          currentCircuitColor={currentCircuitColor}
+          setCurrentCircuitColor={setCurrentCircuitColor}
+          currentPipeType={currentPipeType}
+          setCurrentPipeType={setCurrentPipeType}
+          currentPipeDashMode={currentPipeDashMode}
+          setCurrentPipeDashMode={setCurrentPipeDashMode}
+          onDownloadPDF={handleOpenExportModal}
+          onDeleteSelected={handleDeleteSelected}
+          onClearAll={handleClearAll}
           onCalibrate={() => { setTool('calibrate'); alert("DIBUJA UNA LÍNEA sobre una medida conocida."); }}
           scaleText={`1m = ${Math.round(pixelsPerMeter)}px`}
-          // NUEVOS PROPS
           onUploadImage={handleImageUpload}
           isBackgroundLocked={isBackgroundLocked}
           onToggleLock={() => {
             setIsBackgroundLocked(!isBackgroundLocked);
-            if (!isBackgroundLocked) selectShape(null); // Al bloquear, deseleccionar
+            if (!isBackgroundLocked) selectShape(null);
           }}
           hasBackgroundImage={!!backgroundImage}
           onDeleteImage={handleDeleteImage}
@@ -1227,16 +1596,29 @@ export default function PlannerCanvas() {
             style={{ cursor: getCursorStyle() }}
           >
             <Layer>
-              <Rect x={4} y={4} width={1000} height={700} fill="black" opacity={0.1} cornerRadius={2} blurRadius={10} name="paper-shadow" listening={false} />
-              <Rect
-                x={0}
-                y={0}
-                width={getCurrentFloor()?.format.widthPx || 1000}
-                height={getCurrentFloor()?.format.heightPx || 700}
-                fill="white"
-                name="paper-bg"
-                listening={false}
-              />
+              {(() => {
+                const floor = getCurrentFloor();
+                const { width: uWmm, height: uHmm } = getUsableDimensions(
+                  floor?.format.widthMm || 297,
+                  floor?.format.heightMm || 210
+                );
+                const sheetW = mmToPixels(uWmm);
+                const sheetH = mmToPixels(uHmm);
+                return (
+                  <>
+                    <Rect x={4} y={4} width={sheetW} height={sheetH} fill="black" opacity={0.1} cornerRadius={2} blurRadius={10} name="paper-shadow" listening={false} />
+                    <Rect
+                      x={0}
+                      y={0}
+                      width={sheetW}
+                      height={sheetH}
+                      fill="white"
+                      name="paper-bg"
+                      listening={!isBackgroundLocked} // CRÍTICO: Si está bloqueado, clics pasan a través
+                    />
+                  </>
+                );
+              })()}
 
               {/* CAPA DE FONDO (BLUEPRINT) - SOLO EN FLOORPLAN */}
               {backgroundImage && activeMode === 'floorPlan' && (
@@ -1268,9 +1650,6 @@ export default function PlannerCanvas() {
                       rotation: node.rotation()
                     });
                   }}
-                  onClick={() => {
-                    if (!isBackgroundLocked && tool === 'select') selectShape('blueprint-bg');
-                  }}
                   onTap={() => {
                     if (!isBackgroundLocked && tool === 'select') selectShape('blueprint-bg');
                   }}
@@ -1280,17 +1659,59 @@ export default function PlannerCanvas() {
 
               {renderGrid()}
 
-              <Group>
-                <Group x={1000 - 250} y={700 - 105} name="rotulo-visual" listening={false}>
-                  <Rect width={250} height={105} stroke="black" strokeWidth={1} fill="white" />
-                  <Text text="RÓTULO (Vista Previa)" x={5} y={5} fontSize={10} fill="gray" />
-                  <Text text={`Obra: ${projectData.projectName.substring(0, 25)}`} x={10} y={23} fontSize={11} fill="black" />
-                  <Text text={`Dir: ${projectData.address.substring(0, 25)}`} x={10} y={40} fontSize={11} fill="black" />
-                  <Text text={`Inst: ${projectData.installer.substring(0, 25)}`} x={10} y={57} fontSize={11} fill="black" />
-                  <Text text={`Escala: ${projectData.category}`} x={10} y={74} fontSize={11} fill="black" />
-                  <Text text={`Fecha: ${projectData.date}`} x={10} y={91} fontSize={10} fill="black" />
-                </Group>
+              {/* RÓTULO DINÁMICO IRAM 4508 */}
+              {(() => {
+                const floor = getCurrentFloor();
+                const { width: uWmm, height: uHmm } = getUsableDimensions(
+                  floor?.format.widthMm || 297,
+                  floor?.format.heightMm || 210
+                );
+                const sheetW = mmToPixels(uWmm);
+                const sheetH = mmToPixels(uHmm);
 
+                const rWidth = mmToPixels(TITLE_BLOCK_CONFIG.width);
+                const rHeight = mmToPixels(TITLE_BLOCK_CONFIG.height);
+                const calculatedScale = calculateStandardScale(pixelsPerMeter);
+
+                return (
+                  <Group x={sheetW - rWidth} y={sheetH - rHeight} name="rotulo-visual" listening={false}>
+                    <Rect width={rWidth} height={rHeight} stroke="black" strokeWidth={1} fill="white" />
+                    {TITLE_BLOCK_CONFIG.cells.map(cell => {
+                      const cx = mmToPixels(cell.x);
+                      const cy = mmToPixels(cell.y);
+                      const cw = mmToPixels(cell.width);
+                      const ch = mmToPixels(cell.height);
+
+                      let value = "";
+                      if (cell.dataKey === 'calculatedScale') value = calculatedScale;
+                      else if (cell.dataKey === 'clientName') value = calculationData?.config?.clientName || "---";
+                      else value = (projectData as any)[cell.dataKey || ""] || "";
+
+                      return (
+                        <Group key={cell.id} x={cx} y={cy}>
+                          <Rect width={cw} height={ch} stroke="black" strokeWidth={0.5} />
+                          <Text text={cell.label} x={2} y={2} fontSize={6} fill="#64748b" fontStyle="italic" />
+                          <Text
+                            text={value}
+                            width={cw - 4}
+                            height={ch - 10}
+                            x={2}
+                            y={10}
+                            fontSize={cell.fontSize * 0.8}
+                            fontStyle={cell.isBold ? "bold" : "normal"}
+                            align={cell.align}
+                            verticalAlign="middle"
+                            fill="black"
+                            wrap="char"
+                          />
+                        </Group>
+                      );
+                    })}
+                  </Group>
+                );
+              })()}
+
+              <Group>
                 {/* GRUPOS DE AMBIENTES (con Transformer) - ORDEN Z: PRIMERO (ABAJO) */}
                 {roomGroups
                   .filter(group => {
@@ -1387,19 +1808,37 @@ export default function PlannerCanvas() {
 
                           console.log(`📏 Ambiente redimensionado: ${newWidthM}m × ${newLengthM}m = ${newAreaM}m²`);
 
-                          // Actualizar grupo
-                          setRoomGroups(prev => prev.map(g =>
-                            g.id === group.id
-                              ? {
-                                ...g,
-                                x: node.x(),
-                                y: node.y(),
-                                rotation: node.rotation(),
-                                scaleX: scaleX,
-                                scaleY: scaleY
-                              }
-                              : g
-                          ));
+                          // Actualizar grupo (Sincronizando metros reales)
+                          setRoomGroups(prev => prev.map(g => {
+                            if (g.id !== group.id) return g;
+
+                            const widthM = parseFloat(newWidthM);
+                            const lengthM = parseFloat(newLengthM);
+                            const wPx = widthM * pixelsPerMeter;
+                            const lPx = lengthM * pixelsPerMeter;
+
+                            return {
+                              ...g,
+                              x: node.x(),
+                              y: node.y(),
+                              rotation: node.rotation(),
+                              scaleX: 1, // Resetear escala tras persistir metros
+                              scaleY: 1,
+                              originalWidth: widthM,
+                              originalLength: lengthM,
+                              // Actualizar puntos de muros para que coincidan con los nuevos metros en píxeles
+                              walls: [
+                                { ...g.walls[0], points: [0, 0, wPx, 0] },         // Top
+                                { ...g.walls[1], points: [wPx, 0, wPx, lPx] },     // Right
+                                { ...g.walls[2], points: [wPx, lPx, 0, lPx] },     // Bottom
+                                { ...g.walls[3], points: [0, lPx, 0, 0] }          // Left
+                              ]
+                            };
+                          }));
+
+                          // Resetear escala del nodo físico para que no haya doble escalado
+                          node.scaleX(1);
+                          node.scaleY(1);
 
                           // NOTA: La etiqueta NO se sincroniza en transformaciones (rotar/escalar)
                           // Solo se mueve cuando ARRASTRAS el ambiente (ver onDragEnd)
@@ -1424,6 +1863,11 @@ export default function PlannerCanvas() {
                           const wall = group.walls[opening.wallIndex];
                           if (!wall) return null;
 
+                          // Calcular longitud teórica del muro en metros (0 y 2: ancho, 1 y 3: largo)
+                          const wallLengthMeters = (opening.wallIndex % 2 === 0)
+                            ? (group.originalWidth || 0)
+                            : (group.originalLength || 0);
+
                           if (opening.type === 'door') {
                             return (
                               <DoorComponent
@@ -1436,6 +1880,12 @@ export default function PlannerCanvas() {
                                 roomGroupScaleX={group.scaleX}
                                 roomGroupScaleY={group.scaleY}
                                 pixelsPerMeter={pixelsPerMeter}
+                                wallLengthMeters={wallLengthMeters}
+                                isSelectMode={tool === 'select'}
+                                isSelected={selectedOpeningId === opening.id}
+                                onUpdatePosition={(pos) => handleOpeningUpdatePosition(group.id, opening.id, pos)}
+                                onSelect={handleOpeningSelect}
+                                onEdit={handleOpeningEdit}
                               />
                             );
                           } else if (opening.type === 'window') {
@@ -1450,6 +1900,32 @@ export default function PlannerCanvas() {
                                 roomGroupScaleX={group.scaleX}
                                 roomGroupScaleY={group.scaleY}
                                 pixelsPerMeter={pixelsPerMeter}
+                                wallLengthMeters={wallLengthMeters}
+                                isSelectMode={tool === 'select'}
+                                isSelected={selectedOpeningId === opening.id}
+                                onUpdatePosition={(pos) => handleOpeningUpdatePosition(group.id, opening.id, pos)}
+                                onSelect={handleOpeningSelect}
+                                onEdit={handleOpeningEdit}
+                              />
+                            );
+                          } else if (opening.type === 'passage') {
+                            return (
+                              <PassageComponent
+                                key={opening.id}
+                                passage={opening}
+                                wall={wall}
+                                roomGroupX={group.x}
+                                roomGroupY={group.y}
+                                roomGroupRotation={group.rotation}
+                                roomGroupScaleX={group.scaleX}
+                                roomGroupScaleY={group.scaleY}
+                                pixelsPerMeter={pixelsPerMeter}
+                                wallLengthMeters={wallLengthMeters}
+                                isSelectMode={tool === 'select'}
+                                isSelected={selectedOpeningId === opening.id}
+                                onUpdatePosition={(pos) => handleOpeningUpdatePosition(group.id, opening.id, pos)}
+                                onSelect={handleOpeningSelect}
+                                onEdit={handleOpeningEdit}
                               />
                             );
                           }
@@ -1458,6 +1934,33 @@ export default function PlannerCanvas() {
                       </Group>
                     );
                   })}
+
+                {/* COTAS / DIMENSIONES ELIMINADAS DE AQUÍ (Z-ORDER INCORRECTO) */}
+
+                {/* COTAS PREVIEW (Dibujo) */}
+                {dimensionPreview && dimensionFirstPoint && (
+                  <DimensionComponent
+                    dimension={{
+                      id: 'preview-dim',
+                      type: 'dimension',
+                      startPoint: dimensionFirstPoint,
+                      endPoint: {
+                        x: dimensionPreview[2],
+                        y: dimensionPreview[3]
+                      },
+                      distanceMeters: Math.sqrt(
+                        Math.pow(dimensionPreview[2] - dimensionFirstPoint.x, 2) +
+                        Math.pow(dimensionPreview[3] - dimensionFirstPoint.y, 2)
+                      ) / pixelsPerMeter,
+                      distancePixels: Math.sqrt(
+                        Math.pow(dimensionPreview[2] - dimensionFirstPoint.x, 2) +
+                        Math.pow(dimensionPreview[3] - dimensionFirstPoint.y, 2)
+                      ),
+                      textOffset: 20,
+                      layerId: currentLayerId
+                    }}
+                  />
+                )}
 
                 {/* Transformer */}
                 <Transformer ref={transformerRef} />
@@ -1518,9 +2021,10 @@ export default function PlannerCanvas() {
                       >
                         <Line
                           points={w.points}
-                          stroke={selectedId === w.id ? "#3b82f6" : "black"}
+                          stroke={selectedId === w.id ? "#3b82f6" : (w.nature === 'relevado' ? "#cbd5e1" : "black")}
                           strokeWidth={5}
                           lineCap="round"
+                          opacity={w.nature === 'relevado' ? 0.6 : 1}
                           onClick={(e) => {
                             e.cancelBubble = true;
                             if (tool === 'select' && !isLocked) {
@@ -1536,12 +2040,22 @@ export default function PlannerCanvas() {
                 {currentWall && <Line points={currentWall} stroke="black" strokeWidth={5} opacity={0.5} />}
 
                 {/* COTAS/DIMENSIONES - ORDEN Z: DESPUÉS DE PAREDES, ANTES DE PIPES */}
-                {getCurrentFloor()?.elements.dimensions?.map((dimension) => (
-                  <DimensionComponent
-                    key={dimension.id}
-                    dimension={dimension}
-                  />
-                ))}
+                {getCurrentFloor()?.elements.dimensions
+                  ?.filter(dim => {
+                    // 🆕 Filtrar por visibilidad de capa
+                    const layer = getCurrentFloor()?.layers.find(l => l.id === dim.layerId);
+                    return layer?.visible !== false;
+                  })
+                  .map((dimension) => (
+                    <DimensionComponent
+                      key={dimension.id}
+                      dimension={dimension}
+                      isSelected={selectedId === dimension.id}
+                      onSelect={(id) => selectShape(id)}
+                      isSelectMode={tool === 'select'}
+                      pixelsPerMeter={pixelsPerMeter}
+                    />
+                  ))}
 
                 {/* CAÑERÍAS/PIPES - ORDEN Z: TERCERO (DESPUÉS DE PAREDES) */}
                 {pipes
@@ -1567,19 +2081,17 @@ export default function PlannerCanvas() {
                           }
                         }}
                       >
-                        {p.type === 'curved' ?
-                          <Path
-                            data={`M${p.points[0]},${p.points[1]} Q${(p.points[0] + p.points[2]) / 2},${(p.points[1] + p.points[3]) / 2 + 30} ${p.points[2]},${p.points[3]}`}
-                            stroke={selectedId === p.id ? "#3b82f6" : pipeColor}
-                            strokeWidth={2}
-                            dash={[5, 5]}
-                          /> :
-                          <Line
-                            points={p.points}
-                            stroke={selectedId === p.id ? "#3b82f6" : pipeColor}
-                            strokeWidth={2}
-                          />
-                        }
+                        {(() => {
+                          const circuitMethod = calculationData?.config?.circuitInventoryForCAD?.find(c => c.id === p.circuitId)?.conduit?.method;
+                          return (
+                            <PipeRenderer
+                              pipe={p}
+                              selectedId={selectedId}
+                              {...getPipeStyle(p, selectedId)}
+                              dash={getPipeDash(p, circuitMethod)}
+                            />
+                          );
+                        })()}
                       </Group>
                     );
                   })}
@@ -1607,7 +2119,6 @@ export default function PlannerCanvas() {
                     return layer?.visible !== false;
                   })
                   .map(renderSymbol)}
-                {renderSelectionNodes()}
                 {renderSelectionNodes()}
                 <Transformer
                   ref={transformerRef}
@@ -1643,7 +2154,6 @@ export default function PlannerCanvas() {
           onRoomDragStart={handleRoomDragStart}
         />
 
-        {/* LAYERS PANEL: Sistema de Capas por Circuito */}
         <LayersPanel
           layers={getCurrentFloor()?.layers || []}
           currentLayerId={currentLayerId}
@@ -1654,80 +2164,158 @@ export default function PlannerCanvas() {
         />
       </div>
       {/* MODAL DE EXPORTACIÓN (NOTAS) */}
-      {showExportModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
-              <h3 className="font-bold text-lg">Exportar Plano PDF</h3>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Notas Técnicas y Referencias (Aparecerán en la Página 2)
-                </label>
-                <textarea
-                  value={exportNotes}
-                  onChange={(e) => setExportNotes(e.target.value)}
-                  className="w-full h-40 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  placeholder="Ingrese las notas técnicas para el instalador..."
-                />
-                <p className="text-xs text-slate-500 mt-2">
-                  * Este texto se incluirá en una hoja dedicada antes del plano, junto con la tabla de referencias básica.
-                </p>
+      {
+        showExportModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+              <div className="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
+                <h3 className="font-bold text-lg">Exportar Plano PDF</h3>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t">
-                <button
-                  onClick={() => setShowExportModal(false)}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-md font-medium transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleGenerateFinalPDF}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Generar PDF
-                </button>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Notas Técnicas y Referencias (Aparecerán en la Página 2)
+                  </label>
+                  <textarea
+                    value={exportNotes}
+                    onChange={(e) => setExportNotes(e.target.value)}
+                    className="w-full h-40 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    placeholder="Ingrese las notas técnicas para el instalador..."
+                  />
+                  <p className="text-xs text-slate-500 mt-2">
+                    * Este texto se incluirá en una hoja dedicada antes del plano, junto con la tabla de referencias básica.
+                  </p>
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4 border-t">
+                  <button
+                    onClick={() => setShowExportModal(false)}
+                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-md font-medium transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleGenerateFinalPDF}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Generar PDF
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      <MaterialReportModal isOpen={showMaterialModal} onClose={() => setShowMaterialModal(false)} symbols={symbols} pipes={pipes} walls={walls} pixelsPerMeter={pixelsPerMeter} />
+      <MaterialReportModal
+        isOpen={showMaterialModal}
+        onClose={() => setShowMaterialModal(false)}
+        symbols={symbols}
+        pipes={pipes}
+        walls={walls}
+        pixelsPerMeter={pixelsPerMeter}
+        calculationData={calculationData}
+      />
       <ProjectInfoModal isOpen={showProjectInfoModal} onClose={() => setShowProjectInfoModal(false)} onSave={setProjectData} initialData={projectData} />
 
       {/* Modal Nueva Planta */}
-      {showNewFloorModal && (
-        <NewFloorModal
-          onClose={() => setShowNewFloorModal(false)}
-          onConfirm={handleAddFloor}
-        />
-      )}
+      {
+        showNewFloorModal && (
+          <NewFloorModal
+            onClose={() => setShowNewFloorModal(false)}
+            onConfirm={handleAddFloor}
+          />
+        )
+      }
 
       {/* Modal Editar Planta */}
-      {showEditFloorModal && editingFloorId && (
-        <EditFloorModal
-          floor={floors.find(f => f.id === editingFloorId)!}
-          onClose={() => {
-            setShowEditFloorModal(false);
-            setEditingFloorId(null);
-          }}
-          onConfirm={handleEditFloorConfirm}
-        />
-      )}
+      {
+        showEditFloorModal && editingFloorId && (
+          <EditFloorModal
+            floor={floors.find(f => f.id === editingFloorId)!}
+            onClose={() => {
+              setShowEditFloorModal(false);
+              setEditingFloorId(null);
+            }}
+            onConfirm={handleEditFloorConfirm}
+            onDelete={handleDeleteFloor}
+            canDelete={floors.length > 1 && floors[0].id !== editingFloorId}
+          />
+        )
+      }
 
-      {/* Modal Configurar Abertura */}
-      {showOpeningModal && (
-        <OpeningConfigModal
-          type={openingType}
-          onClose={() => setShowOpeningModal(false)}
-          onConfirm={handleOpeningConfirm}
-        />
-      )}
-    </div>
+      {/* Modal Configurar Abertura (Creación o Edición) */}
+      {
+        isOpeningConfigOpen && (
+          <OpeningConfigModal
+            type={editingOpening ? editingOpening.type : openingType}
+            initialConfig={editingOpening ? (editingOpening as any) : undefined}
+            onClose={() => {
+              setIsOpeningConfigOpen(false);
+              setEditingOpening(null);
+            }}
+            onConfirm={editingOpening ? handleOpeningUpdateConfig : handleOpeningConfirmNew}
+          />
+        )
+      }
+
+      {/* PANEL DE PROPIEDADES FLOTANTE (Para Naturaleza) */}
+      {
+        selectedId && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm border-2 border-slate-300 rounded-full shadow-2xl p-1 px-2 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300 z-50">
+            <span className="text-[10px] font-black uppercase text-slate-500 ml-2">Naturaleza:</span>
+            {/* Solo mostrar selector en ampliación/refacción */}
+            {calculationData?.config?.estadoObra !== 'nueva' && (
+              <div className="flex bg-slate-200 rounded-full p-0.5">
+                <button
+                  onClick={() => {
+                    if (symbols.find(s => s.id === selectedId)) {
+                      setSymbols(prev => prev.map(s => s.id === selectedId ? { ...s, nature: 'relevado' } : s));
+                    } else if (walls.find(w => w.id === selectedId)) {
+                      setWalls(prev => prev.map(w => w.id === selectedId ? { ...w, nature: 'relevado' } : w));
+                    } else if (pipes.find(p => p.id === selectedId)) {
+                      setPipes(prev => prev.map(p => p.id === selectedId ? { ...p, nature: 'relevado' } : p));
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${(symbols.find(s => s.id === selectedId)?.nature === 'relevado' ||
+                    walls.find(w => w.id === selectedId)?.nature === 'relevado' ||
+                    pipes.find(p => p.id === selectedId)?.nature === 'relevado')
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                >
+                  🔍 EXISTENTE
+                </button>
+                <button
+                  onClick={() => {
+                    if (symbols.find(s => s.id === selectedId)) {
+                      setSymbols(prev => prev.map(s => s.id === selectedId ? { ...s, nature: 'proyectado' } : s));
+                    } else if (walls.find(w => w.id === selectedId)) {
+                      setWalls(prev => prev.map(w => w.id === selectedId ? { ...w, nature: 'proyectado' } : w));
+                    } else if (pipes.find(p => p.id === selectedId)) {
+                      setPipes(prev => prev.map(p => p.id === selectedId ? { ...p, nature: 'proyectado' } : p));
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${(symbols.find(s => s.id === selectedId)?.nature !== 'relevado')
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                >
+                  🆕 PROYECTADA
+                </button>
+              </div>
+            )}
+            <button
+              onClick={() => selectShape(null)}
+              className="w-6 h-6 flex items-center justify-center hover:bg-slate-200 rounded-full text-slate-400"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )
+      }
+    </div >
   );
 }

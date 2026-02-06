@@ -1,15 +1,20 @@
 import { Shield, Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { ProtectionHeader } from '../../../lib/electrical-rules';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 interface ProtectionHeadersManagerProps {
     headers: ProtectionHeader[];
     panelVoltage: '220V' | '380V';
     onUpdate: (headers: ProtectionHeader[]) => void;
+    estadoObra?: string;
 }
 
-export function ProtectionHeadersManager({ headers, panelVoltage, onUpdate }: ProtectionHeadersManagerProps) {
+export function ProtectionHeadersManager({ headers, panelVoltage, onUpdate, estadoObra }: ProtectionHeadersManagerProps) {
     const [expandedHeaders, setExpandedHeaders] = useState<Set<string>>(new Set(headers.map(h => h.id)));
+
+    const showNatureSelectors = useMemo(() => {
+        return ['modificacion', 'existente', 'provisoria'].includes(estadoObra || '');
+    }, [estadoObra]);
 
     const toggleExpanded = (headerId: string) => {
         const newExpanded = new Set(expandedHeaders);
@@ -115,6 +120,22 @@ export function ProtectionHeadersManager({ headers, panelVoltage, onUpdate }: Pr
                                         placeholder="Nombre descriptivo"
                                     />
 
+                                    {showNatureSelectors && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                updateHeader(index, { nature: header.nature === 'relevado' ? 'proyectado' : 'relevado' });
+                                            }}
+                                            className={`text-[8px] font-black px-1.5 py-0.5 rounded transition-all ${header.nature === 'relevado'
+                                                ? 'bg-slate-200 text-slate-600 border border-slate-300'
+                                                : 'bg-blue-600 text-white border border-blue-700 shadow-sm'
+                                                }`}
+                                            title={header.nature === 'relevado' ? 'Protección EXISTENTE (No presupuestar)' : 'Protección NUEVA (A presupuestar)'}
+                                        >
+                                            {header.nature === 'relevado' ? '🔍 REL' : '🆕 PROY'}
+                                        </button>
+                                    )}
+
                                     {/* Info resumida cuando está colapsado */}
                                     {!isExpanded && (
                                         <span className="text-[9px] text-slate-500">
@@ -140,7 +161,13 @@ export function ProtectionHeadersManager({ headers, panelVoltage, onUpdate }: Pr
                                             <label className="text-[9px] font-bold text-slate-600 block mb-1">Tipo</label>
                                             <select
                                                 value={header.type}
-                                                onChange={(e) => updateHeader(index, { type: e.target.value as 'PIA' | 'ID' })}
+                                                onChange={(e) => {
+                                                    const newType = e.target.value as 'PIA' | 'ID';
+                                                    updateHeader(index, {
+                                                        type: newType,
+                                                        sensitivity: newType === 'ID' ? '30mA' : undefined
+                                                    });
+                                                }}
                                                 className="w-full text-[10px] rounded border-slate-300 p-1 bg-white"
                                             >
                                                 <option value="PIA">PIA</option>
@@ -202,6 +229,32 @@ export function ProtectionHeadersManager({ headers, panelVoltage, onUpdate }: Pr
                                                         <option value="RST">RST</option>
                                                     )}
                                                 </select>
+                                            </div>
+                                        )}
+
+                                        {showNatureSelectors && (
+                                            <div className="col-span-4">
+                                                <label className="text-[9px] font-bold text-slate-600 block mb-1">Naturaleza de la Protección</label>
+                                                <div className="grid grid-cols-2 gap-1">
+                                                    <button
+                                                        onClick={() => updateHeader(index, { nature: 'relevado' })}
+                                                        className={`py-1 rounded text-[9px] font-bold border transition-all ${header.nature === 'relevado'
+                                                            ? 'bg-slate-100 border-slate-400 text-slate-700 shadow-inner'
+                                                            : 'bg-white border-slate-200 text-slate-400 opacity-60'
+                                                            }`}
+                                                    >
+                                                        🔍 Existente
+                                                    </button>
+                                                    <button
+                                                        onClick={() => updateHeader(index, { nature: 'proyectado' })}
+                                                        className={`py-1 rounded text-[9px] font-bold border transition-all ${header.nature === 'proyectado'
+                                                            ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-inner'
+                                                            : 'bg-white border-blue-200 text-blue-400 opacity-60'
+                                                            }`}
+                                                    >
+                                                        🆕 Nueva
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>

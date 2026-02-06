@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Lock, Unlock, Plus } from 'lucide-react';
-import type { Layer } from '../../types/floors';
+import type { Layer } from '../../types/planner';
 
 interface LayersPanelProps {
     layers: Layer[];
@@ -41,8 +41,8 @@ export const LayersPanel = ({
                         <div
                             key={layer.id}
                             className={`p-2 rounded flex items-center gap-2 cursor-pointer transition-colors ${currentLayerId === layer.id
-                                    ? 'bg-blue-100 border-2 border-blue-500'
-                                    : 'hover:bg-gray-100 border-2 border-transparent'
+                                ? 'bg-blue-100 border-2 border-blue-500'
+                                : 'hover:bg-gray-100 border-2 border-transparent'
                                 }`}
                             onClick={() => onLayerChange(layer.id)}
                         >
@@ -72,6 +72,8 @@ export const LayersPanel = ({
 
                             {/* Layer Name */}
                             <span className="flex-1 text-sm font-medium truncate">{layer.name}</span>
+
+
 
                             {/* Color Picker */}
                             <input

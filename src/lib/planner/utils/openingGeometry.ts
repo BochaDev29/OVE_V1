@@ -4,7 +4,7 @@ import type { Wall } from '../../../types/planner';
 import type { Opening } from '../../../types/openings';
 
 /**
- * Calcula la posición absoluta de una abertura en el canvas
+ * Calcula la posición de una abertura en el canvas (tanto absoluta como local)
  */
 export function getOpeningPosition(
     wall: Wall,
@@ -14,36 +14,38 @@ export function getOpeningPosition(
     roomGroupRotation: number,
     roomGroupScaleX: number,
     roomGroupScaleY: number
-): { x: number; y: number; angle: number } {
-    // Puntos del muro (relativos al grupo)
-    const x1 = wall.points[0] * roomGroupScaleX;
-    const y1 = wall.points[1] * roomGroupScaleY;
-    const x2 = wall.points[2] * roomGroupScaleX;
-    const y2 = wall.points[3] * roomGroupScaleY;
+): { x: number; y: number; angle: number; localX: number; localY: number; localAngle: number } {
+    // 1. CÁLCULO LOCAL (Relativo al origen del Group, sin escalas ni rotación del grupo)
+    const lx1 = wall.points[0];
+    const ly1 = wall.points[1];
+    const lx2 = wall.points[2];
+    const ly2 = wall.points[3];
 
-    // Interpolación lineal a lo largo del muro
-    const localX = x1 + (x2 - x1) * position;
-    const localY = y1 + (y2 - y1) * position;
+    const localX = lx1 + (lx2 - lx1) * position;
+    const localY = ly1 + (ly2 - ly1) * position;
+    const localAngle = Math.atan2(ly2 - ly1, lx2 - lx1);
 
-    // Ángulo del muro
-    const wallAngle = Math.atan2(y2 - y1, x2 - x1);
+    // 2. CÁLCULO ABSOLUTO (Para compatibilidad o usos fuera del Group)
+    const x1 = lx1 * roomGroupScaleX;
+    const y1 = ly1 * roomGroupScaleY;
+    const x2 = lx2 * roomGroupScaleX;
+    const y2 = ly2 * roomGroupScaleY;
 
-    // Rotar punto según rotación del grupo
+    const localX_scaled = x1 + (x2 - x1) * position;
+    const localY_scaled = y1 + (y2 - y1) * position;
+    const wallAngle_scaled = Math.atan2(y2 - y1, x2 - x1);
+
     const rotRad = (roomGroupRotation * Math.PI) / 180;
-    const rotatedX = localX * Math.cos(rotRad) - localY * Math.sin(rotRad);
-    const rotatedY = localX * Math.sin(rotRad) + localY * Math.cos(rotRad);
-
-    // Posición absoluta en el canvas
-    const absoluteX = roomGroupX + rotatedX;
-    const absoluteY = roomGroupY + rotatedY;
-
-    // Ángulo absoluto (muro + grupo)
-    const absoluteAngle = wallAngle + rotRad;
+    const rotatedX = localX_scaled * Math.cos(rotRad) - localY_scaled * Math.sin(rotRad);
+    const rotatedY = localX_scaled * Math.sin(rotRad) + localY_scaled * Math.cos(rotRad);
 
     return {
-        x: absoluteX,
-        y: absoluteY,
-        angle: absoluteAngle
+        x: roomGroupX + rotatedX,
+        y: roomGroupY + rotatedY,
+        angle: wallAngle_scaled + rotRad,
+        localX,
+        localY,
+        localAngle
     };
 }
 
@@ -100,6 +102,39 @@ export function distanceToWall(
 }
 
 /**
+ * CALCULA LA PROYECCIÓN LOCAL de un punto sobre un muro.
+ * Útil para arrastre suave dentro de un RoomGroup sin importar zoom/rotación.
+ */
+export function getRelativePositionOnWall(
+    wall: Wall,
+    localX: number,
+    localY: number
+): { distance: number; position: number } {
+    const x1 = wall.points[0];
+    const y1 = wall.points[1];
+    const x2 = wall.points[2];
+    const y2 = wall.points[3];
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lengthSquared = dx * dx + dy * dy;
+
+    if (lengthSquared === 0) {
+        return { distance: 0, position: 0 };
+    }
+
+    // Proyección del punto sobre la línea (Local)
+    let t = ((localX - x1) * dx + (localY - y1) * dy) / lengthSquared;
+    t = Math.max(0, Math.min(1, t)); // Clamp entre 0 y 1
+
+    const closestX = x1 + t * dx;
+    const closestY = y1 + t * dy;
+    const distance = Math.sqrt((localX - closestX) ** 2 + (localY - closestY) ** 2);
+
+    return { distance, position: t };
+}
+
+/**
  * Encuentra el muro más cercano al cursor en un RoomGroup
  */
 export function findNearestWall(
@@ -147,27 +182,28 @@ export function findNearestWall(
 }
 
 /**
- * Valida que una posición en el muro sea válida (no muy cerca de esquinas)
+ * Valida que una posición en el muro sea válida.
+ * Permite deslizamiento libre restando solo el medio ancho de la abertura.
  */
 export function validateOpeningPosition(
     position: number,
     openingWidth: number,
     wallLength: number,
     pixelsPerMeter: number,
-    minMargin: number = 0.1 // 10% de margen en cada extremo
+    minMargin: number = 0.0 // Deslizamiento libre total
 ): number {
     // Convertir ancho de abertura a proporción del muro
     const openingWidthPx = openingWidth * pixelsPerMeter;
     const openingProportion = openingWidthPx / wallLength;
 
-    // Margen mínimo en cada extremo
+    // Margen mínimo en cada extremo (0% por defecto ahora)
     const minPos = minMargin;
     const maxPos = 1 - minMargin;
 
-    // Clamp posición
+    // Clamp posición inicial
     let validPosition = Math.max(minPos, Math.min(maxPos, position));
 
-    // Asegurar que la abertura no se salga del muro
+    // ASEGURAR que la abertura no se salga físicamente del muro (rail)
     const halfOpening = openingProportion / 2;
     if (validPosition - halfOpening < 0) {
         validPosition = halfOpening;

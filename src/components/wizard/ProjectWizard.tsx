@@ -29,7 +29,7 @@ export default function ProjectWizard({
 }: ProjectWizardProps) {
 
   // Detectar tipo de proyecto desde sessionStorage
-  const projectType = sessionStorage.getItem('projectType') || 'complete';
+  const projectType = sessionStorage.getItem('projectType') || 'project';
   const isFlashMode = projectType === 'flash';
 
   const [step, setStep] = useState(1);
@@ -38,9 +38,16 @@ export default function ProjectWizard({
 
   // --- INICIALIZACIÓN SIMPLE: Solo desde initialData (Supabase) ---
   const [config, setConfig] = useState<ProjectConfig>(() => {
+    // Estado de obra siempre inicia en 'nueva'
+    // El usuario elige el estado real en Step 1
+    const initialEstadoObra = 'nueva';
+
     const baseConfig: ProjectConfig = initialData?.config || {
       clientName: '', clientPhone: '', destination: 'vivienda', voltage: '220V',
-      projectType: 'nueva', surfaceArea: 0, workType: 'budget_certification',
+      projectType: initialEstadoObra, // Legacy: Siempre 'nueva' por defecto
+      estadoObra: initialEstadoObra,  // V2: Siempre 'nueva' por defecto
+      creationMode: projectType as any, // 🆕 Guardar la selección original (flash o project)
+      surfaceArea: 0, workType: 'budget_certification',
       ownerDetail: { dniCuit: '', street: '', number: '', floor: '', apartment: '', tower: '', city: '', province: 'Córdoba', zipCode: '', catastro: '' },
       certificationScope: 'complete',
       materialPreferences: { brandBreakers: '', brandCables: '', pipeType: '' },
@@ -123,8 +130,20 @@ export default function ProjectWizard({
   });
 
   const calculation = useMemo(() => {
+    // Optimización: No calcular en el paso 1 (Datos Generales) para evitar ejecución prematura
+    if (step === 1) {
+      return {
+        grade: '',
+        totalBocas: 0,
+        totalDPMS: 0,
+        totalKW: 0,
+        panels: {},
+        alerts: [],
+        warnings: []
+      } as any; // Retornar objeto vacío compatible
+    }
     return calculateProjectDemand(config, environments);
-  }, [config, environments]);
+  }, [config, environments, step]);
 
   // Preparar datos del proyecto para auto-guardado
   const projectData = useMemo(() => ({
@@ -266,7 +285,23 @@ export default function ProjectWizard({
           {/* Flujo para instalaciones existentes (Res. 54/2018) */}
           {config.projectType === 'existente' ? (
             <>
-              {step === 2 && <WizardStep2_Ambientes config={config} onChange={setConfig} environments={environments} onUpdateEnvironments={setEnvironments} onBack={handleBack} onNext={handleNext} modoSimplificado={true} />}
+              {step === 2 && (
+                <WizardStep2_Ambientes
+                  config={config}
+                  onChange={setConfig}
+                  environments={environments}
+                  onUpdateEnvironments={setEnvironments}
+                  onBack={handleBack}
+                  onNext={() => {
+                    // 🆕 Generar inventario para existente al salir del paso 2
+                    // Esto evita el crash "circuitInventory is undefined" en Paso 3
+                    const inventory = generateCircuitInventory(environments, config, 'Mínimo'); // Grado no importa para existente
+                    setConfig({ ...config, circuitInventory: inventory });
+                    handleNext();
+                  }}
+                  modoSimplificado={true}
+                />
+              )}
               {step === 3 && <ProjectWizardStep3 config={config} onChange={setConfig} onBack={handleBack} onCalculate={handleNext} />}
               {step === 4 && <WizardStepExistente onBack={handleBack} onNext={handleNext} onSaveData={setExistenteData} initialData={existenteData} environments={environments} config={config} />}
             </>

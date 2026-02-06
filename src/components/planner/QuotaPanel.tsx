@@ -43,7 +43,7 @@ export const QuotaPanel: React.FC<QuotaPanelProps> = ({
 
 // ==================== MODO PLANTA ====================
 
-const FloorPlanQuota: React.FC<{ quota: FloorPlanQuota }> = ({ quota }) => {
+const FloorPlanQuota: React.FC<{ quota: any }> = ({ quota }) => {
     const [expandedEnvs, setExpandedEnvs] = useState<Set<string>>(new Set());
 
     const toggleEnv = (envName: string) => {
@@ -62,25 +62,40 @@ const FloorPlanQuota: React.FC<{ quota: FloorPlanQuota }> = ({ quota }) => {
         <div className="p-4 space-y-4">
             {/* Resumen General */}
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <h4 className="font-semibold text-sm mb-3 text-slate-700">📋 Resumen General</h4>
+                <h4 className="font-semibold text-sm mb-3 text-slate-700 font-black uppercase flex items-center gap-2">
+                    📋 Resumen General
+                    <span className="text-[10px] font-normal text-slate-500 normal-case">(Detalle Rel/Proy)</span>
+                </h4>
                 <div className="space-y-2">
                     <QuotaItem
                         icon="💡"
                         label="Luces"
                         required={quota.totalRequired.lights}
                         placed={quota.totalPlaced.lights}
+                        natureDetail={{
+                            rel: quota.totalPlaced.lightsRel || 0,
+                            proy: quota.totalPlaced.lights - (quota.totalPlaced.lightsRel || 0)
+                        }}
                     />
                     <QuotaItem
                         icon="🔌"
                         label="Tomas"
                         required={quota.totalRequired.outlets}
                         placed={quota.totalPlaced.outlets}
+                        natureDetail={{
+                            rel: quota.totalPlaced.outletsRel || 0,
+                            proy: quota.totalPlaced.outlets - (quota.totalPlaced.outletsRel || 0)
+                        }}
                     />
                     <QuotaItem
                         icon="⚡"
                         label="Especiales"
                         required={quota.totalRequired.special}
                         placed={quota.totalPlaced.special}
+                        natureDetail={{
+                            rel: quota.totalPlaced.specialRel || 0,
+                            proy: quota.totalPlaced.special - (quota.totalPlaced.specialRel || 0)
+                        }}
                     />
                 </div>
             </div>
@@ -88,9 +103,9 @@ const FloorPlanQuota: React.FC<{ quota: FloorPlanQuota }> = ({ quota }) => {
             {/* Detalle por Ambiente */}
             {quota.environments.length > 0 && (
                 <div>
-                    <h4 className="font-semibold text-sm mb-2 text-slate-700">🏠 Detalle por Ambiente</h4>
+                    <h4 className="font-semibold text-sm mb-2 text-slate-700 font-black uppercase">🏠 Detalle por Ambiente</h4>
                     <div className="space-y-2">
-                        {quota.environments.map(env => (
+                        {quota.environments.map((env: any) => (
                             <EnvironmentRow
                                 key={env.name}
                                 environment={env}
@@ -136,7 +151,7 @@ const SingleLineQuota: React.FC<{ quota: SingleLineQuota }> = ({ quota }) => {
             <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
                 <div className="flex items-center gap-2 mb-3">
                     <Zap className="w-4 h-4 text-blue-600" />
-                    <h4 className="font-semibold text-sm text-blue-900">Alimentación</h4>
+                    <h4 className="font-semibold text-sm text-blue-900 font-black uppercase">Alimentación</h4>
                 </div>
                 <div className="space-y-2">
                     <QuotaItem
@@ -164,7 +179,7 @@ const SingleLineQuota: React.FC<{ quota: SingleLineQuota }> = ({ quota }) => {
             <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
                 <div className="flex items-center gap-2 mb-3">
                     <Shield className="w-4 h-4 text-purple-600" />
-                    <h4 className="font-semibold text-sm text-purple-900">Protecciones</h4>
+                    <h4 className="font-semibold text-sm text-purple-900 font-black uppercase">Protecciones</h4>
                 </div>
                 <div className="space-y-2">
                     <QuotaItem
@@ -192,7 +207,7 @@ const SingleLineQuota: React.FC<{ quota: SingleLineQuota }> = ({ quota }) => {
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
                 <div className="flex items-center gap-2 mb-3">
                     <Cable className="w-4 h-4 text-slate-600" />
-                    <h4 className="font-semibold text-sm text-slate-900">Distribución</h4>
+                    <h4 className="font-semibold text-sm text-slate-900 font-black uppercase">Distribución</h4>
                 </div>
                 <div className="space-y-2">
                     <QuotaItem
@@ -242,33 +257,52 @@ interface QuotaItemProps {
     label: string;
     required: number;
     placed: number;
+    natureDetail?: { rel: number; proy: number };
 }
 
-const QuotaItem: React.FC<QuotaItemProps> = ({ icon, label, required, placed }) => {
+const QuotaItem: React.FC<QuotaItemProps> = ({ icon, label, required, placed, natureDetail }) => {
     const isComplete = placed >= required;
     const missing = Math.max(0, required - placed);
 
     return (
-        <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-            <div className="flex items-center gap-2">
-                <span className="text-lg">{icon}</span>
-                <span className="text-sm font-medium text-slate-700">{label}</span>
-            </div>
-            <div className="flex items-center gap-3">
-                <div className="text-sm text-slate-600">
-                    <span className="font-bold text-slate-900">{placed}</span>
-                    <span className="mx-1">/</span>
-                    <span>{required}</span>
+        <div className="flex flex-col py-2 border-b border-slate-100 last:border-0">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className="text-lg">{icon}</span>
+                    <span className="text-sm font-medium text-slate-700">{label}</span>
                 </div>
-                {isComplete ? (
-                    <Check className="w-5 h-5 text-green-600" />
-                ) : (
-                    <div className="flex items-center gap-1 text-orange-600">
-                        <AlertCircle className="w-4 h-4" />
-                        <span className="text-xs font-medium">-{missing}</span>
+                <div className="flex items-center gap-3">
+                    <div className="text-sm text-slate-600">
+                        <span className="font-bold text-slate-900">{placed}</span>
+                        <span className="mx-1">/</span>
+                        <span>{required}</span>
                     </div>
-                )}
+                    {isComplete ? (
+                        <Check className="w-5 h-5 text-green-600" />
+                    ) : (
+                        <div className="flex items-center gap-1 text-orange-600">
+                            <AlertCircle className="w-4 h-4" />
+                            <span className="text-xs font-medium">-{missing}</span>
+                        </div>
+                    )}
+                </div>
             </div>
+
+            {/* Desglose de naturaleza */}
+            {natureDetail && (
+                <div className="flex gap-3 ml-7 mt-0.5">
+                    {natureDetail.rel > 0 && (
+                        <span className="text-[9px] text-slate-500 bg-slate-100 px-1.5 rounded-full border border-slate-200">
+                            🔍 <span className="font-bold">Rel:</span> {natureDetail.rel}
+                        </span>
+                    )}
+                    {natureDetail.proy > 0 && (
+                        <span className="text-[9px] text-blue-600 bg-blue-50 px-1.5 rounded-full border border-blue-100">
+                            🆕 <span className="font-bold">Proy:</span> {natureDetail.proy}
+                        </span>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
@@ -315,32 +349,50 @@ const EnvironmentRow: React.FC<EnvironmentRowProps> = ({
                     {environment.circuits.map(circuit => (
                         <div
                             key={circuit.circuitId}
-                            className="flex items-center justify-between py-2 px-3 bg-white rounded border border-slate-200"
+                            className="flex flex-col py-2 px-3 bg-white rounded border border-slate-200"
                         >
-                            <div className="flex items-center gap-2">
-                                <div
-                                    className="w-3 h-3 rounded-full"
-                                    style={{ backgroundColor: circuit.color }}
-                                />
-                                <span className="text-sm font-medium text-slate-700">
-                                    {circuit.circuitName}
-                                </span>
-                                <span className="text-xs text-slate-500">
-                                    ({getCircuitIcon(circuit.circuitType)})
-                                </span>
+                            <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        className="w-3 h-3 rounded-full"
+                                        style={{ backgroundColor: circuit.color }}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">
+                                        {circuit.circuitName}
+                                    </span>
+                                    <span className="text-xs text-slate-500">
+                                        ({getCircuitIcon(circuit.circuitType)})
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-slate-600">
+                                        <span className="font-bold text-slate-900">{circuit.placed}</span>
+                                        <span className="mx-1">/</span>
+                                        <span>{circuit.required}</span>
+                                    </span>
+                                    {circuit.isComplete ? (
+                                        <Check className="w-4 h-4 text-green-600" />
+                                    ) : (
+                                        <AlertCircle className="w-4 h-4 text-orange-600" />
+                                    )}
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-slate-600">
-                                    <span className="font-bold text-slate-900">{circuit.placed}</span>
-                                    <span className="mx-1">/</span>
-                                    <span>{circuit.required}</span>
-                                </span>
-                                {circuit.isComplete ? (
-                                    <Check className="w-4 h-4 text-green-600" />
-                                ) : (
-                                    <AlertCircle className="w-4 h-4 text-orange-600" />
-                                )}
-                            </div>
+
+                            {/* Desglose de naturaleza por circuito en ambiente */}
+                            {circuit.natureDistinction && (
+                                <div className="flex gap-2 ml-5">
+                                    {circuit.natureDistinction.relevado > 0 && (
+                                        <span className="text-[8px] text-slate-500">
+                                            R: {circuit.natureDistinction.relevado}
+                                        </span>
+                                    )}
+                                    {circuit.natureDistinction.proyectado > 0 && (
+                                        <span className="text-[8px] text-blue-500">
+                                            P: {circuit.natureDistinction.proyectado}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

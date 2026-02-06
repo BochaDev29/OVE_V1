@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback } from 'react';
-import type { SymbolItem, Wall, Pipe, AuxLine } from '../../../types/planner';
+import type { SymbolItem, Wall, Pipe, AuxLine, Layer } from '../../../types/planner';
+import { createDimension } from '../../../types/dimensions';
 import type { Tool } from '../../../components/planner/PlannerToolbar';
+import { getLayerById } from './useCircuitLayers'; // 🆕 Helper para obtener layer
 
 /**
  * Hook para gestionar las herramientas de dibujo del Taller CAD
@@ -13,9 +15,15 @@ interface DrawingToolsConfig {
     tool: Tool;
     currentCircuitColor: string;
     currentPipeType: 'straight' | 'curved';
+    currentPipeDashMode: 'solid' | 'dashed'; // 🆕 Modo de trazo para pipes
     pixelsPerMeter: number;
     stageRef: React.RefObject<any>;
     onCalibrationComplete?: (newPixelsPerMeter: number) => void;
+
+    // 🆕 Circuit-based layers
+    currentLayerId?: string; // ID de la capa activa
+    circuitLayers?: Layer[]; // Todas las capas disponibles
+    estadoObra?: 'nueva' | 'existente' | 'modificacion' | 'provisoria'; // 🆕 Para validaciones
 }
 
 export const useDrawingTools = (
@@ -25,11 +33,46 @@ export const useDrawingTools = (
         addWall: (wall: Wall) => void;
         addPipe: (pipe: Pipe) => void;
         addAuxLine: (auxLine: AuxLine) => void;
+        addDimension: (dimension: any) => void;
         selectShape: (id: string | null) => void;
+        registerPipe?: (pipeId: string, dashMode: 'solid' | 'dashed') => void; // 🆕 Callback para marcar pipes
     }
 ) => {
-    const { tool, currentCircuitColor, currentPipeType, pixelsPerMeter, stageRef, onCalibrationComplete } = config;
-    const { addSymbol, addWall, addPipe, addAuxLine, selectShape } = canvasActions;
+    const { tool, currentCircuitColor, currentPipeType, currentPipeDashMode, pixelsPerMeter, stageRef, onCalibrationComplete, currentLayerId, circuitLayers, estadoObra } = config;
+    const { addSymbol, addWall, addPipe, addAuxLine, addDimension, selectShape, registerPipe } = canvasActions;
+
+    /**
+     * 🆕 Helper: Validar coherencia entre estadoObra y nature
+     */
+    const validateNatureCoherence = useCallback((nature: 'proyectado' | 'relevado' | undefined): boolean => {
+        // En obra nueva, NO se pueden crear elementos relevados
+        if (estadoObra === 'nueva' && nature === 'relevado') {
+            alert('⚠️ Error de Coherencia\n\nNo se pueden crear elementos EXISTENTES (relevados) en un proyecto de Obra Nueva.\n\nCambiá a una capa de circuito proyectado o modificá el estado de obra en el Wizard.');
+            return false;
+        }
+        return true;
+    }, [estadoObra]);
+
+    /**
+     * 🆕 Helper: Obtener datos del circuito de la capa activa
+     * Incluye color de la capa para herencia automática
+     */
+    const getActiveCircuitData = useCallback(() => {
+        if (!currentLayerId || !circuitLayers) return { circuitId: undefined, nature: undefined, color: currentCircuitColor };
+
+        const activeLayer = getLayerById(circuitLayers, currentLayerId);
+        if (!activeLayer) return { circuitId: undefined, nature: undefined, color: currentCircuitColor };
+
+        // Layer arquitectura no tiene circuito, pero sí color
+        if (activeLayer.circuitId === null) return { circuitId: undefined, nature: undefined, color: activeLayer.color };
+
+        // Layer de circuito: devolver circuitId, nature Y color del circuito
+        return {
+            circuitId: activeLayer.circuitId || undefined,
+            nature: activeLayer.circuit?.nature || undefined,
+            color: activeLayer.color // 🆕 Heredar color de la capa
+        };
+    }, [currentLayerId, circuitLayers, currentCircuitColor]);
 
     // Estados temporales de dibujo
     const isDrawing = useRef(false);
@@ -38,6 +81,8 @@ export const useDrawingTools = (
     const [pipeStartPoint, setPipeStartPoint] = useState<{ x: number; y: number } | null>(null);
     const [currentPipePreview, setCurrentPipePreview] = useState<number[] | null>(null);
     const [calibrationLine, setCalibrationLine] = useState<number[] | null>(null);
+    const [dimensionFirstPoint, setDimensionFirstPoint] = useState<{ x: number; y: number } | null>(null);
+    const [dimensionPreview, setDimensionPreview] = useState<number[] | null>(null);
 
     /**
      * Obtiene la posición del puntero transformada según el zoom/pan del stage
@@ -57,7 +102,7 @@ export const useDrawingTools = (
 
         const stage = e.target.getStage();
         const pos = getPointerPosition(stage);
-        const isBackgroundClick = e.target === stage;
+        const isBackgroundClick = e.target === stage || e.target.name() === 'paper-bg';
 
         // Modo selección: solo deseleccionar si click en fondo
         if (tool === 'select') {
@@ -78,6 +123,11 @@ export const useDrawingTools = (
             e.cancelBubble = true;
             const textValue = window.prompt("Ingrese texto:");
             if (textValue) {
+                const { circuitId, nature } = getActiveCircuitData();
+
+                // 🆕 VALIDAR COHERENCIA
+                if (!validateNatureCoherence(nature as any)) return;
+
                 addSymbol({
                     id: `text-${Date.now()}`,
                     type: 'text',
@@ -86,7 +136,9 @@ export const useDrawingTools = (
                     rotation: 0,
                     label: textValue,
                     color: '#000000',
-                    fontSize: 12
+                    fontSize: 12,
+                    circuitId, // 🆕 Heredar circuito
+                    nature, // 🆕 Heredar naturaleza
                 });
             }
             return;
@@ -94,13 +146,20 @@ export const useDrawingTools = (
 
         // Modo tabla: inserción inmediata
         if (tool === 'table') {
+            const { circuitId, nature } = getActiveCircuitData();
+
+            // 🆕 VALIDAR COHERENCIA
+            if (!validateNatureCoherence(nature as any)) return;
+
             addSymbol({
                 id: `table-${Date.now()}`,
                 type: 'table',
                 x: pos.x,
                 y: pos.y,
                 rotation: 0,
-                label: 'Tabla'
+                label: 'Tabla',
+                circuitId, // 🆕 Heredar circuito
+                nature, // 🆕 Heredar naturaleza
             });
             return;
         }
@@ -129,12 +188,26 @@ export const useDrawingTools = (
                 setCurrentPipePreview([pos.x, pos.y, pos.x, pos.y]);
             } else {
                 // Segundo clic: crear cañería
+                const { circuitId, nature, color } = getActiveCircuitData(); // 🆕 Heredar color
+
+                // 🆕 VALIDAR COHERENCIA
+                if (!validateNatureCoherence(nature as any)) {
+                    setPipeStartPoint(null);
+                    setCurrentPipePreview(null);
+                    return;
+                }
+
+                const newPipeId = `pipe-${Date.now()}`;
                 addPipe({
-                    id: `pipe-${Date.now()}`,
+                    id: newPipeId,
                     points: [pipeStartPoint.x, pipeStartPoint.y, pos.x, pos.y],
-                    color: currentCircuitColor,
-                    type: currentPipeType
+                    color, // 🆕 Usar color de la capa
+                    type: currentPipeType,
+                    circuitId, // 🆕 Heredar circuito
+                    nature, // 🆕 Heredar naturaleza
                 });
+                // 🆕 Registrar si se dibujó en modo punteado
+                registerPipe?.(newPipeId, currentPipeDashMode);
                 setPipeStartPoint(null);
                 setCurrentPipePreview(null);
             }
@@ -142,35 +215,82 @@ export const useDrawingTools = (
             return;
         }
 
-        // Cualquier otra herramienta: insertar símbolo genérico
-        if (isBackgroundClick && tool !== 'select') {
+        // Modo cota: sistema de dos clics
+        if (tool === 'dimension') {
+            if (!dimensionFirstPoint) {
+                // PRIMER CLIC: Iniciar punto
+                setDimensionFirstPoint({ x: pos.x, y: pos.y });
+                setDimensionPreview([pos.x, pos.y, pos.x, pos.y]);
+            } else {
+                // SEGUNDO CLIC: Finalizar y crear
+                // 🆕 Limpiar estados PRIMERO para evitar re-entrada por clics rápidos
+                const startP = dimensionFirstPoint;
+                const endP = { x: pos.x, y: pos.y };
+                setDimensionFirstPoint(null);
+                setDimensionPreview(null);
+
+                const newDim = createDimension(
+                    startP,
+                    endP,
+                    pixelsPerMeter,
+                    currentLayerId || 'layer-0'
+                );
+
+                console.log(`📏 Cota finalizada: ${newDim.distanceMeters.toFixed(2)}m (ppm: ${pixelsPerMeter})`);
+                addDimension(newDim);
+            }
+            selectShape(null); // Deseleccionar cualquier cosa previa
+            return;
+        }
+
+        // CUALQUIER OTRA HERRAMIENTA: insertar símbolo genérico del catálogo
+        // 🛡️ EXCLUSIÓN: No crear símbolos para herramientas que tienen su propia lógica (aberturas y cotas)
+        const excludedTools: Tool[] = ['select', 'wall', 'pipe', 'aux_line', 'calibrate', 'text', 'table', 'door', 'window', 'dimension'];
+
+        if (isBackgroundClick && !excludedTools.includes(tool)) {
+            const { circuitId, nature, color } = getActiveCircuitData(); // 🆕 Heredar color
+
+            // 🆕 VALIDAR COHERENCIA
+            if (!validateNatureCoherence(nature as any)) return;
+
             addSymbol({
                 id: `${tool}-${Date.now()}`,
                 type: tool as any, // El tipo será validado por el catálogo
                 x: pos.x,
                 y: pos.y,
                 rotation: 0,
-                label: ''
+                label: '',
+                color, // 🆕 Usar color de la capa
+                circuitId, // 🆕 Heredar circuito
+                nature, // 🆕 Heredar naturaleza
             });
         }
     }, [
         tool,
         currentCircuitColor,
         currentPipeType,
+        currentPipeDashMode, // 🆕 Dependency
         pipeStartPoint,
         getPointerPosition,
         addSymbol,
         addWall,
         addPipe,
         addAuxLine,
-        selectShape
+        addAuxLine,
+        selectShape,
+        registerPipe,
+        getActiveCircuitData,
+        dimensionFirstPoint, // 🆕 Crucial para el segundo clic
+        pixelsPerMeter,      // 🆕 Para escala correcta
+        currentLayerId,      // 🆕 Para persistencia en capa
+        addDimension         // 🆕 Para cerrar la cota
     ]);
 
     /**
      * Maneja el movimiento durante el dibujo (mouseMove/touchMove)
      */
     const handleMouseMove = useCallback((e: any) => {
-        if (!isDrawing.current && !pipeStartPoint) return;
+        if (!isDrawing.current && !pipeStartPoint && !dimensionFirstPoint) return;
 
         const stage = e.target.getStage();
         const pos = getPointerPosition(stage);
@@ -194,12 +314,18 @@ export const useDrawingTools = (
         if (tool === 'pipe' && pipeStartPoint) {
             setCurrentPipePreview([pipeStartPoint.x, pipeStartPoint.y, pos.x, pos.y]);
         }
+
+        // Actualizar preview de cota
+        if (tool === 'dimension' && dimensionFirstPoint) {
+            setDimensionPreview([dimensionFirstPoint.x, dimensionFirstPoint.y, pos.x, pos.y]);
+        }
     }, [
         tool,
         currentWall,
         currentAuxLine,
         calibrationLine,
         pipeStartPoint,
+        dimensionFirstPoint,
         getPointerPosition
     ]);
 
@@ -272,7 +398,7 @@ export const useDrawingTools = (
         }
 
         isDrawing.current = false;
-    }, [tool, currentWall, currentAuxLine, calibrationLine, addWall, addAuxLine]);
+    }, [tool, currentWall, currentAuxLine, calibrationLine, addWall, addAuxLine, pixelsPerMeter, currentLayerId, addDimension, dimensionFirstPoint]);
 
     /**
      * Cancela el dibujo actual (Escape)
@@ -284,6 +410,8 @@ export const useDrawingTools = (
         setPipeStartPoint(null);
         setCurrentPipePreview(null);
         setCalibrationLine(null);
+        setDimensionFirstPoint(null);
+        setDimensionPreview(null);
     }, []);
 
     /**
@@ -291,7 +419,7 @@ export const useDrawingTools = (
      */
     const getCursorStyle = useCallback(() => {
         if (tool === 'select') return 'default';
-        if (['wall', 'pipe', 'aux_line', 'calibrate'].includes(tool)) return 'crosshair';
+        if (['wall', 'pipe', 'aux_line', 'calibrate', 'dimension'].includes(tool)) return 'crosshair';
         return 'copy';
     }, [tool]);
 
@@ -307,6 +435,8 @@ export const useDrawingTools = (
         currentPipePreview,
         calibrationLine,
         pipeStartPoint,
+        dimensionFirstPoint,
+        dimensionPreview,
 
         // Utilidades
         cancelDrawing,

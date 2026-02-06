@@ -49,9 +49,7 @@ export default function ProjectDocumentation() {
             if (data.documentation_data && Object.keys(data.documentation_data).length > 0) {
                 setDocData(data.documentation_data);
             } else {
-                // Inicializacion lazy se hara en cada componente si es necesario, 
-                // pero aqui mantenemos la estructura base.
-                setDocData({ memory: '', materials: [], photos: [], checklist: [] });
+                setDocData({ memory: '', materials: { items: [], notes: '' }, photos: [], checklist: [] });
             }
         } catch (error) {
             console.error('Error loading project:', error);

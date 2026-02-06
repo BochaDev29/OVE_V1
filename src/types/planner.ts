@@ -1,4 +1,5 @@
 // Tipos centralizados para el Taller CAD
+import { CircuitInventoryItemForCAD } from '../lib/electrical-rules';
 
 export type SymbolType =
     // Símbolos de Planta
@@ -14,7 +15,8 @@ export type SymbolType =
 
 export type TradeCategory = 'electrical' | 'gas' | 'plumbing';
 
-export type LayerId = 'architecture' | 'installation' | 'annotations';
+// 🆕 LayerId ahora soporta IDs dinámicos de circuitos además de las capas fijas
+export type LayerId = string; // Puede ser 'layer-0' (arquitectura), 'layer-N' (circuito), etc.
 
 export interface SymbolDefinition {
     id: SymbolType;
@@ -42,12 +44,20 @@ export interface SymbolItem {
     color?: string;
     fontSize?: number;
     layer?: LayerId;
+    nature?: 'relevado' | 'proyectado'; // 🆕 NATURALEZA
+
+    // 🆕 Circuit data (heredado de la capa)
+    circuitId?: string; // ID del circuito (ej: "TP-IUG-1")
 }
 
 export interface Wall {
     id: string;
     points: number[];
     layer?: LayerId;
+    nature?: 'relevado' | 'proyectado'; // 🆕 NATURALEZA
+
+    // 🆕 Circuit data (para elementos arquitectónicos no aplica)
+    circuitId?: string;
 }
 
 export interface Pipe {
@@ -56,6 +66,10 @@ export interface Pipe {
     color: string;
     type: 'straight' | 'curved';
     layer?: LayerId;
+    nature?: 'relevado' | 'proyectado'; // 🆕 NATURALEZA
+
+    // 🆕 Circuit data (heredado de la capa)
+    circuitId?: string; // ID del circuito que representa este caño
 }
 
 export interface AuxLine {
@@ -71,6 +85,10 @@ export interface Layer {
     locked: boolean;
     opacity: number;
     color: string;
+
+    // 🆕 Circuit-based layer data
+    circuitId?: string | null; // null para capa arquitectura, string para capas de circuito
+    circuit?: CircuitInventoryItemForCAD; // Datos completos del circuito (cable, protección, conduit)
 }
 
 export interface ProjectData {

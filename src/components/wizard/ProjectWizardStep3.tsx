@@ -63,6 +63,8 @@ import { PanelInputSection } from './panels/PanelInputSection';
 import { PanelContentSection } from './panels/PanelContentSection';
 import { PanelOutputSection } from './panels/PanelOutputSection';
 import HelpPanel from './HelpPanel';
+import { generateCircuitInventoryForCAD } from '../../lib/planner/helpers/circuitInventoryGenerator';
+
 
 // Tabla de diámetros de cañería según método de instalación
 const CONDUIT_SIZES: Record<string, Array<{ diameter: string; maxSection: number }>> = {
@@ -120,6 +122,11 @@ function getValidBreakerOptions(circuit: CircuitInventoryItem): string[] {
 
     const iz = calculateIz(line, circuit.voltage || '220V');
     const ib = circuit.ib || 0;
+
+    // 🆕 Si es modo relevamiento y no se ha seleccionado cable, devolver todas las opciones básicas
+    if (isNaN(section)) {
+        return allOptions;
+    }
 
     // Filtrar opciones válidas: Ib ≤ In ≤ min(Iz, maxProtection)
     // Si maxProtection es -1, solo usar Iz como límite
@@ -346,7 +353,9 @@ function PanelEditor({
     onDelete,
     canDelete,
     availablePanels,
+    allPanels,
     onUnassignCircuit,
+    onAssignCircuit,
     isCollapsed,
     onToggleCollapse
 }: {
@@ -357,7 +366,9 @@ function PanelEditor({
     onDelete: () => void;
     canDelete: boolean;
     availablePanels: Panel[];
+    allPanels: Panel[];
     onUnassignCircuit: (circuitId: string) => void;
+    onAssignCircuit: (circuitId: string, panelId: string) => void;
     isCollapsed: boolean;
     onToggleCollapse: () => void;
 }) {
@@ -403,8 +414,28 @@ function PanelEditor({
 
         const newLine = { ...baseLine, ...updates };
 
+        // 🆕 Sincronizar sección PAT si cambió la sección de fase
+        let newGrounding = panel.grounding;
+        if (updates.section && panel.grounding?.materials?.cablePAT) {
+            const s = updates.section;
+            const spe = s <= 16 ? s : (s / 2);
+            const speFinal = Math.max(spe, 2.5);
+
+            newGrounding = {
+                ...panel.grounding,
+                materials: {
+                    ...panel.grounding.materials,
+                    cablePAT: {
+                        ...panel.grounding.materials.cablePAT,
+                        section: speFinal
+                    }
+                }
+            };
+        }
+
         onUpdate({
             incomingLine: newLine,
+            grounding: newGrounding,
             // Sincronizar legacy para compatibilidad (mientras se migra todo)
             feederDistance: newLine.length,
             installationType: newLine.method.includes('Enterrado') ? 'Enterrado' : 'Embutido',
@@ -413,6 +444,7 @@ function PanelEditor({
             sectionalLine: panel.type !== 'TP' ? { section: newLine.section, material: newLine.material, method: newLine.method } : undefined
         });
     };
+
 
     return (
         <div
@@ -532,7 +564,7 @@ function PanelEditor({
                         <div className="flex items-center gap-3">
                             <div className="flex flex-col">
                                 <span className="text-[9px] text-slate-500 uppercase font-bold leading-none">Ib</span>
-                                <span className="text-xs font-bold text-slate-700">{(assignedCircuits.length > 0 ? calculatePanelIb(calculatePanelDPMS(assignedCircuits), panel.voltage) : 0).toFixed(1)}A</span>
+                                <span className="text-xs font-bold text-slate-700">{diagnostics.Ib.toFixed(1)}A</span>
                             </div>
                             <div className="w-px h-6 bg-slate-200"></div>
                             <div className="flex flex-col">
@@ -575,6 +607,7 @@ function PanelEditor({
                         updateLine={updateLine}
                         isExpanded={expandedSections.entrada}
                         onToggle={() => toggleSection('entrada')}
+                        config={config}
                     />
 
                     {/* SECCIÓN 2: CONTENIDO (Diagnóstico + Protecciones) */}
@@ -593,6 +626,8 @@ function PanelEditor({
                         panel={panel}
                         assignedCircuits={assignedCircuits}
                         onUnassignCircuit={onUnassignCircuit}
+                        onAssignCircuit={onAssignCircuit}
+                        allPanels={allPanels}
                         isExpanded={expandedSections.salida}
                         onToggle={() => toggleSection('salida')}
                     />
@@ -672,6 +707,26 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
         }));
     };
 
+    // 🆕 NUEVO: Auto-generar circuitInventoryForCAD cuando cambian los circuitos asignados
+    useEffect(() => {
+        if (!config.circuitInventory?.circuits) return;
+
+        // Generar inventario extendido para CAD
+        const cadInventory = generateCircuitInventoryForCAD(config);
+
+        // Solo actualizar si cambió (evitar loops infinitos)
+        const currentInventory = config.circuitInventoryForCAD || [];
+        const hasChanged = JSON.stringify(cadInventory) !== JSON.stringify(currentInventory);
+
+        if (hasChanged) {
+            console.log('🎨 [CAD] Inventario actualizado:', cadInventory.length, 'circuitos');
+            onChange({
+                ...config,
+                circuitInventoryForCAD: cadInventory
+            });
+        }
+    }, [config.circuitInventory?.assignedCircuits, config.panels]);
+
     // Helper: Asignar circuito a tablero
     const assignCircuitToPanel = (circuitId: string, panelId: string) => {
         if (!config.circuitInventory) return;
@@ -707,7 +762,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
     };
 
     // 🆕 Helper: Actualizar configuración de línea terminal de un circuito
-    const updateCircuitTerminalLine = (circuitId: string, field: 'method' | 'averageLength' | 'conduitDiameter' | 'breaker' | 'breakerCurvePoles' | 'breakingCapacity' | 'notes', value: any) => {
+    const updateCircuitTerminalLine = (circuitId: string, field: 'method' | 'averageLength' | 'conduitDiameter' | 'breaker' | 'breakerCurvePoles' | 'breakingCapacity' | 'notes' | 'cable', value: any) => {
         if (!config.circuitInventory) return;
 
         const updatedCircuits = config.circuitInventory.circuits.map(c => {
@@ -718,8 +773,19 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
 
                 const newTerminalLine = {
                     ...(c.terminalLine || { method: 'B1', averageLength: 10, material: 'Cu' }),
-                    [field]: value
+                    [field]: field === 'cable' ? 'B1' : value // Use current method if field is cable to avoid breakage
                 };
+
+                // 🆕 Manejar relevamiento de cable
+                if (field === 'cable') {
+                    return {
+                        ...c,
+                        cable: value,
+                        terminalLine: {
+                            ...(c.terminalLine || { method: 'B1', averageLength: 10, material: 'Cu' })
+                        }
+                    };
+                }
 
                 // 🆕 RECALCULAR cable y protección si cambió el método de instalación
                 if (field === 'method') {
@@ -1017,9 +1083,15 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
     // Para instalaciones existentes: también requiere PIA e ID
     const tpPanel = (config.panels || []).find(p => p.type === 'TP');
     const hasOrphans = hasOrphanCircuits(config.circuitInventory);
+
+    // 🆕 Validar protecciones para modo existente usando el sistema unificado
+    const tpHeaders = tpPanel?.protections?.headers || [];
+    const hasPIA = tpHeaders.some(h => h.type === 'PIA');
+    const hasID = tpHeaders.some(h => h.type === 'ID');
+
     const isValid = tpPanel && !hasOrphans && (
         config.projectType !== 'existente' ||
-        (tpPanel.existingPIA?.amperes > 0 && tpPanel.existingID?.amperes > 0)
+        (hasPIA && hasID)
     );
 
     return (
@@ -1203,7 +1275,25 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
                                         <div className="grid grid-cols-3 gap-2 text-xs text-slate-600 mb-3">
                                             <div><span className="font-bold">{circuit.bocas}</span> bocas</div>
                                             <div><span className="font-bold">{circuit.power}</span> VA</div>
-                                            <div><span className="font-bold">{circuit.cable}</span></div>
+                                            <div>
+                                                {config.projectType === 'existente' ? (
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[9px] text-blue-600 font-bold uppercase">Cable Relevado</span>
+                                                        <select
+                                                            value={circuit.cable}
+                                                            onChange={(e) => updateCircuitTerminalLine(circuit.id, 'cable', e.target.value)}
+                                                            className="text-[10px] border border-blue-200 rounded px-1 py-0.5 bg-blue-50 focus:ring-1 focus:ring-blue-400 font-bold"
+                                                        >
+                                                            <option value="Relevar mm²">Sección...</option>
+                                                            {['1.5mm²', '2.5mm²', '4mm²', '6mm²', '10mm²'].map(s => (
+                                                                <option key={s} value={s}>{s}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                ) : (
+                                                    <span className="font-bold">{circuit.cable}</span>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {/* 🆕 CONFIGURACIÓN DE LÍNEA TERMINAL */}
@@ -1569,7 +1659,9 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
                         onDelete={() => removePanel(panel.id)}
                         canDelete={panel.type !== 'TP'}
                         availablePanels={config.panels.filter(p => p.id !== panel.id)}
+                        allPanels={config.panels}
                         onUnassignCircuit={unassignCircuit}
+                        onAssignCircuit={assignCircuitToPanel}
                         isCollapsed={!!collapsedPanels[panel.id]}
                         onToggleCollapse={() => togglePanelCollapse(panel.id)}
                     />

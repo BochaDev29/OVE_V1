@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { SymbolItem, Wall, Pipe, AuxLine } from '../../../types/planner';
 import type { Floor, Layer } from '../../../types/floors';
-import { createFloor, DEFAULT_LAYERS, PAPER_FORMATS } from '../../../types/floors';
+import { createFloor, PAPER_FORMATS } from '../../../types/floors';
 
 /**
  * Hook para gestionar el estado del canvas del Taller CAD
@@ -33,8 +33,8 @@ export const useCanvasState = () => {
 
     // ========== GESTIÓN DE PLANTAS ==========
 
-    const addFloor = useCallback((name: string, formatKey: string = 'A4-landscape') => {
-        const newFloor = createFloor(name, formatKey);
+    const addFloor = useCallback((name: string, formatKey: string = 'A4-landscape', initialLayers?: Layer[]) => {
+        const newFloor = createFloor(name, formatKey, initialLayers);
         setFloors(prev => [...prev, newFloor]);
         setCurrentFloorId(newFloor.id);
         return newFloor.id;
@@ -164,6 +164,14 @@ export const useCanvasState = () => {
         ));
     }, [currentFloorId, currentLayerId, getCurrentLayer]);
 
+    const addDimension = useCallback((dimension: any) => {
+        setFloors(prev => prev.map(f =>
+            f.id === currentFloorId
+                ? { ...f, elements: { ...f.elements, dimensions: [...(f.elements.dimensions || []), dimension] } }
+                : f
+        ));
+    }, [currentFloorId]);
+
     const addAuxLine = useCallback((auxLine: AuxLine) => {
         const layer = getCurrentLayer();
         if (layer?.locked) {
@@ -217,6 +225,14 @@ export const useCanvasState = () => {
         ));
     }, [currentFloorId]);
 
+    const setDimensions = useCallback((updater: any) => {
+        setFloors(prev => prev.map(f =>
+            f.id === currentFloorId
+                ? { ...f, elements: { ...f.elements, dimensions: typeof updater === 'function' ? updater(f.elements.dimensions || []) : updater } }
+                : f
+        ));
+    }, [currentFloorId]);
+
     const setRoomGroups = useCallback((updater: any) => {
         setFloors(prev => {
             // Encontrar la planta actual en el momento de la actualización
@@ -246,6 +262,7 @@ export const useCanvasState = () => {
     const walls = useMemo(() => currentFloor?.elements.walls || [], [currentFloor]);
     const pipes = useMemo(() => currentFloor?.elements.pipes || [], [currentFloor]);
     const auxLines = useMemo(() => currentFloor?.elements.auxLines || [], [currentFloor]);
+    const dimensions = useMemo(() => currentFloor?.elements.dimensions || [], [currentFloor]);
     const roomGroups = useMemo(() => currentFloor?.elements.roomGroups || [], [currentFloor]);
 
     return {
@@ -276,6 +293,7 @@ export const useCanvasState = () => {
         walls,
         pipes,
         auxLines,
+        dimensions,
         roomGroups,
         pixelsPerMeter,
         selectedId,
@@ -285,6 +303,7 @@ export const useCanvasState = () => {
         setWalls,
         setPipes,
         setAuxLines,
+        setDimensions,
         setRoomGroups,
         setPixelsPerMeter,
         selectShape,
@@ -293,6 +312,14 @@ export const useCanvasState = () => {
         addSymbol,
         addWall,
         addPipe,
-        addAuxLine
+        addAuxLine,
+        addDimension,
+
+        // Setters globales [NUEVO]
+        setFloors,
+        getState: () => ({
+            floors,
+            pixelsPerMeter
+        })
     };
 };

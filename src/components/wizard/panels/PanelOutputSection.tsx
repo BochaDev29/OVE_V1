@@ -5,6 +5,8 @@ interface PanelOutputSectionProps {
     panel: Panel;
     assignedCircuits: CircuitInventoryItem[];
     onUnassignCircuit: (circuitId: string) => void;
+    onAssignCircuit: (circuitId: string, panelId: string) => void;
+    allPanels: Panel[];
     isExpanded: boolean;
     onToggle: () => void;
 }
@@ -13,6 +15,8 @@ export function PanelOutputSection({
     panel,
     assignedCircuits,
     onUnassignCircuit,
+    onAssignCircuit,
+    allPanels,
     isExpanded,
     onToggle
 }: PanelOutputSectionProps) {
@@ -94,6 +98,19 @@ export function PanelOutputSection({
                                                     >
                                                         ✕
                                                     </button>
+
+                                                    {/* Selector para mover de tablero */}
+                                                    <select
+                                                        value={panel.id}
+                                                        onChange={(e) => onAssignCircuit(c.id, e.target.value)}
+                                                        className="ml-1 text-[9px] bg-slate-50 border-none p-0 focus:ring-0 cursor-pointer text-slate-400 hover:text-blue-600 font-bold"
+                                                        title="Mover a otro tablero"
+                                                    >
+                                                        <option value={panel.id}>Mover...</option>
+                                                        {allPanels.filter(p => p.id !== panel.id).map(p => (
+                                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                             ))}
                                         </div>
@@ -153,6 +170,19 @@ export function PanelOutputSection({
                                                             >
                                                                 ✕
                                                             </button>
+
+                                                            {/* Selector para mover de tablero */}
+                                                            <select
+                                                                value={panel.id}
+                                                                onChange={(e) => onAssignCircuit(c.id, e.target.value)}
+                                                                className="ml-1 text-[9px] bg-slate-50 border-none p-0 focus:ring-0 cursor-pointer text-slate-400 hover:text-blue-600 font-bold"
+                                                                title="Mover a otro tablero"
+                                                            >
+                                                                <option value={panel.id}>Mover...</option>
+                                                                {allPanels.filter(p => p.id !== panel.id).map(p => (
+                                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                                ))}
+                                                            </select>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -188,6 +218,19 @@ export function PanelOutputSection({
                                                     >
                                                         ✕
                                                     </button>
+
+                                                    {/* Selector para mover de tablero */}
+                                                    <select
+                                                        value={panel.id}
+                                                        onChange={(e) => onAssignCircuit(c.id, e.target.value)}
+                                                        className="ml-1 text-[9px] bg-slate-50 border-none p-0 focus:ring-0 cursor-pointer text-slate-400 hover:text-blue-600 font-bold"
+                                                        title="Mover a otro tablero"
+                                                    >
+                                                        <option value={panel.id}>Mover...</option>
+                                                        {allPanels.filter(p => p.id !== panel.id).map(p => (
+                                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                             ))}
                                         </div>

@@ -6,6 +6,8 @@ import csvLoader, { CSVData } from './csv-loader';
 
 // === DEFINICIÓN DE TIPOS Y ESTRUCTURAS ===
 
+export type ComponentNature = 'relevado' | 'proyectado';
+
 export interface LineLink {
   method: string;            // Código IRAM (B1, B2, D1, etc.)
   length: number;            // Longitud real en metros
@@ -20,6 +22,7 @@ export interface LineLink {
   sourceProtectionId?: string;    // 🆕 ID de la protección del tablero padre que alimenta esta línea
   iz?: number;               // Corriente admisible determinada por tablas
   vdrop?: number;            // Caída de tensión en este tramo (%)
+  nature?: ComponentNature;  // 🆕 Naturaleza: relevado o proyectado
 }
 
 // === Protección de Cabecera ===
@@ -36,6 +39,7 @@ export interface ProtectionHeader {
 
   // 🆕 NUEVO: Jerarquía de protecciones
   parentProtectionId?: string;         // ID de la protección que alimenta a esta (ej: ID alimentado por PIA)
+  nature?: ComponentNature;            // 🆕 Naturaleza: relevado o proyectado
 }
 
 export interface PanelPhysicalData {
@@ -55,6 +59,7 @@ export interface Panel {
   feederDistance: number;    // Legacy, se reemplazará por incomingLine.length
   installationType: 'Embutido' | 'Exterior' | 'Cielorraso' | 'Enterrado';
   results?: PanelCalculationResult;
+  nature?: ComponentNature;  // 🆕 Naturaleza: relevado o proyectado
 
   // === ÁRBOL DE DISTRIBUCIÓN (NUEVO V3) ===
   physicalData?: PanelPhysicalData;
@@ -76,9 +81,16 @@ export interface Panel {
     method: string;
   };
 
-  // === NUEVO V3: Protecciones del Tablero ===
   protections?: {
-    headers: ProtectionHeader[];         // Array de protecciones de cabecera
+    headers: ProtectionHeader[];         // Array de protecciones de cabecera (V3)
+
+    // Legacy support (V2)
+    hasPIA?: boolean;
+    piaRating?: number;
+    piaPoles?: '2P' | '4P';
+    hasID?: boolean;
+    idPoles?: '2P' | '4P';
+    mainHeaderType?: 'PIA' | 'ID';
   };
 
   // === NUEVO V3: Sistema de Puesta a Tierra ===
@@ -109,7 +121,6 @@ export interface Panel {
     };
   };
 
-  // === NUEVO V3: Gabinete ===
   enclosure?: {
     mountingType: 'embutido' | 'sobrepuesto';  // Tipo de montaje
     ipRating: 'IP20' | 'IP40' | 'IP41' | 'IP44' | 'IP54' | 'IP55' | 'IP65';  // Grado de protección
@@ -132,6 +143,9 @@ export interface Panel {
     amperes: number;
     sensitivity: '30mA' | '300mA';
   };
+
+  // 🆕 Soporte para validaciones de circuitos en Step 3
+  circuits?: CircuitSummary[];
 }
 
 export type CEspSubtype = 'ACU' | 'MBTF' | 'APM' | 'ATE' | 'MBTS' | 'ITE' | 'OCE' | 'AVP';
@@ -146,6 +160,7 @@ export interface SpecialLoad {
   tension?: '220V' | '380V';
   // 🆕 Soporte Trifásico
   isThreePhase?: boolean;  // true = circuito trifásico (4 hilos R-S-T-N)
+  nature?: ComponentNature; // 🆕 Naturaleza: relevado o proyectado
 }
 
 export interface EnvironmentCalculation {
@@ -163,7 +178,13 @@ export interface EnvironmentCalculation {
   specialOutlets?: number;
   customName?: string;
 
-  // Campos para instalaciones EXISTENTES (Res. 54/2018)
+  // Campos para instalaciones RELEVADAS (Auditoría)
+  bocasLuzRelevado?: number;    // Bocas de luz RELEVADAS (ya existentes)
+  bocasLuzProyectado?: number;  // Bocas de luz PROYECTADAS (nuevas)
+  bocasTomasRelevado?: number;  // Bocas de tomas RELEVADAS
+  bocasTomasProyectado?: number; // Bocas de tomas PROYECTADAS
+
+  // Legacy (para retrocompatibilidad)
   bocasLuz?: number;        // Bocas de luz (25 VA c/u)
   bocasTomas?: number;      // Bocas de tomas (240 VA c/u)
   cargasEspeciales?: number; // Cargas especiales en VA
@@ -176,6 +197,7 @@ export interface EnvironmentCalculation {
   hasPAT?: boolean;              // ¿Tiene puesta a tierra?
   hasPE?: boolean;               // ¿Tiene cable de protección (Verde-Amarillo)?
   tipoSuperficie?: 'cubierta' | 'semicubierta'; // Para cálculo de SLA
+  specialLightsIUE?: number;     // 🆕 Bocas de iluminación especial (IUE)
 }
 
 // --- DATOS CSV: PMU Habitacional (AEA 770) ---
@@ -201,6 +223,7 @@ export interface ProjectConfig {
   // === NUEVOS CAMPOS V2 (Jerarquía de 2 Niveles) ===
   regimenUso?: 'habitacional' | 'comercial' | 'industrial';
   estadoObra?: 'nueva' | 'existente' | 'modificacion' | 'provisoria';
+  creationMode?: 'flash' | 'complete' | 'regulated'; // 🆕 Source of truth for Dashboard
   aclaracionInmueble?: string; // Para todos los regímenes (Ej: "Cabaña", "Carnicería", "Taller mecánico")
 
   // === CAMPOS LEGACY (Mantener para compatibilidad hacia atrás) ===
@@ -234,6 +257,7 @@ export interface ProjectConfig {
     seccion?: number;          // mm² (para instalaciones existentes)
     material?: 'Cu' | 'Al';
     observaciones?: string;
+    nature?: ComponentNature;  // 🆕 Naturaleza: relevado o proyectado
   };
 
   pilar?: {
@@ -243,6 +267,7 @@ export interface ProjectConfig {
     distanciaAEdificio?: number; // metros
     tienePAT?: boolean;
     observaciones?: string;
+    nature?: ComponentNature;  // 🆕 Naturaleza: relevado o proyectado
   };
 
   // === NUEVO CAMPO: Medidor (M) ===
@@ -283,6 +308,9 @@ export interface ProjectConfig {
 
   // Campo V3: Inventario de Circuitos (generado en Step 2, usado en Step 3)
   circuitInventory?: CircuitInventory;
+
+  // Campo V4: Inventario extendido para Taller CAD (generado en Step 3)
+  circuitInventoryForCAD?: CircuitInventoryItemForCAD[];
 }
 
 export interface CircuitSummary {
@@ -303,6 +331,13 @@ export interface CircuitSummary {
 
   // Warnings normativos
   warnings?: string[];  // Alertas críticas (ej: excede 3% en iluminación)
+
+  // 🆕 Soporte para líneas terminales
+  terminalLine?: {
+    section: number;
+    material: 'Cu' | 'Al';
+    method: string;
+  };
 }
 
 export interface PanelCalculationResult {
@@ -342,28 +377,30 @@ export interface CircuitInventoryItem {
   cable: string;                 // Sección calculada (Ej: "2.5mm²")
   breaker: string;               // Protección calculada (Ej: "2x16A")
   environments: string[];        // IDs de ambientes que incluye
-  assignedPanelId?: string;      // ID del tablero asignado (null = huérfano)
+  panelId?: string;              // 🆕 Compatibilidad con CircuitSummary
+  assignedPanelId?: string;
   isAssigned: boolean;           // true si está asignado a un tablero
   voltage?: '220V' | '380V';     // Tensión del circuito (para especiales)
   notes?: string;                // Observaciones de instalación (NUEVO)
 
   // 🆕 Soporte Trifásico (V1)
   isThreePhase?: boolean;        // true = circuito trifásico (4 hilos R-S-T-N), false/undefined = monofásico
-  assignedPhase?: 'R' | 'S' | 'T' | 'RST';  // Fase asignada para balanceo:
-  // 'R', 'S', 'T' = monofásico en esa fase
-  // 'RST' = trifásico (usa las 3 fases)
-  // undefined = aún no asignado
+  assignedPhase?: 'R' | 'S' | 'T' | 'RST';  // Fase asignada para balanceo
   assignedHeaderId?: string;  // 🆕 ID de la protección de cabecera asignada
+  conduitDiameter?: string;    // Diámetro de cañería (Ej: "19mm")
 
-  // 🆕 NUEVO: Configuración de línea terminal (Tablero → Boca)
+  nature?: ComponentNature;
+  bocasLuz?: number;
+  bocasTomas?: number;
+  warnings?: string[];
+
+  // 🆕 Soporte para líneas terminales
   terminalLine?: {
-    method: string;              // Método de instalación (B1, B2, etc.)
-    averageLength: number;       // Longitud promedio del circuito terminal (m)
-    material: 'Cu';              // Material del conductor (solo Cobre en instalaciones no fabriles)
-    groupingCount?: number;      // Cantidad de circuitos agrupados (si aplica)
-    breakerCurvePoles?: string;  // Curva y polos (Ej: "C/2 polos")
-    breakingCapacity?: string;   // Poder de corte (Ej: "6kA")
-    conduitDiameter?: string;    // Diámetro de cañería (Ej: "19mm")
+    section: number;
+    material: 'Cu' | 'Al';
+    method: string;
+    conduitDiameter?: string;
+    averageLength?: number;
   };
 }
 
@@ -378,6 +415,55 @@ export interface CircuitInventory {
   orphanCircuits: number;
 }
 
+/**
+ * Versión extendida de CircuitInventoryItem para el Taller CAD
+ * Incluye todos los atributos necesarios para generar capas automáticas
+ * y heredar propiedades eléctricas al dibujar
+ */
+export interface CircuitInventoryItemForCAD {
+  // Identificación
+  id: string;                 // "{panelId}-{designation}" Ej: "TP-IUG-1"
+  panelId: string;
+  panelName: string;
+  designation: string;        // "IUG-1", "TUG-2", "ACU-1"
+  type: string;               // "IUG", "TUG", "ACU", etc.
+  description?: string;
+
+  // Naturaleza (REL/PROY)
+  nature: ComponentNature;    // 'proyectado' | 'relevado'
+
+  // Cable
+  cable: {
+    section: number;          // Sección en mm²
+    type: string;             // 'TW', 'THW', 'IRAM NM-247-3'
+    conductors: number;       // Cantidad de conductores (2, 3, 4)
+    material: 'Cu' | 'Al';    // Material
+  };
+
+  // Protección
+  protection: {
+    rating: number;           // Amperaje (10, 16, 20, 25, 32, 40, 63)
+    type: string;             // '1P', '2P', '4P'
+    curve: string;            // 'B', 'C', 'D'
+    breakingCapacity?: string; // '3kA', '4.5kA', '6kA', '10kA'
+  };
+
+  // Conduit (Cañería)
+  conduit: {
+    size: string;             // Diámetro: "Ø 19mm", "Ø 25mm"
+    method: string;           // Método IRAM: "B1", "B2", "D1", etc.
+    type: string;             // 'PVC', 'Metal'
+    material?: 'PVC' | 'Metal';
+  };
+
+  // Panel padre
+  panel: {
+    id: string;
+    name: string;
+    type: 'TP' | 'TSG' | 'TS';
+    voltage: '220V' | '380V';
+  };
+}
 // === VALIDACIONES CONDICIONALES ===
 
 /**
@@ -1419,6 +1505,124 @@ export interface PanelDiagnostics {
   // 🆕 Datos de Carga
   Ib: number;         // Corriente de proyecto total (A)
   totalDPMS: number;  // Demanda de potencia máxima simultánea total (VA)
+  selectivity?: SelectivityResult; // 🆕 Resultado de selectividad (NUEVO)
+}
+
+// === VALIDACIÓN DE SELECTIVIDAD (NUEVO) ===
+
+export interface SelectivityResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+/**
+ * Obtiene el amperaje de la térmica (PIA) principal de un tablero
+ * Ignora los diferenciales (ID) para efectos de selectividad pura
+ */
+function getMainPIARating(panel: Panel): number | undefined {
+  if (!panel.protections?.headers) {
+    // Fallback legacy
+    if (panel.protections?.mainHeaderType === 'PIA' && panel.protections?.piaRating) {
+      return panel.protections.piaRating;
+    }
+    return undefined;
+  }
+
+  // Buscar PIA en headers
+  const headers = panel.protections.headers || [];
+
+  // 1. Preferir una PIA de cabecera (sin padre)
+  const rootPias = headers.filter(h => h.type === 'PIA' && !h.parentProtectionId);
+  if (rootPias.length > 0) return rootPias[0].rating;
+
+  // 2. Si no hay, tomar cualquier PIA (la primera)
+  const anyPias = headers.filter(h => h.type === 'PIA');
+  if (anyPias.length > 0) return anyPias[0].rating;
+
+  return undefined;
+}
+
+/**
+ * Valida la selectividad de protecciones (Padre >= Hijo)
+ * y la capacidad de los IDs (ID >= Térmica)
+ */
+export function validateSelectivity(
+  panel: Panel,
+  childPanels: Panel[],
+  assignedCircuits: CircuitInventoryItem[],
+  allCircuits: CircuitInventoryItem[] = [],
+  parentPanel?: Panel // 🆕 Tablero padre para validar ID vs PIA aguas arriba
+): SelectivityResult {
+  const result: SelectivityResult = { isValid: true, errors: [], warnings: [] };
+  const localMainPia = getMainPIARating(panel);
+
+  // Determinar la PIA que protege a este tablero (Local o del Padre)
+  let protectingPia = localMainPia; // Por defecto la local
+  if (!protectingPia && parentPanel) {
+    protectingPia = getMainPIARating(parentPanel); // Si no hay local, buscar en el padre
+  }
+
+  // 1. Verificar Circuitos PROPIOS (PIA Panel vs PIA Circuito)
+  if (localMainPia) {
+    for (const circuit of assignedCircuits) {
+      const circuitBreakerMatch = circuit.breaker?.match(/(\d+)A/);
+      if (circuitBreakerMatch) {
+        const circuitIn = parseInt(circuitBreakerMatch[1]);
+        if (circuitIn > localMainPia) {
+          result.isValid = false;
+          result.errors.push(`Falla de Selectividad: Térmica General (${localMainPia}A) es MENOR que la del circuito ${circuit.type} (${circuitIn}A).`);
+        }
+      }
+    }
+  }
+
+  // 2. Verificar Tableros Hijos Recursivamente
+  // (Usamos localMainPia porque la selectividad hacia abajo la impone este tablero)
+  if (childPanels && localMainPia) {
+    for (const child of childPanels) {
+      const childMainPia = getMainPIARating(child);
+
+      if (childMainPia) {
+        // Caso A: El hijo tiene PIA. Validamos PIA vs PIA.
+        if (childMainPia > localMainPia) {
+          result.isValid = false;
+          result.errors.push(`Falla de Selectividad: Térmica General (${localMainPia}A) es MENOR que la del tablero hijo ${child.name} (${childMainPia}A).`);
+        }
+      } else {
+        // Caso B: El hijo NO tiene PIA (solo ID o nada).
+        // Debemos validar contra los circuitos DE ESE HIJO (Saltamos un nivel)
+        // Buscamos circuitos asignados al hijo
+        const childCircuits = allCircuits.filter(c => c.assignedPanelId === child.id);
+
+        for (const circuit of childCircuits) {
+          const circuitBreakerMatch = circuit.breaker?.match(/(\d+)A/);
+          if (circuitBreakerMatch) {
+            const circuitIn = parseInt(circuitBreakerMatch[1]);
+            if (circuitIn > localMainPia) {
+              result.isValid = false;
+              result.errors.push(`Falla de Selectividad: Térmica General (${localMainPia}A) es MENOR que circuito ${circuit.type} (${circuitIn}A) del tablero hijo ${child.name}.`);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Verificar Capacidad de IDs (ID >= PIA Aguas Arriba)
+  // Usamos protectingPia (que puede ser del padre si este tablero no tiene PIA)
+  const ids = panel.protections?.headers?.filter(h => h.type === 'ID') || [];
+  if (ids.length > 0 && protectingPia) {
+    for (const id of ids) {
+      if (id.rating < protectingPia) {
+        // Advertencia de capacidad (riesgo de quemarse)
+        const origin = localMainPia ? 'térmica general' : `térmica del padre (${parentPanel?.name})`;
+        result.warnings.push(`Capacidad ID: El diferencial ${id.rating}A es menor que la ${origin} ${protectingPia}A (Riesgo de daño).`);
+      }
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -1556,16 +1760,21 @@ export function getDiagnostics(
   // 3. Calcular corriente de proyecto (Ib) del panel
   const circuits = assignedCircuits || [];
   // 🔧 FIX Bug #9: Usar totalDPMS (recursivo) para calcular Ib, no solo la carga local
-  const ib = totalDPMS > 0 ? calculatePanelIb(totalDPMS, panel.voltage) : 0;
+  // 🔧 FIX: Asegurar que Ib use la misma tensión que la protección detectada (voltageForIz)
+  const ib = totalDPMS > 0 ? calculatePanelIb(totalDPMS, voltageForIz) : 0;
 
   // 4. Obtener protección nominal (In)
   let in_ = 0;
-  if (config.projectType === 'existente' && panel.existingPIA) {
+  const mainPIARating = getMainPIARating(panel);
+
+  if (mainPIARating !== undefined) {
+    in_ = mainPIARating;
+  } else if (config.projectType === 'existente' && panel.existingPIA) {
     in_ = panel.existingPIA.amperes;
   } else if (panel.protections?.hasPIA && panel.protections.piaRating) {
     in_ = panel.protections.piaRating;
   } else {
-    // Estimar protección según Ib (para preview)
+    // Estimar protección según Ib (solo para proyectos nuevos o preview)
     const stdRatings = [10, 16, 20, 25, 32, 40, 63];
     in_ = stdRatings.find(r => r >= ib) || 63;
   }
@@ -1622,6 +1831,22 @@ export function getDiagnostics(
     overallStatus = 'warning';
   }
 
+  // 🆕 10. Validar Selectividad Cruzada
+  // Necesitamos child panels
+  const childPanels = (Array.isArray(allPanels))
+    ? allPanels.filter(p => p.parentId === panel.id)
+    : [];
+
+  const parentPanel = (Array.isArray(allPanels)) ? allPanels.find(p => p.id === panel.parentId) : undefined;
+
+  const selectivity = validateSelectivity(panel, childPanels, circuits, allCircuits, parentPanel);
+
+  if (!selectivity.isValid) {
+    overallStatus = 'error'; // Bloqueante
+  } else if (selectivity.warnings.length > 0 && overallStatus !== 'error') {
+    overallStatus = 'warning';
+  }
+
   return {
     lineData: {
       method: line.method,
@@ -1641,7 +1866,8 @@ export function getDiagnostics(
     modules,
     overallStatus,
     Ib: ib,       // 🆕 Corriente de proyecto total
-    totalDPMS: totalDPMS // 🆕 Demanda de potencia total
+    totalDPMS: totalDPMS, // 🆕 Demanda de potencia total
+    selectivity // 🆕 Resultado de selectividad
   };
 }
 
@@ -2323,7 +2549,14 @@ function addVoltageDropToCircuit(
 export function circuitAppliesFS(circuitType: string): boolean {
   const spec = getCircuitTypeSpec(circuitType);
   if (!spec) return false;
-  return spec.aplica_fs === 'Sí' || spec.aplica_fs === 'SI';
+
+  // Prioridad: Columna explícita 'aplica_fs'
+  if (spec.aplica_fs === 'Sí' || spec.aplica_fs === 'SI') return true;
+  if (spec.aplica_fs === 'No' || spec.aplica_fs === 'NO') return false;
+
+  // Fallback: Inferir por tipo de circuito (AEA standard)
+  // Uso General y Especial aplican FS. Uso Específico (ACU, etc) va al 100%
+  return spec.tipo_circuito === 'uso_general' || spec.tipo_circuito === 'uso_especial';
 }
 
 /**
@@ -2357,108 +2590,119 @@ function calculateSimultaneityFactor(circuits: CircuitSummary[]): number {
   return 0.6; // 6 o más
 }
 
-function calculatePanelCircuits(
+export function calculatePanelCircuits(
   panel: Panel,
   envs: EnvironmentCalculation[],
   config: ProjectConfig,
   grade: string,
   engine: string,
-  vDropAccumPanel: number = 0  // Caída de tensión acumulada desde M hasta este tablero
-) {
+  vDropAccumPanel: number = 0
+): {
+  circuits: CircuitSummary[],
+  aritmeticPower: number,
+  generalPower: number,
+  specificPower: number,
+  fs: number,
+  dpms: number,
+  cargaTotalKW: number,
+  maxBreakerValue: number
+} {
   const circuits: CircuitSummary[] = [];
   let maxBreakerValue = 0;
+  let fs = 1.0;
 
   if (engine === 'RES54_EXISTENTE') {
-    // MOTOR RES. 54: Carga Manual Pura - Usar especificaciones CSV
-    const iugSpec = getCircuitTypeSpec('IUG');
-    const tugSpec = getCircuitTypeSpec('TUG');
-    const tueSpec = getCircuitTypeSpec('TUE');
+    if (config.circuitInventory && config.circuitInventory.circuits.length > 0) {
+      const panelCircuits = config.circuitInventory.circuits.filter(c => c.assignedPanelId === panel.id);
+      panelCircuits.forEach(c => {
+        circuits.push({
+          id: c.id,
+          panelId: panel.id,
+          type: c.type,
+          description: c.description,
+          bocas: c.bocas,
+          power: c.power,
+          ib: c.ib,
+          cable: c.cable,
+          breaker: c.breaker,
+          warnings: c.warnings
+        });
+        const breakerMatch = c.breaker.match(/(\d+)A/);
+        if (breakerMatch) {
+          maxBreakerValue = Math.max(maxBreakerValue, parseInt(breakerMatch[1]));
+        }
+      });
+      const aritmeticPower = circuits.reduce((acc, c) => acc + c.power, 0);
+      const dpms = aritmeticPower * 0.8;
+      return {
+        circuits,
+        aritmeticPower,
+        generalPower: aritmeticPower,
+        specificPower: 0,
+        fs: 0.8,
+        dpms,
+        cargaTotalKW: (dpms * 0.85) / 1000,
+        maxBreakerValue
+      };
+    }
 
-    const totalIug = envs.reduce((s, e) => s + (e.lights || e.bocasLuz || 0), 0);
-    const totalTug = envs.reduce((s, e) => s + (e.regularOutlets || e.bocasTomas || 0), 0);
-    const totalSpecial = envs.reduce((s, e) => s + (e.cargasEspeciales || 0), 0);
+    const totalIug = envs.reduce((s, e) => s + (e.bocasLuzRelevado || e.lights || e.bocasLuz || 0), 0);
+    const totalTug = envs.reduce((s, e) => s + (e.bocasTomasRelevado || e.regularOutlets || e.bocasTomas || 0), 0);
+    const stotal = (totalIug * 25) + (totalTug * 240);
+    const dpms = stotal * 0.8;
 
-    if (totalIug > 0 && iugSpec) {
-      circuits.push({
-        id: 'C-IUG-E',
-        panelId: panel.id,
-        type: 'IUG',
-        description: 'IUG Existente',
-        bocas: totalIug,
-        power: totalIug * 25,
-        ib: (totalIug * 25) / 220,
-        cable: `${iugSpec.seccion_min_mm2}mm²`,
-        breaker: `${iugSpec.max_proteccion_a}A`
-      });
-      maxBreakerValue = Math.max(maxBreakerValue, iugSpec.max_proteccion_a);
-    }
-    if (totalTug > 0 && tugSpec) {
-      circuits.push({
-        id: 'C-TUG-E',
-        panelId: panel.id,
-        type: 'TUG',
-        description: 'TUG Existente',
-        bocas: totalTug,
-        power: totalTug * 240,
-        ib: (totalTug * 240) / 220,
-        cable: `${tugSpec.seccion_min_mm2}mm²`,
-        breaker: `${tugSpec.max_proteccion_a}A`
-      });
-      maxBreakerValue = Math.max(maxBreakerValue, tugSpec.max_proteccion_a);
-    }
-    if (totalSpecial > 0 && tueSpec) {
-      circuits.push({
-        id: 'C-ESP-E',
-        panelId: panel.id,
-        type: 'TUE',
-        description: 'Cargas Especiales Exist.',
-        bocas: 1,
-        power: totalSpecial,
-        ib: totalSpecial / 220,
-        cable: `${tueSpec.seccion_min_mm2}mm²`,
-        breaker: `${tueSpec.max_proteccion_a}A`
-      });
-      maxBreakerValue = Math.max(maxBreakerValue, tueSpec.max_proteccion_a);
-    }
+    return {
+      circuits: [],
+      aritmeticPower: stotal,
+      generalPower: stotal,
+      specificPower: 0,
+      fs: 0.8,
+      dpms,
+      cargaTotalKW: (dpms * 0.85) / 1000,
+      maxBreakerValue: 0
+    };
 
   } else if (engine === 'PMU_INDUSTRIAL') {
-    // MOTOR INDUSTRIAL (AEA 771.8) - Usar VARIANTES desde CSV
     const variant = getCircuitVariant(grade, config.selectedVariantIndex || 0);
 
     if (!variant) {
-      console.error(`⚠️ No se encontró variante ${config.selectedVariantIndex} para grado ${grade}`);
-      // Usar primera variante disponible como fallback
       const fallbackVariants = getAvailableCircuitVariants(grade);
-      if (fallbackVariants.length === 0) {
-        throw new Error(`No hay variantes disponibles para grado ${grade}`);
-      }
-      return buildIndustrialCircuitsFromVariant(panel, envs, config, grade, fallbackVariants[0]);
+      const res = buildIndustrialCircuitsFromVariant(panel, envs, config, grade, fallbackVariants[0]);
+      const dpms = res.aritmeticPower * res.fs;
+      return {
+        ...res,
+        generalPower: res.aritmeticPower,
+        specificPower: 0,
+        dpms,
+        cargaTotalKW: (dpms * 0.85) / 1000
+      };
     }
 
-    console.log(`📊 Usando variante industrial desde CSV: ${variant.descripcion}`);
-    return buildIndustrialCircuitsFromVariant(panel, envs, config, grade, variant);
+    const res = buildIndustrialCircuitsFromVariant(panel, envs, config, grade, variant);
+    const dpms = res.aritmeticPower * res.fs;
+    return {
+      ...res,
+      generalPower: res.aritmeticPower,
+      specificPower: 0,
+      dpms,
+      cargaTotalKW: (dpms * 0.85) / 1000
+    };
 
   } else {
-    // MOTOR AEA 770/771 (Standard) - Usar especificaciones CSV
-    const variant = (CIRCUIT_VARIANTS as any)[grade]?.[config.selectedVariantIndex || 0] || CIRCUIT_VARIANTS['Mínimo'][0];
+    // MOTOR NORMAL (AEA 770/771)
+    const variantIndex = config.selectedVariantIndex || 0;
+    const variant = (CIRCUIT_VARIANTS as any)[grade]?.[variantIndex] || CIRCUIT_VARIANTS['Mínimo'][0];
     const iugSpec = getCircuitTypeSpec('IUG');
     const tugSpec = getCircuitTypeSpec('TUG');
 
     for (let i = 1; i <= variant.iug; i++) {
       const bocas = envs.filter(e => e.assignedIugCircuit === `IUG-${i}` || (!e.assignedIugCircuit && i === 1))
-        .reduce((sum, e) => sum + (e.lights || 0), 0);
+        .reduce((sum, e) => sum + (e.bocasLuzRelevado || e.bocasLuz || 0) + (e.bocasLuzProyectado || e.lights || 0), 0);
       const pwr = Math.ceil((bocas * 60 * 2) / 3);
       const ib = pwr / 220;
 
       if (bocas > 0 && iugSpec) {
-        // Calcular cable y protección óptimos con método B1 por defecto
-        const optimization = selectOptimalCableAndProtection(
-          ib,
-          'IUG',
-          'Embutido', // B1 por defecto, editable en Step 3
-          panel.voltage as '220V' | '380V'
-        );
-
+        const optimization = selectOptimalCableAndProtection(ib, 'IUG', panel.installationType, panel.voltage as '220V' | '380V');
         circuits.push({
           id: `IUG-${i}`,
           panelId: panel.id,
@@ -2477,19 +2721,12 @@ function calculatePanelCircuits(
 
     for (let i = 1; i <= variant.tug; i++) {
       const bocas = envs.filter(e => e.assignedTugCircuit === `TUG-${i}` || (!e.assignedTugCircuit && i === 1))
-        .reduce((sum, e) => sum + (e.regularOutlets || 0), 0);
+        .reduce((sum, e) => sum + (e.bocasTomasRelevado || e.bocasTomas || 0) + (e.bocasTomasProyectado || e.regularOutlets || 0), 0);
       const pwr = bocas > 0 ? 2200 : 0;
       const ib = pwr / 220;
 
       if (bocas > 0 && tugSpec) {
-        // Calcular cable y protección óptimos con método B1 por defecto
-        const optimization = selectOptimalCableAndProtection(
-          ib,
-          'TUG',
-          'Embutido', // B1 por defecto, editable en Step 3
-          panel.voltage as '220V' | '380V'
-        );
-
+        const optimization = selectOptimalCableAndProtection(ib, 'TUG', panel.installationType, panel.voltage as '220V' | '380V');
         circuits.push({
           id: `TUG-${i}`,
           panelId: panel.id,
@@ -2506,380 +2743,194 @@ function calculatePanelCircuits(
       }
     }
 
-    // CASO ESPECIAL: AVP (Suministro Transitorio)
-    if (config.estadoObra === 'provisoria') {
-      // MOTOR AVP (Suministro Transitorio)
-      const avpSpec = getCircuitTypeSpec('AVP');
-      const totalIug = envs.reduce((s, e) => s + (e.lights || 0), 0);
-      const totalTug = envs.reduce((s, e) => s + (e.regularOutlets || 0), 0);
-
-      if ((totalIug > 0 || totalTug > 0) && avpSpec) {
-        // Un solo circuito híbrido AVP
-        circuits.push({
-          id: 'C-AVP-1',
-          panelId: panel.id,
-          type: 'AVP',
-          description: 'Circuito Provisorio (AVP)',
-          bocas: totalIug + totalTug,
-          power: 3300, // Valor convencional para obra
-          ib: 3300 / 220,
-          cable: `${avpSpec.seccion_min_mm2}mm²`,
-          breaker: `${avpSpec.max_proteccion_a}A`
-        });
-        maxBreakerValue = Math.max(maxBreakerValue, avpSpec.max_proteccion_a);
-      }
-    }
-
-    // Cargas Especiales Adicionales (Para todos los motores) - Usar especificaciones CSV
+    // Cargas Especiales
     envs.forEach(env => {
-      env.specialLoads?.forEach(load => {
-        const spec = getCircuitTypeSpec(load.type);
+      env.specialLoads?.forEach((load, idx) => {
         const pwr = load.unit === 'W' ? load.value / 0.85 : load.value;
-        const ib = pwr / 220;
-
-        // Calcular cable y protección óptimos con método B1 por defecto
-        const optimization = selectOptimalCableAndProtection(
-          ib,
-          load.type,
-          'Embutido', // B1 por defecto, editable en Step 3
-          panel.voltage as '220V' | '380V'
-        );
+        const ib = pwr / (load.isThreePhase ? (1.732 * 380) : 220);
+        const optimization = selectOptimalCableAndProtection(ib, load.type, panel.installationType, panel.voltage as '220V' | '380V');
 
         circuits.push({
-          id: `ESP-${circuits.length + 1}`,
+          id: `${load.type}-${env.id.substring(0, 4)}-${idx + 1}`,
           panelId: panel.id,
           type: load.type,
-          description: `${load.name} (${env.name})`,
+          description: `${load.name || load.type}: ${env.name}`,
           bocas: load.bocas || 1,
           power: pwr,
-          ib: ib,
+          ib,
           cable: `${optimization.section}mm²`,
           breaker: `${optimization.In}A`,
           warnings: optimization.warnings
         });
-
-        if (optimization.In > maxBreakerValue) maxBreakerValue = optimization.In;
+        maxBreakerValue = Math.max(maxBreakerValue, optimization.In);
       });
     });
 
-    // Calcular caída de tensión acumulada para cada circuito
     const isTrifasico = panel.voltage === '380V';
-
     circuits.forEach(circuit => {
       addVoltageDropToCircuit(circuit, vDropAccumPanel, panel.voltage, isTrifasico);
     });
 
-    // === CÁLCULO CORRECTO DE DPMS Y CARGA TOTAL ===
-
-    // Separar circuitos por categoría
     const generalCircuits = circuits.filter(c => circuitAppliesFS(c.type));
     const specificCircuits = circuits.filter(c => !circuitAppliesFS(c.type));
-
-    // Calcular potencias separadas
     const generalPower = generalCircuits.reduce((acc, c) => acc + c.power, 0);
     const specificPower = specificCircuits.reduce((acc, c) => acc + c.power, 0);
 
-    // Calcular FS según tabla correcta (solo si no es provisoria ni existente)
-    let fs = 1.0;
+    fs = 1.0;
     if (config.estadoObra === 'provisoria') {
-      fs = 1.0; // Simultaneidad total para obra
-    } else if (engine !== 'RES54_EXISTENTE') {
+      fs = 1.0;
+    } else {
       fs = calculateSimultaneityFactor(circuits);
     }
 
-    // DPMS = (Circuitos Generales × FS) + Circuitos Específicos (100%)
     const dpms = (generalPower * fs) + specificPower;
-
-    // Carga Total en kW (con factor de potencia 0.85)
     const cargaTotalKW = (dpms * 0.85) / 1000;
-
-    // Potencia aritmética (sin FS, para referencia)
     const aritmeticPower = circuits.reduce((acc, c) => acc + c.power, 0);
 
     return {
       circuits,
-      aritmeticPower,  // Potencia aritmética total (sin FS)
-      generalPower,    // Potencia de circuitos generales (IUG, TUG, IUE, TUE)
-      specificPower,   // Potencia de circuitos específicos (ACU, APM, etc.)
-      fs,              // Factor de simultaneidad aplicado
-      dpms,            // DPMS (VA) = (General × FS) + Específicos
-      cargaTotalKW,    // Carga Total (kW) = DPMS × 0.85 / 1000
+      aritmeticPower,
+      generalPower,
+      specificPower,
+      fs,
+      dpms,
+      cargaTotalKW,
       maxBreakerValue
     };
   }
+}
 
-  /**
-   * Construye circuitos industriales según variante CSV
-   * @param panel - Panel al que pertenecen los circuitos
-   * @param envs - Ambientes del proyecto
-   * @param config - Configuración del proyecto
-   * @param grade - Grado de electrificación
-   * @param variant - Variante de circuitos desde CSV
-   */
-  function buildIndustrialCircuitsFromVariant(
-    panel: Panel,
-    envs: EnvironmentCalculation[],
-    config: ProjectConfig,
-    grade: string,
-    variant: CircuitVariantData
-  ) {
-    const circuits: CircuitSummary[] = [];
-    let maxBreakerValue = 0;
+/**
+ * Construye circuitos industriales según variante CSV
+ * @param panel - Panel al que pertenecen los circuitos
+ * @param envs - Ambientes del proyecto
+ * @param config - Configuración del proyecto
+ * @param grade - Grado de electrificación
+ * @param variant - Variante de circuitos desde CSV
+ */
+function buildIndustrialCircuitsFromVariant(
+  panel: Panel,
+  _envs: EnvironmentCalculation[],
+  config: ProjectConfig,
+  grade: string,
+  variant: CircuitVariantData
+) {
+  const circuits: CircuitSummary[] = [];
+  let maxBreakerValue = 0;
 
-    // Calcular PMU industrial total
-    const indCalc = calculateIndustrialPMU(
-      config.surfaceArea,
-      config.perimeter || 0,
-      config.luminaireHeight || 3,
-      grade
-    );
+  // Calcular PMU industrial total
+  const indCalc = calculateIndustrialPMU(
+    config.surfaceArea,
+    config.perimeter || 0,
+    config.luminaireHeight || 3,
+    grade
+  );
 
-    // Obtener especificaciones desde CSV
-    const iugSpec = getCircuitTypeSpec('IUG');
-    const tugSpec = getCircuitTypeSpec('TUG');
-    const iueSpec = getCircuitTypeSpec('IUE');
-    const tueSpec = getCircuitTypeSpec('TUE');
+  // Obtener especificaciones desde CSV
+  const iugSpec = getCircuitTypeSpec('IUG');
+  const tugSpec = getCircuitTypeSpec('TUG');
+  const iueSpec = getCircuitTypeSpec('IUE');
+  const tueSpec = getCircuitTypeSpec('TUE');
 
-    // Crear circuitos IUG según variante
-    if (variant.iug > 0 && iugSpec) {
-      const bocasPorCircuito = Math.ceil(indCalc.bocasIUG / variant.iug);
-      const powerPorCircuito = Math.ceil(indCalc.dpmsIUG / variant.iug);
+  // Crear circuitos IUG según variante
+  if (variant.iug > 0 && iugSpec) {
+    const bocasPorCircuito = Math.ceil(indCalc.bocasIUG / variant.iug);
+    const powerPorCircuito = Math.ceil(indCalc.dpmsIUG / variant.iug);
 
-      for (let i = 1; i <= variant.iug; i++) {
-        circuits.push({
-          id: `IND-IUG-${i}`,
-          panelId: panel.id,
-          type: 'IUG',
-          description: `Iluminación Industrial ${i}`,
-          bocas: bocasPorCircuito,
-          power: powerPorCircuito,
-          ib: powerPorCircuito / 220,
-          cable: `${iugSpec.seccion_min_mm2}mm²`,
-          breaker: `${iugSpec.max_proteccion_a}A`
-        });
-        maxBreakerValue = Math.max(maxBreakerValue, iugSpec.max_proteccion_a);
-      }
-    }
-
-    // Crear circuitos TUG según variante
-    if (variant.tug > 0 && tugSpec) {
-      const bocasPorCircuito = Math.ceil(indCalc.bocasTUG / variant.tug);
-      const powerPorCircuito = Math.ceil(indCalc.dpmsTUG / variant.tug);
-
-      for (let i = 1; i <= variant.tug; i++) {
-        circuits.push({
-          id: `IND-TUG-${i}`,
-          panelId: panel.id,
-          type: 'TUG',
-          description: `Tomas Industrial ${i}`,
-          bocas: bocasPorCircuito,
-          power: powerPorCircuito,
-          ib: powerPorCircuito / 220,
-          cable: `${tugSpec.seccion_min_mm2}mm²`,
-          breaker: `${tugSpec.max_proteccion_a}A`
-        });
-        maxBreakerValue = Math.max(maxBreakerValue, tugSpec.max_proteccion_a);
-      }
-    }
-
-    // Crear circuitos IUE según variante
-    if (variant.iue > 0 && iueSpec) {
+    for (let i = 1; i <= variant.iug; i++) {
       circuits.push({
-        id: 'IND-IUE',
+        id: `IND-IUG-${i}`,
         panelId: panel.id,
-        type: 'IUE',
-        description: 'Iluminación Uso Especial Industrial',
-        bocas: 1,
-        power: 2200, // Potencia típica IUE
-        ib: 2200 / 220,
-        cable: `${iueSpec.seccion_min_mm2}mm²`,
-        breaker: `${iueSpec.max_proteccion_a}A`
+        type: 'IUG',
+        description: `Iluminación Industrial ${i}`,
+        bocas: bocasPorCircuito,
+        power: powerPorCircuito,
+        ib: powerPorCircuito / 220,
+        cable: `${iugSpec.seccion_min_mm2}mm²`,
+        breaker: `${iugSpec.max_proteccion_a}A`
       });
-      maxBreakerValue = Math.max(maxBreakerValue, iueSpec.max_proteccion_a);
+      maxBreakerValue = Math.max(maxBreakerValue, iugSpec.max_proteccion_a);
     }
-
-    // Crear circuitos TUE según variante
-    if (variant.tue > 0 && indCalc.bocasTUE > 0 && tueSpec) {
-      circuits.push({
-        id: 'IND-TUE',
-        panelId: panel.id,
-        type: 'TUE',
-        description: 'Fuerza Motriz / TUE Industrial',
-        bocas: indCalc.bocasTUE,
-        power: indCalc.dpmsTUE,
-        ib: indCalc.dpmsTUE / 220,
-        cable: `${tueSpec.seccion_min_mm2}mm²`,
-        breaker: `${tueSpec.max_proteccion_a}A`
-      });
-      maxBreakerValue = Math.max(maxBreakerValue, tueSpec.max_proteccion_a);
-    }
-
-    const aritmeticPower = circuits.reduce((acc, c) => acc + c.power, 0);
-    const fs = 0.8; // Factor de simultaneidad industrial
-
-    return { circuits, aritmeticPower, fs, maxBreakerValue };
   }
 
-  // MOTOR ESTÁNDAR (AEA 770 / 771) - Generación Automática de Circuitos
-  function buildStandardCircuitsFromVariant(
-    panel: Panel,
-    envs: EnvironmentCalculation[],
-    config: ProjectConfig,
-    grade: string,
-    vDropAccumPanel: number
-  ) {
-    const circuits: CircuitSummary[] = [];
-    let maxBreakerValue = 0;
+  // Crear circuitos TUG según variante
+  if (variant.tug > 0 && tugSpec) {
+    const bocasPorCircuito = Math.ceil(indCalc.bocasTUG / variant.tug);
+    const powerPorCircuito = Math.ceil(indCalc.dpmsTUG / variant.tug);
 
-    // 1. Obtener variante de circuitos según grado
-    let variants = LOADED_HABITACIONAL_VARIANTS.filter(v => v.grado === grade);
-    if (variants.length === 0) variants = [];  // CSV carga desde variantes_circuitos_habitacional.csv
-
-    const selectedVariant = variants[0] || variants[0]; // Simplificación: tomar la primera variante disponible
-
-    if (selectedVariant) {
-      // 2. Distribuir bocas en circuitos (Lógica simplificada para regeneración)
-      const totalLights = envs.reduce((sum, e) => sum + e.lights, 0);
-      const totalOutlets = envs.reduce((sum, e) => sum + e.regularOutlets, 0);
-      const totalSpecial = envs.reduce((sum, e) => sum + (e.specialOutlets || 0), 0);
-
-      // Generar IUGs
-      const bocasPorIUG = Math.ceil(totalLights / (selectedVariant.iug || 1));
-      for (let i = 0; i < (selectedVariant.iug || 0); i++) {
-        const bocas = (i === selectedVariant.iug - 1)
-          ? totalLights - (bocasPorIUG * i) // Resto
-          : bocasPorIUG;
-
-        if (bocas > 0) {
-          circuits.push({
-            id: `C-IUG-${i + 1}`,
-            panelId: panel.id,
-            type: 'IUG',
-            description: `Iluminación Uso General ${i + 1}`,
-            bocas: bocas,
-            power: bocas * 40, // AEA: 40 VA por boca de iluminación
-            ib: (bocas * 40) / 220,
-            cable: '1.5mm²', // Se ajustará con selectOptimalCableAndProtection
-            breaker: '10A'
-          });
-        }
-      }
-
-      // Generar TUGs
-      const bocasPorTUG = Math.ceil(totalOutlets / (selectedVariant.tug || 1));
-      for (let i = 0; i < (selectedVariant.tug || 0); i++) {
-        const bocas = (i === selectedVariant.tug - 1)
-          ? totalOutlets - (bocasPorTUG * i)
-          : bocasPorTUG;
-
-        if (bocas > 0) {
-          circuits.push({
-            id: `C-TUG-${i + 1}`,
-            panelId: panel.id,
-            type: 'TUG',
-            description: `Tomacorrientes Uso General ${i + 1}`,
-            bocas: bocas,
-            power: bocas * 150, // Estimación básica, AEA 2200VA por circuito usualmente
-            ib: (bocas * 150) / 220,
-            cable: '2.5mm²',
-            breaker: '16A'
-          });
-        }
-      }
-
-      // Generar TUEs (si hay cargas especiales genéricas o por variante)
-      if (selectedVariant.tue > 0 || totalSpecial > 0) {
-        const count = selectedVariant.tue || 1;
-        for (let i = 0; i < count; i++) {
-          circuits.push({
-            id: `C-TUE-${i + 1}`,
-            panelId: panel.id,
-            type: 'TUE',
-            description: `Tomacorrientes Uso Especial ${i + 1}`,
-            bocas: 1, // Asumir 1 boca min
-            power: 3300, // Potencia max usuaria
-            ib: 15,
-            cable: '2.5mm²',
-            breaker: '20A'
-          });
-        }
-      }
+    for (let i = 1; i <= variant.tug; i++) {
+      circuits.push({
+        id: `IND-TUG-${i}`,
+        panelId: panel.id,
+        type: 'TUG',
+        description: `Tomas Industrial ${i}`,
+        bocas: bocasPorCircuito,
+        power: powerPorCircuito,
+        ib: powerPorCircuito / 220,
+        cable: `${tugSpec.seccion_min_mm2}mm²`,
+        breaker: `${tugSpec.max_proteccion_a}A`
+      });
+      maxBreakerValue = Math.max(maxBreakerValue, tugSpec.max_proteccion_a);
     }
+  }
 
-    // 3. Cargas Especiales Definidas (Aires, Bombas, etc.)
-    envs.forEach(env => {
-      if (env.specialLoads) {
-        env.specialLoads.forEach((load, idx) => {
-          const pwr = load.unit === 'W' ? load.value / 0.85 : load.value;
-          circuits.push({
-            id: `ESP-${env.id}-${idx}`,
-            panelId: panel.id,
-            type: load.type, // ACU, APM, etc.
-            description: `${load.name} (${env.name})`,
-            bocas: 1,
-            power: pwr,
-            ib: pwr / (load.tension === '380V' ? 658 : 220), // 380*1.732 approx 658
-            cable: '2.5mm²',
-            breaker: '16A'
-          });
-        });
-      }
+  // Crear circuitos IUE según variante
+  if (variant.iue > 0 && iueSpec) {
+    circuits.push({
+      id: 'IND-IUE',
+      panelId: panel.id,
+      type: 'IUE',
+      description: 'Iluminación Uso Especial Industrial',
+      bocas: 1,
+      power: 2200, // Potencia típica IUE
+      ib: 2200 / 220,
+      cable: `${iueSpec.seccion_min_mm2}mm²`,
+      breaker: `${iueSpec.max_proteccion_a}A`
     });
+    maxBreakerValue = Math.max(maxBreakerValue, iueSpec.max_proteccion_a);
+  }
 
-    // 4. Optimización de Cables y Protecciones (CRÍTICO)
-    const isTrifasico = panel.voltage === '380V';
-    circuits.forEach(circuit => {
-      // Usar la función de selección óptima
-      const optimization = selectOptimalCableAndProtection(
-        circuit.ib,
-        circuit.type,
-        panel.installationType,
-        panel.voltage as '220V' | '380V'
-      );
-
-      circuit.cable = `${optimization.section}mm²`;
-      circuit.breaker = `${optimization.In}A`;
-      if (optimization.warnings.length > 0) {
-        circuit.warnings = [...(circuit.warnings || []), ...optimization.warnings];
-      }
-
-      if (optimization.In > maxBreakerValue) {
-        maxBreakerValue = optimization.In;
-      }
-
-      addVoltageDropToCircuit(circuit, vDropAccumPanel, panel.voltage, isTrifasico);
+  // Crear circuitos TUE según variante
+  if (variant.tue > 0 && indCalc.bocasTUE > 0 && tueSpec) {
+    circuits.push({
+      id: 'IND-TUE',
+      panelId: panel.id,
+      type: 'TUE',
+      description: 'Fuerza Motriz / TUE Industrial',
+      bocas: indCalc.bocasTUE,
+      power: indCalc.dpmsTUE,
+      ib: indCalc.dpmsTUE / 220,
+      cable: `${tueSpec.seccion_min_mm2}mm²`,
+      breaker: `${tueSpec.max_proteccion_a}A`
     });
-
-    // Factor de simultaneidad estándar
-    const n = circuits.filter(c => c.type === 'IUG' || c.type === 'TUG').length;
-    if (n >= 6) fs = 0.6; else if (n >= 3) fs = 0.8;
-    else fs = 1.0;
-    // Simplificado, AEA tiene tabla completa
+    maxBreakerValue = Math.max(maxBreakerValue, tueSpec.max_proteccion_a);
   }
 
   const aritmeticPower = circuits.reduce((acc, c) => acc + c.power, 0);
+  const fs = 0.8; // Factor de simultaneidad industrial
+
   return { circuits, aritmeticPower, fs, maxBreakerValue };
 }
 
-function suggestHierarchicalProtection(ib: number, panel: Panel, lineType: string, minIn: number) {
+export function suggestHierarchicalProtection(ib: number, panel: Panel, lineType: string, minIn: number) {
   const sections = [1.5, 2.5, 4, 6, 10, 16, 25, 35];
   const breakers = [10, 16, 20, 25, 32, 40, 50, 63];
-  const isTri = panel.voltage === '380V';
 
   let minS = 1.5;
   if (lineType === 'principal') minS = MIN_SECTIONS.acometida;
   if (lineType === 'seccional') minS = MIN_SECTIONS.seccional;
 
-  let s = sections.find(sec => sec >= minS && getIz(sec, panel.installationType, isTri) > ib) || 4;
-  let iz = getIz(s, panel.installationType, isTri);
+  let s = sections.find(sec => sec >= minS && getIz(sec, panel.installationType, panel.voltage as '220V' | '380V') > ib) || 4;
+  let iz = getIz(s, panel.installationType, panel.voltage as '220V' | '380V');
 
   let inVal = breakers.find(v => v >= ib && v > minIn && v <= iz);
   if (!inVal) inVal = breakers.find(v => v >= ib && v >= minIn && v <= iz) || minIn;
 
   if (inVal > iz) {
-    s = sections.find(sec => getIz(sec, panel.installationType, isTri) >= inVal) || s;
+    s = sections.find(sec => getIz(sec, panel.installationType, panel.voltage as '220V' | '380V') >= inVal) || s;
   }
 
+  const isTri = panel.voltage === '380V';
   const p = isTri ? '4x' : '2x';
   return { suggestedCable: s.toString(), suggestedBreaker: `${p}${inVal}A`, suggestedDifferential: `${p}${inVal >= 40 ? 63 : 40}A 30mA` };
 }
@@ -3043,14 +3094,6 @@ export function calculateEnvironmentBocas(
   return { lights: 1, regularOutlets: 2, specialOutlets: 0 };
 }
 
-/**
- * Valida que la cantidad de bocas no exceda el máximo permitido para el tipo de circuito
- * Consulta el CSV tipos_circuitos_lineas.csv para obtener el límite max_bocas
- * 
- * @param circuitType - Tipo de circuito (IUG, TUG, TUE, etc.)
- * @param bocasCount - Cantidad de bocas a validar
- * @returns Objeto con validación, máximo permitido y advertencia si aplica
- */
 export function validateCircuitBocasLimit(
   circuitType: string,
   bocasCount: number
@@ -3209,7 +3252,7 @@ export function getIndustrialPMUConfig(grado: string, alturaLuminarias: number):
 /**
  * Obtiene especificaciones de un tipo de acometida desde CSV
  */
-export function getAcometidaTypeSpec(codigo: string): AcometidaTypeData | undefined {
+export function getAcometidaTypeSpec(codigo: string): AcometidaType | undefined {
   const acometidas = LOADED_ACOMETIDAS.length > 0
     ? LOADED_ACOMETIDAS
     : FALLBACK_ACOMETIDAS;
@@ -3231,7 +3274,7 @@ export function getPilarTypeSpec(codigo: string): PilarTypeData | undefined {
 /**
  * Obtiene lista de acometidas disponibles según tensión
  */
-export function getAvailableAcometidas(isTrifasico: boolean): AcometidaTypeData[] {
+export function getAvailableAcometidas(isTrifasico: boolean): AcometidaType[] {
   const acometidas = LOADED_ACOMETIDAS.length > 0
     ? LOADED_ACOMETIDAS
     : FALLBACK_ACOMETIDAS;
@@ -3457,9 +3500,9 @@ export function validateProfessionalCategory(destino: string, potenciaKW: number
  * Obtiene información de un destino de inmueble
  */
 export function getPropertyDestination(codigoDestino: string): PropertyDestinationData | undefined {
-  const dests = LOADED_PROPERTY_DESTINATIONS.length > 0
+  const dests = typeof LOADED_PROPERTY_DESTINATIONS !== 'undefined' && LOADED_PROPERTY_DESTINATIONS.length > 0
     ? LOADED_PROPERTY_DESTINATIONS
-    : FALLBACK_PROPERTY_DESTINATIONS;
+    : [];
 
   return dests.find(d => d.codigo_destino === codigoDestino);
 }
@@ -3554,8 +3597,15 @@ export function getAEANormative(regimenUso?: string): string {
 }
 
 export function getSuggestedEnvironments(destination: string) {
+  // 1. Determinar categoría base si el destino específico no coincide
+  let category = '';
+  const propDest = LOADED_PROPERTY_DESTINATIONS.find(p => p.codigo_destino === destination);
+  if (propDest) {
+    category = propDest.categoria;
+  }
+
   // AEA 770 - Viviendas (TODOS LOS AMBIENTES DEL CSV)
-  if (destination === 'habitacional' || destination === 'vivienda') {
+  if (destination === 'habitacional' || destination === 'vivienda' || category === 'Residencial' || category === 'Temporal') {
     return [
       { id: '1', name: 'Sala/Comedor/Estudio', surface: 20 },
       { id: '2', name: 'Dormitorio', surface: 12 },
@@ -3569,7 +3619,7 @@ export function getSuggestedEnvironments(destination: string) {
   }
 
   // AEA 771 - Oficinas y Locales Comerciales (NUEVO)
-  if (destination === 'comercial' || destination === 'oficina' || destination === 'comercio') {
+  if (destination === 'comercial' || destination === 'oficina' || destination === 'comercio' || category === 'Comercial') {
     return [
       { id: '1', name: 'Salón general', surface: 30 },
       { id: '2', name: 'Despacho privado', surface: 12 },
@@ -3582,7 +3632,7 @@ export function getSuggestedEnvironments(destination: string) {
   }
 
   // AEA 771.8 - Industria
-  if (destination === 'industrial' || destination === 'industria') {
+  if (destination === 'industrial' || destination === 'industria' || category === 'Industrial') {
     return [
       { id: '1', name: 'Área de Producción', surface: 100 },
       { id: '2', name: 'Depósito', surface: 50 },
@@ -3664,7 +3714,24 @@ export function calculateElectrificationGrade(
     : [];  // CSV carga desde grados_electrificacion.csv
 
   // Filtrar grados aplicables al destino
-  const applicable = grades.filter(g => g.destino === dest);
+  let applicable = grades.filter(g => g.destino === dest);
+
+  // FALLBACK: Si no se encuentra el destino específico (ej: "departamento"), buscar por categoría
+  if (applicable.length === 0) {
+    const propDest = LOADED_PROPERTY_DESTINATIONS.find(p => p.codigo_destino === dest);
+    if (propDest) {
+      let mappedDest = '';
+      // Mapeo de Categoría -> Destino Genérico (que sí existe en grados_electrificacion.csv)
+      if (propDest.categoria === 'Residencial' || propDest.categoria === 'Temporal') mappedDest = 'vivienda';
+      else if (propDest.categoria === 'Comercial') mappedDest = 'comercio'; // 'oficina' suele existir, pero comercio es buen fallback
+      else if (propDest.categoria === 'Industrial') mappedDest = 'industria';
+
+      if (mappedDest) {
+        // console.log(`ℹ️ Mapeando destino '${dest}' -> '${mappedDest}' para determinar grado.`);
+        applicable = grades.filter(g => g.destino === mappedDest);
+      }
+    }
+  }
 
   if (applicable.length === 0) {
     console.warn(`⚠️ No se encontraron grados de electrificación para destino: ${dest}`);
@@ -3868,6 +3935,96 @@ export function generateCircuitInventory(
     });
   };
 
+  // --- LÓGICA PARA INSTALACIONES EXISTENTES (RES. 17/2021) ---
+  if (config.estadoObra === 'existente') {
+    const circuitGroups: Record<string, {
+      bocasLuz: number;
+      bocasTomas: number;
+      specialLoads: SpecialLoad[];
+      environments: string[];
+      environmentIds: string[];
+      panelId?: string;
+    }> = {};
+
+    environments.forEach(env => {
+      // Usar assignedIugCircuit como ID de grupo, o el ID del ambiente si no está asignado
+      const groupKey = env.assignedIugCircuit || env.id;
+
+      if (!circuitGroups[groupKey]) {
+        circuitGroups[groupKey] = {
+          bocasLuz: 0,
+          bocasTomas: 0,
+          specialLoads: [],
+          environments: [],
+          environmentIds: [],
+          panelId: env.panelId
+        };
+      }
+
+      circuitGroups[groupKey].bocasLuz += (env.bocasLuz || 0);
+      circuitGroups[groupKey].bocasTomas += (env.bocasTomas || 0);
+      if (env.specialLoads) {
+        circuitGroups[groupKey].specialLoads.push(...env.specialLoads);
+      }
+      circuitGroups[groupKey].environments.push(env.customName || env.name);
+      circuitGroups[groupKey].environmentIds.push(env.id);
+    });
+
+    Object.entries(circuitGroups).forEach(([circuitId, group]) => {
+      let circuitType = 'mixto_existente';
+      if (group.bocasLuz > 0 && group.bocasTomas === 0) circuitType = 'IUG';
+      if (group.bocasTomas > 0 && group.bocasLuz === 0) circuitType = 'TUG';
+
+      // Potencia Total Relevada (Stotal) según Res. 17/2021
+      let stotal = (group.bocasLuz * 25) + (group.bocasTomas * 240);
+
+      group.specialLoads?.forEach(load => {
+        const loadPower = load.unit === 'W' ? load.value / 0.85 : load.value;
+        stotal += loadPower;
+      });
+
+      const ib = stotal / (isTrifasico ? 380 : 220);
+      const spec = getCircuitTypeSpec(circuitType);
+      const defaultMethod = getDefaultMethodForCircuitType(circuitType);
+
+      const optimization = selectOptimalCableAndProtection(
+        ib,
+        circuitType,
+        'Embutido',
+        config.voltage
+      );
+
+      circuits.push({
+        id: circuitId === group.environmentIds[0] ? group.environmentIds[0] : circuitId, // Si es individual, usar ID original
+        type: circuitType,
+        description: group.environments.length > 1
+          ? `${spec?.designacion || 'Mixto'}: ${group.environments.join(', ')}`
+          : group.environments[0],
+        bocas: group.bocasLuz + group.bocasTomas,
+        bocasLuz: group.bocasLuz,
+        bocasTomas: group.bocasTomas,
+        power: stotal,
+        ib,
+        cable: 'Relevar mm²', // En regularización el usuario debe relevar el cable real
+        breaker: 'Relevar In', // En regularización el usuario debe relevar la térmica real
+        warnings: optimization.warnings,
+        environments: group.environmentIds,
+        assignedPanelId: group.panelId || 'TP-MAIN',
+        isAssigned: false,
+        voltage: config.voltage,
+        terminalLine: {
+          method: defaultMethod,
+          averageLength: 10,
+          material: 'Cu',
+          groupingCount: 1
+        }
+      });
+    });
+
+    return { circuits, totalCircuits: circuits.length, assignedCircuits: 0, orphanCircuits: circuits.length };
+  }
+
+  // --- LÓGICA PARA INSTALACIONES NUEVAS (AEA 770/771) ---
   // 1. Crear circuitos IUG (Iluminación uso general) - máx 15 bocas
   createGroupedCircuits('IUG', 'lights');
 
@@ -4551,8 +4708,7 @@ export function calculateConsolidatedSummary(
     environments
   );
 
-  const minCircuitsMatch = grade.match(/\((\d+)\s+circuitos?\)/);
-  const minCircuits = minCircuitsMatch ? parseInt(minCircuitsMatch[1]) : 2;
+  const minCircuits = getMinCircuitsForGrade(grade);
   const actualCircuits = assignedCircuits.length;
 
   return {
@@ -4574,4 +4730,17 @@ export function calculateConsolidatedSummary(
     minCircuits,
     actualCircuits
   };
+}
+
+/**
+ * Obtiene la cantidad mínima de circuitos requerida según el grado
+ * Basado en AEA 90364-7-770 (Viviendas) y 771 (Locales)
+ */
+export function getMinCircuitsForGrade(grade: string): number {
+  const g = grade.toLowerCase();
+  if (g.includes('mínimo') || g.includes('minimo')) return 2;
+  if (g.includes('medio')) return 3;
+  if (g.includes('elevado')) return 5;
+  if (g.includes('superior')) return 6;
+  return 2; // Default seguro
 }

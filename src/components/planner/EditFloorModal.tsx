@@ -6,9 +6,11 @@ interface EditFloorModalProps {
     floor: Floor;
     onClose: () => void;
     onConfirm: (name: string, format: PaperFormat) => void;
+    onDelete?: () => void;
+    canDelete?: boolean;
 }
 
-export const EditFloorModal = ({ floor, onClose, onConfirm }: EditFloorModalProps) => {
+export const EditFloorModal = ({ floor, onClose, onConfirm, onDelete, canDelete }: EditFloorModalProps) => {
     const [name, setName] = useState(floor.name);
     const currentFormatKey = `${floor.format.name}-${floor.format.orientation}`;
     const [formatKey, setFormatKey] = useState(currentFormatKey);
@@ -66,10 +68,18 @@ export const EditFloorModal = ({ floor, onClose, onConfirm }: EditFloorModalProp
                 <div className="flex gap-2 mt-6">
                     <button
                         onClick={onClose}
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                        className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
                     >
                         Cancelar
                     </button>
+                    {onDelete && canDelete && (
+                        <button
+                            onClick={onDelete}
+                            className="px-4 py-2 bg-red-100 text-red-600 border border-red-200 rounded hover:bg-red-200 transition-colors"
+                        >
+                            Eliminar Planta
+                        </button>
+                    )}
                     <button
                         onClick={handleConfirm}
                         className="flex-1 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"

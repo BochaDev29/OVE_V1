@@ -95,7 +95,7 @@ export default function WizardStepExistente({
 
     const checklistComplete = Object.values(checklist).every(v => v === true);
     const checklistProgress = Object.values(checklist).filter(v => v === true).length;
-    const canFinalize = checklistComplete && fotos.length > 0;
+    const canFinalize = checklistComplete;
 
     const checklistItems = [
         { key: 'cierreSeguridad', title: '1. Cierre de Seguridad', desc: 'Tableros con cierre que requiera herramienta especial' },
@@ -209,19 +209,33 @@ export default function WizardStepExistente({
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-6 mt-3 md:mt-0">
-                                    {/* Mostrar PIA e ID si existen */}
-                                    {panelConfig.existingPIA && (
-                                        <div className="bg-white px-3 py-2 rounded-lg border border-amber-300 shadow-sm">
-                                            <p className="text-[9px] text-amber-600 uppercase font-bold">PIA</p>
-                                            <p className="font-black text-amber-900">{panelConfig.existingPIA.amperes}A {panelConfig.existingPIA.poles}</p>
-                                        </div>
-                                    )}
-                                    {panelConfig.existingID && (
-                                        <div className="bg-white px-3 py-2 rounded-lg border border-green-300 shadow-sm">
-                                            <p className="text-[9px] text-green-600 uppercase font-bold">ID</p>
-                                            <p className="font-black text-green-900">{panelConfig.existingID.amperes}A {panelConfig.existingID.sensitivity}</p>
-                                        </div>
-                                    )}
+                                    {/* Mostrar PIA e ID unificados */}
+                                    {(() => {
+                                        const headers = panelConfig.protections?.headers || [];
+                                        const pias = headers.filter(h => h.type === 'PIA');
+                                        const ids = headers.filter(h => h.type === 'ID');
+
+                                        // Priorizar los de cabecera (sin padre)
+                                        const rootPia = pias.find(h => !h.parentProtectionId) || pias[0];
+                                        const rootId = ids.find(h => !h.parentProtectionId) || ids[0];
+
+                                        return (
+                                            <>
+                                                {rootPia && (
+                                                    <div className="bg-white px-3 py-2 rounded-lg border border-amber-300 shadow-sm">
+                                                        <p className="text-[9px] text-amber-600 uppercase font-bold">PIA</p>
+                                                        <p className="font-black text-amber-900">{rootPia.rating}A {rootPia.poles}P</p>
+                                                    </div>
+                                                )}
+                                                {rootId && (
+                                                    <div className="bg-white px-3 py-2 rounded-lg border border-green-300 shadow-sm">
+                                                        <p className="text-[9px] text-green-600 uppercase font-bold">ID</p>
+                                                        <p className="font-black text-green-900">{rootId.rating}A {rootId.sensitivity || '30mA'}</p>
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
                                     <div><p className="text-[10px] text-slate-500 uppercase font-bold text-center">Demanda</p><p className="font-bold text-slate-900 text-center">{formatNum(vaPanel)} VA</p></div>
                                     {isExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
                                 </div>
@@ -249,14 +263,24 @@ export default function WizardStepExistente({
                                                 <tbody className="divide-y divide-slate-100">
                                                     {circuitosDelPanel.map(env => {
                                                         const vaCircuito = (env.bocasLuz || 0) * 25 + (env.bocasTomas || 0) * 240 + (env.cargasEspeciales || 0);
+
+                                                        // 🆕 Buscar el circuito correspondiente en el inventario unificado
+                                                        const circuitoAsociado = config.circuitInventory?.circuits.find(c =>
+                                                            c.environments.includes(env.id) || c.id === env.id
+                                                        );
+
                                                         return (
                                                             <tr key={env.id} className="hover:bg-slate-50/50">
                                                                 <td className="px-4 py-3 font-medium text-slate-700">{env.name}</td>
                                                                 <td className="px-4 py-3 text-center">{env.bocasLuz || 0}</td>
                                                                 <td className="px-4 py-3 text-center">{env.bocasTomas || 0}</td>
                                                                 <td className="px-4 py-3 text-center font-bold text-blue-600">{vaCircuito.toFixed(0)}</td>
-                                                                <td className="px-4 py-3 text-center text-xs">{env.breakerInfo || '-'}</td>
-                                                                <td className="px-4 py-3 text-center text-xs">{env.cableInfo || '-'}</td>
+                                                                <td className="px-4 py-3 text-center text-xs font-bold text-amber-700">
+                                                                    {circuitoAsociado?.breaker || env.breakerInfo || '-'}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-center text-xs font-bold text-blue-700">
+                                                                    {circuitoAsociado?.cable || env.cableInfo || '-'}
+                                                                </td>
                                                                 <td className="px-4 py-3 text-center">
                                                                     <span className={`px-2 py-1 rounded text-[10px] font-bold ${env.hasPAT ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                                         {env.hasPAT ? 'SÍ' : 'NO'}
@@ -277,35 +301,38 @@ export default function WizardStepExistente({
                                         <p className="text-sm text-slate-500 italic">Sin circuitos asignados</p>
                                     )}
                                 </div>
-                            )}
+                            )
+                            }
                         </div>
                     );
                 })}
             </div>
 
             {/* NOTAS DE RELEVAMIENTO */}
-            {environments.some(env => env.observacionesTecnicas) && (
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="bg-blue-100 p-2 rounded-lg">
-                            <FileText className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                            <h4 className="font-bold text-slate-800 text-lg">Notas de Relevamiento Técnico</h4>
-                            <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Observaciones Profesionales</p>
-                        </div>
-                    </div>
-
-                    <div className="space-y-3">
-                        {environments.filter(env => env.observacionesTecnicas).map(env => (
-                            <div key={env.id} className="bg-amber-50/50 p-4 rounded-xl border border-amber-100/50">
-                                <p className="font-bold text-slate-700 text-sm mb-2">{env.name}</p>
-                                <p className="text-slate-600 text-sm italic leading-relaxed">{env.observacionesTecnicas}</p>
+            {
+                environments.some(env => env.observacionesTecnicas) && (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="bg-blue-100 p-2 rounded-lg">
+                                <FileText className="w-5 h-5 text-blue-600" />
                             </div>
-                        ))}
+                            <div>
+                                <h4 className="font-bold text-slate-800 text-lg">Notas de Relevamiento Técnico</h4>
+                                <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Observaciones Profesionales</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            {environments.filter(env => env.observacionesTecnicas).map(env => (
+                                <div key={env.id} className="bg-amber-50/50 p-4 rounded-xl border border-amber-100/50">
+                                    <p className="font-bold text-slate-700 text-sm mb-2">{env.name}</p>
+                                    <p className="text-slate-600 text-sm italic leading-relaxed">{env.observacionesTecnicas}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* CHECKLIST DE 11 PUNTOS */}
             <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
@@ -352,47 +379,24 @@ export default function WizardStepExistente({
                 </div>
             </div>
 
-            {/* UPLOAD DE FOTOS */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                <h4 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                    <Camera className="w-5 h-5 text-blue-600" />
-                    Fotos de Verificación
-                    <span className="text-xs font-normal text-slate-500">(Flexibles - Suba las que considere necesarias)</span>
-                </h4>
-
-                <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                    <Upload className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                    <label className="cursor-pointer">
-                        <span className="text-blue-600 hover:text-blue-700 font-medium">Seleccionar archivos</span>
-                        <span className="text-slate-600"> o arrastrar aquí</span>
-                        <input
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                        />
-                    </label>
-                    <p className="text-xs text-slate-500 mt-2">
-                        JPG, PNG (máx. 5MB por archivo) - Ej: Tablero, PAT, Diferencial, etc.
-                    </p>
-                </div>
-
-                {fotos.length > 0 && (
-                    <div className="mt-4">
-                        <p className="text-sm font-medium text-slate-700 mb-2">
-                            {fotos.length} archivo(s) seleccionado(s):
-                        </p>
-                        <ul className="space-y-1">
-                            {fotos.map((file, idx) => (
-                                <li key={idx} className="text-sm text-slate-600 flex items-center gap-2">
-                                    <CheckCircle2 className="w-4 h-4 text-green-600" />
-                                    {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                                </li>
-                            ))}
-                        </ul>
+            {/* AVISO DE REGISTRO FOTOGRÁFICO */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 shadow-sm">
+                <div className="flex gap-4">
+                    <div className="bg-blue-100 p-3 rounded-full h-fit">
+                        <Camera className="w-6 h-6 text-blue-600" />
                     </div>
-                )}
+                    <div className="space-y-2">
+                        <h4 className="font-bold text-blue-900">Registro Fotográfico de Obra</h4>
+                        <p className="text-sm text-blue-700 leading-relaxed">
+                            Para una documentación profesional, la carga de fotos se realiza desde la sección de
+                            <strong> "Documentación &gt; Registro Fotográfico"</strong> una vez guardado el proyecto.
+                        </p>
+                        <div className="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-100/50 w-fit px-2 py-1 rounded">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Permite categorizar fotos (Tablero, PAT, Conductores)
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* BOTONES DE NAVEGACIÓN */}
@@ -430,16 +434,16 @@ export default function WizardStepExistente({
                 </div>
             </div>
 
-            {!canFinalize && (
-                <div className="bg-amber-50 border-l-4 border-amber-500 p-3 rounded-r-lg">
-                    <p className="text-sm text-amber-700">
-                        <strong>Pendiente para finalizar:</strong>
-                        {!checklistComplete && ` Completar checklist (${checklistProgress}/11 puntos)`}
-                        {!checklistComplete && fotos.length === 0 && ' • '}
-                        {fotos.length === 0 && ' Agregar fotos de verificación'}
-                    </p>
-                </div>
-            )}
-        </div>
+            {
+                !canFinalize && (
+                    <div className="bg-amber-50 border-l-4 border-amber-500 p-3 rounded-r-lg">
+                        <p className="text-sm text-amber-700">
+                            <strong>Pendiente para finalizar:</strong>
+                            {!checklistComplete && ` Completar checklist (${checklistProgress}/11 puntos)`}
+                        </p>
+                    </div>
+                )
+            }
+        </div >
     );
 }

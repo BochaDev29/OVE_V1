@@ -161,15 +161,25 @@ export const ProjectService = {
             // Determinar tipo de proyecto (Flash/Completo/Reglamentado)
             let projectType = '💰 Presupuesto';
 
-            // Detectar si es Flash
-            const isFlash = !conf.estadoObra || !conf.voltage || (conf.surfaceArea && conf.surfaceArea < 100);
-
-            if (conf.estadoObra === 'existente') {
+            // 1. Usar creationMode si existe (Fuente de verdad)
+            if (conf.creationMode === 'regulated') {
                 projectType = '📋 Reglamentado';
-            } else if (isFlash) {
+            } else if (conf.creationMode === 'complete') {
+                projectType = '🏗️ Completo';
+            } else if (conf.creationMode === 'flash') {
                 projectType = '⚡ Flash';
             } else {
-                projectType = '🏗️ Completo';
+                // 2. Fallback Heurístico (Legacy)
+                // Detectar si es Flash
+                const isFlash = !conf.estadoObra || !conf.voltage || (conf.surfaceArea && conf.surfaceArea < 100);
+
+                if (conf.estadoObra === 'existente') {
+                    projectType = '📋 Reglamentado';
+                } else if (isFlash) {
+                    projectType = '⚡ Flash';
+                } else {
+                    projectType = '🏗️ Completo';
+                }
             }
 
             return {

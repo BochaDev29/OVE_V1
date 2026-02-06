@@ -1,5 +1,6 @@
 import { User, Zap, Ruler, ShieldCheck, AlertTriangle, Home, Briefcase, Factory, FilePlus, FileSearch, FileEdit } from 'lucide-react';
 import { ProjectConfig, getAcometidaTypes, AcometidaType, getPropertyDestinations } from '../../lib/electrical-rules';
+import { useMemo } from 'react';
 
 
 interface Step1Props {
@@ -13,6 +14,12 @@ export default function WizardStep1_General({ config, onChange, onNext, onResetE
 
     // Detectar modo Flash
     const isFlashMode = sessionStorage.getItem('projectType') === 'flash';
+
+    // 🆕 Determinar si se deben mostrar selectores de naturaleza
+    // Solo se muestran en modificación, existente o provisoria (NO en obra nueva)
+    const showNatureSelectors = useMemo(() => {
+        return ['modificacion', 'existente', 'provisoria'].includes(config.estadoObra || '');
+    }, [config.estadoObra]);
 
     const handleChange = (field: keyof ProjectConfig, value: any) => {
         let newConfig = { ...config, [field]: value };
@@ -418,9 +425,19 @@ export default function WizardStep1_General({ config, onChange, onNext, onResetE
                                     if (selectedType) {
                                         const isTri = selectedType.codigo.includes('TRI');
                                         const newVoltage = isTri ? '380V' : '220V';
+
+                                        // Sincronizar voltage en todos los tableros (especialmente TP)
+                                        const updatedPanels = (config.panels || []).map(p => ({
+                                            ...p,
+                                            voltage: newVoltage,
+                                            // Si es trifásico, fase podría ser RST, si es mono, R (default)
+                                            phase: isTri ? 'RST' : (p.phase === 'RST' ? 'R' : p.phase)
+                                        }));
+
                                         onChange({
                                             ...config,
                                             voltage: newVoltage,
+                                            panels: updatedPanels,
                                             acometida: {
                                                 ...config.acometida,
                                                 tipo: selectedType.codigo,
@@ -468,6 +485,27 @@ export default function WizardStep1_General({ config, onChange, onNext, onResetE
                             </div>
                         )}
 
+                        {/* 🆕 Selector de Naturaleza de Acometida - Solo visible en modificación/existente/provisoria */}
+                        {config.acometida?.tipo && showNatureSelectors && (
+                            <div className="mt-3 flex gap-2">
+                                {(['proyectado', 'relevado'] as const).map((nat) => (
+                                    <button
+                                        key={nat}
+                                        onClick={() => onChange({
+                                            ...config,
+                                            acometida: { ...config.acometida!, nature: nat }
+                                        })}
+                                        className={`flex-1 py-2 px-3 rounded-lg border-2 text-xs font-bold transition-all ${config.acometida?.nature === nat
+                                            ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                                            }`}
+                                    >
+                                        {nat === 'proyectado' ? '🆕 PROYECTADA (A Instalar)' : '🔍 RELEVADA (Existente)'}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
                         <p className="text-xs text-slate-500 mt-2">
                             Seleccione el tipo exacto según ET-21 (EPEC) / AEA. Esto definirá la tensión (220V/380V).
                         </p>
@@ -493,6 +531,27 @@ export default function WizardStep1_General({ config, onChange, onNext, onResetE
                                 <span className="text-blue-700 text-xs block font-medium bg-blue-100 px-2 py-1 rounded inline-block">
                                     💡 Común en departamentos: La instalación comienza desde el TSG (Tablero Seccional General), omitiendo medidor y línea principal.
                                 </span>
+
+                                {/* 🆕 Selector de Naturaleza de Pilar - Solo visible en modificación/existente/provisoria */}
+                                {config.includesPillar && showNatureSelectors && (
+                                    <div className="mt-3 flex gap-2">
+                                        {(['proyectado', 'relevado'] as const).map((nat) => (
+                                            <button
+                                                key={nat}
+                                                onClick={() => onChange({
+                                                    ...config,
+                                                    pilar: { ...config.pilar!, nature: nat }
+                                                })}
+                                                className={`flex-1 py-1.5 px-3 rounded-lg border-2 text-[10px] sm:text-xs font-bold transition-all ${config.pilar?.nature === nat
+                                                    ? 'border-green-600 bg-green-50 text-green-700 shadow-sm'
+                                                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                                                    }`}
+                                            >
+                                                {nat === 'proyectado' ? '🆕 PILAR NUEVO' : '🔍 PILAR EXISTENTE'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </label>
                         </div>
                     </div>

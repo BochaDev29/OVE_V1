@@ -1,5 +1,5 @@
 import { ArrowRight, ChevronDown, ChevronUp, MessageSquare, MessageSquareText } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Panel, ProjectConfig } from '../../../lib/electrical-rules';
 
 // Constantes de tamaños de cañería (copiadas del archivo principal)
@@ -34,6 +34,7 @@ interface PanelInputSectionProps {
     updateLine: (updates: any) => void;
     isExpanded: boolean;
     onToggle: () => void;
+    config: ProjectConfig;
 }
 
 export function PanelInputSection({
@@ -42,10 +43,15 @@ export function PanelInputSection({
     onUpdate,
     updateLine,
     isExpanded,
-    onToggle
+    onToggle,
+    config
 }: PanelInputSectionProps) {
     // Estado para expandir/colapsar notas
     const [showNotes, setShowNotes] = useState(false);
+
+    const showNatureSelectors = useMemo(() => {
+        return ['modificacion', 'existente', 'provisoria'].includes(config.estadoObra || '');
+    }, [config.estadoObra]);
 
     // Valores actuales de la línea
     const currentSection = panel.incomingLine?.section || 4;
@@ -60,6 +66,9 @@ export function PanelInputSection({
             >
                 <h4 className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-2">
                     <ArrowRight className="w-4 h-4 text-blue-600" /> Entrada - Línea de Alimentación
+                    {panel.incomingLine?.nature === 'relevado' && (
+                        <span className="text-[8px] bg-slate-200 text-slate-600 px-1 rounded ml-1 border border-slate-300">🔍 EXISTENTE</span>
+                    )}
                 </h4>
                 <div className="flex items-center gap-3">
                     {!isExpanded && (
@@ -79,6 +88,56 @@ export function PanelInputSection({
 
             {isExpanded && (
                 <>
+                    {showNatureSelectors && (
+                        <div className="grid grid-cols-2 gap-4 bg-white p-3 rounded-lg border border-blue-100 shadow-sm mb-2">
+                            <div>
+                                <label className="text-[9px] font-bold text-blue-700 block mb-1 uppercase tracking-tighter">Naturaleza del Gabinete</label>
+                                <div className="grid grid-cols-2 gap-1">
+                                    <button
+                                        onClick={() => onUpdate({ nature: 'relevado' })}
+                                        className={`py-1 rounded text-[9px] font-black border transition-all ${panel.nature === 'relevado'
+                                            ? 'bg-slate-100 border-slate-400 text-slate-700 shadow-inner'
+                                            : 'bg-white border-slate-200 text-slate-400 opacity-60'
+                                            }`}
+                                    >
+                                        🔍 EXISTENTE
+                                    </button>
+                                    <button
+                                        onClick={() => onUpdate({ nature: 'proyectado' })}
+                                        className={`py-1 rounded text-[9px] font-black border transition-all ${panel.nature === 'proyectado'
+                                            ? 'bg-blue-600 border-blue-700 text-white shadow-md'
+                                            : 'bg-white border-slate-200 text-slate-400 opacity-60'
+                                            }`}
+                                    >
+                                        🆕 NUEVO
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[9px] font-bold text-indigo-700 block mb-1 uppercase tracking-tighter">Naturaleza de Alimentación</label>
+                                <div className="grid grid-cols-2 gap-1">
+                                    <button
+                                        onClick={() => updateLine({ nature: 'relevado' })}
+                                        className={`py-1 rounded text-[9px] font-black border transition-all ${panel.incomingLine?.nature === 'relevado'
+                                            ? 'bg-slate-100 border-slate-400 text-slate-700 shadow-inner'
+                                            : 'bg-white border-slate-200 text-slate-400 opacity-60'
+                                            }`}
+                                    >
+                                        🔍 EXISTENTE
+                                    </button>
+                                    <button
+                                        onClick={() => updateLine({ nature: 'proyectado' })}
+                                        className={`py-1 rounded text-[9px] font-black border transition-all ${panel.incomingLine?.nature === 'proyectado'
+                                            ? 'bg-indigo-600 border-indigo-700 text-white shadow-md'
+                                            : 'bg-white border-slate-200 text-slate-400 opacity-60'
+                                            }`}
+                                    >
+                                        🆕 NUEVA
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Indicador de Alimentación desde Medidor (solo TP) */}
                     {panel.type === 'TP' && (

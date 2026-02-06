@@ -13,6 +13,12 @@ interface Step2Props {
 }
 
 export default function WizardStep2_Ambientes({ config, onChange, environments, onUpdateEnvironments, onBack, onNext, modoSimplificado = false }: Step2Props) {
+    // 🆕 Determinar si se deben mostrar inputs de naturaleza separados (REL/PROY)
+    // Solo se muestran en modificación, existente o provisoria (NO en obra nueva)
+    const showNatureInputs = useMemo(() => {
+        return ['modificacion', 'existente', 'provisoria'].includes(config.estadoObra || '');
+    }, [config.estadoObra]);
+
     // Calcular SLA y grado de electrificación
     const totalSurface = environments.length > 0 ? calculateSLA(environments) : 0;
     const currentGrade = calculateElectrificationGrade(config.destination, config.surfaceArea, environments);
@@ -26,12 +32,19 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
     // 🔌 CÁLCULOS DE CIRCUITOS
     // 1. Calcular totales de bocas por tipo
     const bocasTotals = useMemo(() => {
-        return environments.reduce((acc, env) => ({
-            iug: acc.iug + (env.lights || 0),
-            tug: acc.tug + (env.regularOutlets || 0),
-            tue: acc.tue + (env.specialOutlets || 0),
-            acu: acc.acu + (env.specialLoads?.filter(l => l.type === 'ACU').length || 0)
-        }), { iug: 0, tug: 0, tue: 0, acu: 0 });
+        return environments.reduce((acc, env) => {
+            // Unificamos: Si existen campos de auditoría, usamos esos. 
+            // Si no (legacy), usamos los campos lights/regularOutlets.
+            const iug = (env.bocasLuzRelevado || 0) + (env.bocasLuzProyectado || 0) || (env.lights || 0);
+            const tug = (env.bocasTomasRelevado || 0) + (env.bocasTomasProyectado || 0) || (env.regularOutlets || 0);
+
+            return {
+                iug: acc.iug + iug,
+                tug: acc.tug + tug,
+                tue: acc.tue + (env.specialOutlets || 0),
+                acu: acc.acu + (env.specialLoads?.filter(l => l.type === 'ACU').length || 0)
+            };
+        }, { iug: 0, tug: 0, tue: 0, acu: 0 });
     }, [environments]);
 
     // 2. Obtener circuitos mínimos de la variante seleccionada
@@ -47,19 +60,35 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
         const IUG_MAX_BOCAS = 15;
         const TUG_MAX_BOCAS = 15;
 
-        // Encontrar el máximo circuito asignado manualmente
+        if (modoSimplificado) {
+            // En modo simplificado, los circuitos son identificadores arbitrarios (C1, C2, etc.)
+            const assignedIDs = new Set<string>();
+            environments.forEach(env => {
+                if (env.assignedIugCircuit) assignedIDs.add(env.assignedIugCircuit);
+            });
+
+            return {
+                iug: 0, // No se usa por separado en modo simplificado
+                tug: 0,
+                tue: bocasTotals.tue,
+                acu: bocasTotals.acu,
+                customIds: assignedIDs.size > 0 ? Array.from(assignedIDs).sort() : ['C1']
+            };
+        }
+
+        // Encontrar el máximo circuito asignado manualmente (Modo Proyectado)
         const maxIugAssigned = environments.reduce((max, env) => {
-            if (env.assignedIugCircuit) {
+            if (env.assignedIugCircuit && env.assignedIugCircuit.includes('-')) {
                 const num = parseInt(env.assignedIugCircuit.split('-')[1]);
-                return Math.max(max, num);
+                return isNaN(num) ? max : Math.max(max, num);
             }
             return max;
         }, 0);
 
         const maxTugAssigned = environments.reduce((max, env) => {
-            if (env.assignedTugCircuit) {
+            if (env.assignedTugCircuit && env.assignedTugCircuit.includes('-')) {
                 const num = parseInt(env.assignedTugCircuit.split('-')[1]);
-                return Math.max(max, num);
+                return isNaN(num) ? max : Math.max(max, num);
             }
             return max;
         }, 0);
@@ -72,9 +101,10 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
             iug: Math.max(iugByBocas, minCircuits.iug, maxIugAssigned),
             tug: Math.max(tugByBocas, minCircuits.tug, maxTugAssigned),
             tue: bocasTotals.tue, // 1 circuito por boca especial
-            acu: bocasTotals.acu  // 1 circuito por carga ACU
+            acu: bocasTotals.acu,  // 1 circuito por carga ACU
+            customIds: []
         };
-    }, [bocasTotals, minCircuits, environments]);
+    }, [bocasTotals, minCircuits, environments, modoSimplificado]);
 
     // 4. Calcular distribución de bocas por circuito
     const circuitDistribution = useMemo(() => {
@@ -83,14 +113,29 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
         environments.forEach(env => {
             distribution[env.id] = {};
 
-            // IUG
-            if (env.lights > 0 && env.assignedIugCircuit) {
-                distribution[env.id][env.assignedIugCircuit] = env.lights;
-            }
+            if (modoSimplificado) {
+                const circuit = env.assignedIugCircuit || 'C1';
+                // Sumar bocas de luz y tomas al mismo circuito de grupo
+                const totalBocas = (env.bocasLuz || 0) + (env.bocasTomas || 0) +
+                    (env.bocasLuzRelevado || 0) + (env.bocasLuzProyectado || 0) +
+                    (env.bocasTomasRelevado || 0) + (env.bocasTomasProyectado || 0);
+                if (totalBocas > 0) {
+                    distribution[env.id][circuit] = totalBocas;
+                }
+            } else {
+                // IUG
+                const totalIug = (env.bocasLuzRelevado || 0) + (env.bocasLuzProyectado || 0) || (env.lights || 0);
+                if (totalIug > 0) {
+                    const circuit = env.assignedIugCircuit || 'IUG-1';
+                    distribution[env.id][circuit] = totalIug;
+                }
 
-            // TUG
-            if (env.regularOutlets > 0 && env.assignedTugCircuit) {
-                distribution[env.id][env.assignedTugCircuit] = env.regularOutlets;
+                // TUG
+                const totalTug = (env.bocasTomasRelevado || 0) + (env.bocasTomasProyectado || 0) || (env.regularOutlets || 0);
+                if (totalTug > 0) {
+                    const circuit = env.assignedTugCircuit || 'TUG-1';
+                    distribution[env.id][circuit] = totalTug;
+                }
             }
 
             // Cargas especiales (TUE, IUE, ACU, APM, etc.)
@@ -102,44 +147,61 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
         });
 
         return distribution;
-    }, [environments]);
+    }, [environments, modoSimplificado]);
 
     // 5. Calcular totales por circuito
     const circuitTotals = useMemo(() => {
         const totals: Record<string, number> = {};
 
-        // Inicializar todos los circuitos en 0
-        for (let i = 1; i <= circuitsNeeded.iug; i++) {
-            totals[`IUG-${i}`] = 0;
-        }
-        for (let i = 1; i <= circuitsNeeded.tug; i++) {
-            totals[`TUG-${i}`] = 0;
+        if (modoSimplificado) {
+            // Inicializar circuitos asignados
+            (circuitsNeeded as any).customIds.forEach((id: string) => {
+                totals[id] = 0;
+            });
+        } else {
+            // Inicializar todos los circuitos en 0 (Modo Proyectado)
+            for (let i = 1; i <= circuitsNeeded.iug; i++) {
+                totals[`IUG-${i}`] = 0;
+            }
+            for (let i = 1; i <= circuitsNeeded.tug; i++) {
+                totals[`TUG-${i}`] = 0;
+            }
         }
 
         // Sumar bocas de cada ambiente
         Object.values(circuitDistribution).forEach(envDist => {
             Object.entries(envDist).forEach(([circuit, bocas]) => {
-                if (circuit.startsWith('IUG') || circuit.startsWith('TUG')) {
+                // En modo simplificado, cualquier ID que no sea especial se suma
+                if (modoSimplificado) {
+                    if (!['ACU', 'TUE', 'IUE', 'APM', 'ATE'].some(t => circuit.startsWith(t))) {
+                        totals[circuit] = (totals[circuit] || 0) + bocas;
+                    }
+                } else if (circuit.startsWith('IUG') || circuit.startsWith('TUG')) {
                     totals[circuit] = (totals[circuit] || 0) + bocas;
                 }
             });
         });
 
         return totals;
-    }, [circuitDistribution, circuitsNeeded]);
+    }, [circuitDistribution, circuitsNeeded, modoSimplificado]);
 
     // 6. Obtener lista de circuitos especiales únicos
     const specialCircuits = useMemo(() => {
         const circuits: string[] = [];
+        const customIdsList = modoSimplificado ? (circuitsNeeded as any).customIds || [] : [];
+
         Object.values(circuitDistribution).forEach(envDist => {
             Object.keys(envDist).forEach(circuit => {
-                if (!circuit.startsWith('IUG') && !circuit.startsWith('TUG') && !circuits.includes(circuit)) {
+                const isTraditional = circuit.startsWith('IUG-') || circuit.startsWith('TUG-');
+                const isCustom = customIdsList.includes(circuit);
+
+                if (!isTraditional && !isCustom && !circuits.includes(circuit)) {
                     circuits.push(circuit);
                 }
             });
         });
-        return circuits.sort(); // Ordenar alfabéticamente
-    }, [circuitDistribution]);
+        return circuits.sort();
+    }, [circuitDistribution, circuitsNeeded, modoSimplificado]);
 
 
     const [newEnv, setNewEnv] = useState<Partial<EnvironmentCalculation>>({
@@ -153,13 +215,14 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
         specialLightsIUE: 0, // IUE - Iluminación Uso Especial
         specialLoads: [],
         panelId: defaultPanelId,
-        assignedIugCircuit: 'IUG-1',
+        assignedIugCircuit: modoSimplificado ? 'C1' : 'IUG-1',
         assignedTugCircuit: 'TUG-1',
         tipoSuperficie: 'cubierta', // Por defecto: cubierta (100% de la superficie)
         // Campos para modo simplificado (Res. 54/2018)
-        bocasLuz: 0,
-        bocasTomas: 0,
-        cargasEspeciales: 0,
+        bocasLuzRelevado: 0,
+        bocasLuzProyectado: 0,
+        bocasTomasRelevado: 0,
+        bocasTomasProyectado: 0,
         // Campos de diagnóstico
         breakerInfo: '',
         cableInfo: '',
@@ -185,46 +248,108 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
         setShowToast(true); setTimeout(() => setShowToast(false), 2000);
     };
 
+    // 5. Sugerencias de PMU para el ambiente actual (usado en validaciones de UI)
+    const suggestions = useMemo(() => {
+        return calculateEnvironmentBocas(
+            newEnv.surface || 0,
+            newEnv.name || '',
+            currentGrade,
+            config.destination,
+            newEnv.length
+        );
+    }, [newEnv.surface, newEnv.name, currentGrade, config.destination, newEnv.length]);
+
     const handleDimensionChange = (dim: 'width' | 'length', val: number) => {
         const updated = { ...newEnv, [dim]: val };
         const surf = Number(((updated.width || 0) * (updated.length || 0)).toFixed(2));
-        // Para instalaciones existentes, solo actualizamos superficie
+
+        // Calculamos sugerencias localmente para poblar campos si es necesario
+        const currentSuggestions = calculateEnvironmentBocas(surf, updated.name || '', currentGrade, config.destination, updated.length);
+
         if (modoSimplificado) {
             setNewEnv({ ...updated, surface: surf });
         } else {
-            const suggestions = calculateEnvironmentBocas(surf, updated.name || '', currentGrade, config.destination, updated.length);
-            setNewEnv({ ...updated, surface: surf, ...suggestions });
+            // En Obra Nueva, poblamos Proyectado si no hay nada en Relevado
+            const isNewWork = config.estadoObra === 'nueva' || config.creationMode === 'flash';
+
+            setNewEnv({
+                ...updated,
+                surface: surf,
+                // Solo auto-poblamos si ambos campos están en 0, para no pisar lo que el usuario escriba
+                bocasLuzProyectado: (isNewWork && (updated.bocasLuzRelevado || 0) + (updated.bocasLuzProyectado || 0) === 0)
+                    ? currentSuggestions.lights
+                    : (updated.bocasLuzProyectado || 0),
+                bocasTomasProyectado: (isNewWork && (updated.bocasTomasRelevado || 0) + (updated.bocasTomasProyectado || 0) === 0)
+                    ? currentSuggestions.regularOutlets
+                    : (updated.bocasTomasProyectado || 0)
+            });
         }
     };
 
     const saveEnvironment = () => {
-        const finalName = newEnv.name === 'Otro' ? (newEnv.customName || 'Otro') : newEnv.name;
-        const envToSave = {
+        const finalName = newEnv.name === 'Otro' ? (newEnv.customName || 'Otro') : (newEnv.name || 'Ambiente');
+
+        // Sincronizar campos de relevamiento con campos de cálculo para compatibilidad
+        const envToSave: EnvironmentCalculation = {
             ...newEnv,
             name: finalName,
             id: editingId || Math.random().toString(36).substr(2, 9),
-            // Asegurar que todos los campos relevantes se guarden
+            // Sincronización corregida para evitar doble suma
+            lights: modoSimplificado
+                ? ((newEnv.bocasLuz || 0) + (newEnv.bocasLuzRelevado || 0) + (newEnv.bocasLuzProyectado || 0))
+                : ((newEnv.bocasLuzRelevado || 0) + (newEnv.bocasLuzProyectado || 0) || (newEnv.lights || 0)),
+            regularOutlets: modoSimplificado
+                ? ((newEnv.bocasTomas || 0) + (newEnv.bocasTomasRelevado || 0) + (newEnv.bocasTomasProyectado || 0))
+                : ((newEnv.bocasTomasRelevado || 0) + (newEnv.bocasTomasProyectado || 0) || (newEnv.regularOutlets || 0)),
             surface: newEnv.surface || 0,
-            lights: newEnv.lights || 0,
-            regularOutlets: newEnv.regularOutlets || 0,
-            bocasLuz: newEnv.bocasLuz || 0,
-            bocasTomas: newEnv.bocasTomas || 0,
-            cargasEspeciales: newEnv.cargasEspeciales || 0,
+            bocasLuzRelevado: newEnv.bocasLuzRelevado || 0,
+            bocasLuzProyectado: newEnv.bocasLuzProyectado || 0,
+            bocasTomasRelevado: newEnv.bocasTomasRelevado || 0,
+            bocasTomasProyectado: newEnv.bocasTomasProyectado || 0,
             breakerInfo: newEnv.breakerInfo || '',
             cableInfo: newEnv.cableInfo || '',
             hasPAT: newEnv.hasPAT || false,
             hasPE: newEnv.hasPE || false,
             observacionesTecnicas: newEnv.observacionesTecnicas || ''
-        };
+        } as EnvironmentCalculation;
+
         if (editingId) onUpdateEnvironments(environments.map((e: any) => e.id === editingId ? envToSave : e));
         else onUpdateEnvironments([...environments, envToSave]);
         resetForm();
     };
 
+    // Función para manejar "Nuevo Circuito" de forma explícita
+    const handleAddNewCircuit = () => {
+        const assignedIDs = environments.map(e => e.assignedIugCircuit).filter(Boolean);
+        let nextId = 'C1';
+
+        // Lógica para sugerir el siguiente (C1, C2, etc.)
+        const nums = assignedIDs
+            .map(id => {
+                const match = id?.match(/C(\d+)/);
+                return match ? parseInt(match[1]) : 0;
+            })
+            .filter(n => n > 0);
+
+        if (nums.length > 0) {
+            nextId = `C${Math.max(...nums) + 1}`;
+        }
+
+        setNewEnv({
+            ...newEnv,
+            name: nextId,
+            assignedIugCircuit: nextId,
+            bocasLuz: 0,
+            bocasTomas: 0,
+            cargasEspeciales: 0
+        });
+        setIsAdding(true);
+    };
+
     const resetForm = () => {
         const firstEnv = suggestedEnvs[0]?.name || 'Ambiente';
         setNewEnv({
-            name: modoSimplificado ? `Circuito ${environments.length + 1}` : firstEnv,
+            name: modoSimplificado ? `Ambiente ${environments.length + 1}` : firstEnv,
             surface: 0,
             length: 0,
             width: 0,
@@ -234,12 +359,13 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
             specialLightsIUE: 0,
             specialLoads: [],
             panelId: defaultPanelId,
-            assignedIugCircuit: 'IUG-1',
+            assignedIugCircuit: modoSimplificado ? (environments[environments.length - 1]?.assignedIugCircuit || 'C1') : 'IUG-1',
             assignedTugCircuit: 'TUG-1',
             tipoSuperficie: 'cubierta',
-            bocasLuz: 0,
-            bocasTomas: 0,
-            cargasEspeciales: 0,
+            bocasLuzRelevado: 0,
+            bocasLuzProyectado: 0,
+            bocasTomasRelevado: 0,
+            bocasTomasProyectado: 0,
             breakerInfo: '',
             cableInfo: '',
             hasPAT: false,
@@ -341,10 +467,27 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
             )}
 
             <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold text-slate-800">{modoSimplificado ? 'Circuitos de la Instalación' : 'Ambientes / Locales'}</h3>
+                <h3 className="text-xl font-bold text-slate-800">{modoSimplificado ? 'Relevamiento de Circuitos y Sectores' : 'Ambientes / Locales'}</h3>
                 <div className="flex gap-2">
                     {!modoSimplificado && environments.length > 0 && <button onClick={handleSmartUpdate} className="flex items-center gap-2 bg-amber-100 text-amber-800 border border-amber-300 px-4 py-2 rounded-lg hover:bg-amber-200 font-bold text-sm"><RotateCw className="w-4 h-4" /> Actualizar Mínimos</button>}
-                    {!isAdding && <button onClick={() => setIsAdding(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md font-bold"><Plus className="w-5 h-5" /> {modoSimplificado ? 'Agregar Circuito' : 'Agregar Ambiente'}</button>}
+                    {!isAdding && (
+                        <>
+                            {modoSimplificado && (
+                                <button
+                                    onClick={handleAddNewCircuit}
+                                    className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 shadow-md font-bold"
+                                >
+                                    <Zap className="w-5 h-5" /> Nuevo Circuito (C{(circuitsNeeded as any).customIds.length + 1})
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setIsAdding(true)}
+                                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md font-bold"
+                            >
+                                <Plus className="w-5 h-5" /> {modoSimplificado ? 'Agregar Sector / Ambiente' : 'Agregar Ambiente'}
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -439,35 +582,76 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                                 <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-100">
                                     <div className="grid grid-cols-12 gap-3 items-center">
                                         <div className="col-span-2 flex items-center gap-2">
-                                            <Lightbulb className="w-4 h-4 text-amber-600" />
-                                            <label className="text-[10px] font-black text-amber-700 uppercase tracking-tight">IUG</label>
+                                            <Lightbulb className={`w-4 h-4 ${(newEnv.bocasLuzRelevado || 0) + (newEnv.bocasLuzProyectado || 0) < suggestions.lights ? 'text-red-500 animate-pulse' : 'text-amber-600'}`} />
+                                            <label className={`text-[10px] font-black uppercase tracking-tight ${(newEnv.bocasLuzRelevado || 0) + (newEnv.bocasLuzProyectado || 0) < suggestions.lights ? 'text-red-600' : 'text-amber-700'}`}>IUG</label>
                                         </div>
-                                        <div className="col-span-3">
-                                            <label className="block text-[8px] font-bold text-amber-600 mb-1 uppercase">Bocas</label>
-                                            <input
-                                                type="number"
-                                                className="w-full p-2 border-2 border-amber-200 rounded-lg font-bold text-center text-base shadow-inner"
-                                                value={newEnv.lights}
-                                                onChange={e => setNewEnv({ ...newEnv, lights: parseInt(e.target.value) || 0 })}
-                                            />
-                                        </div>
-                                        <div className="col-span-7">
-                                            <label className="block text-[8px] font-bold text-amber-600 mb-1 uppercase">Circuito</label>
-                                            <select
-                                                className="w-full p-2 text-sm border-2 border-amber-200 rounded-lg bg-white font-medium shadow-sm"
-                                                value={newEnv.assignedIugCircuit || 'IUG-1'}
-                                                onChange={e => setNewEnv({ ...newEnv, assignedIugCircuit: e.target.value })}
-                                            >
-                                                {Array.from({ length: circuitsNeeded.iug }).map((_, i) => {
-                                                    const circuit = `IUG-${i + 1}`;
-                                                    const currentLoad = circuitTotals[circuit] || 0;
-                                                    return (
-                                                        <option key={i} value={circuit}>
-                                                            {circuit} ({currentLoad}/15 bocas)
-                                                        </option>
-                                                    );
-                                                })}
-                                            </select>
+                                        {/* 🆕 Inputs condicionales según estadoObra */}
+                                        {showNatureInputs ? (
+                                            // Modificación/Existente/Provisoria: Mostrar REL + PROY separados
+                                            <div className="col-span-3 grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="block text-[8px] font-bold text-amber-600 mb-1 uppercase text-center">Rel.</label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full p-2 border-2 border-amber-200 rounded-lg font-bold text-center text-sm shadow-inner bg-amber-50/30"
+                                                        value={newEnv.bocasLuzRelevado || 0}
+                                                        onChange={e => setNewEnv({ ...newEnv, bocasLuzRelevado: parseInt(e.target.value) || 0 })}
+                                                        title="Bocas RELEVADAS (Existentes)"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[8px] font-bold text-amber-600 mb-1 uppercase text-center">Proy.</label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full p-2 border-2 border-amber-200 rounded-lg font-bold text-center text-sm shadow-inner bg-white"
+                                                        value={newEnv.bocasLuzProyectado || 0}
+                                                        onChange={e => setNewEnv({ ...newEnv, bocasLuzProyectado: parseInt(e.target.value) || 0 })}
+                                                        title="Bocas PROYECTADAS (Nuevas)"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            // Obra Nueva: Input único (implícitamente proyectado)
+                                            <div className="col-span-3">
+                                                <label className="block text-[8px] font-bold text-amber-600 mb-1 uppercase text-center">Total</label>
+                                                <input
+                                                    type="number"
+                                                    className="w-full p-2 border-2 border-amber-200 rounded-lg font-bold text-center text-sm shadow-inner bg-white"
+                                                    value={newEnv.bocasLuzProyectado || 0}
+                                                    onChange={e => setNewEnv({ ...newEnv, bocasLuzProyectado: parseInt(e.target.value) || 0, bocasLuzRelevado: 0 })}
+                                                    title="Bocas Totales (Nuevas)"
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="col-span-7 flex items-center gap-2">
+                                            <div className="flex-1">
+                                                <label className="block text-[8px] font-bold text-amber-600 mb-1 uppercase">Circuito</label>
+                                                <select
+                                                    className="w-full p-2 text-sm border-2 border-amber-200 rounded-lg bg-white font-medium shadow-sm"
+                                                    value={newEnv.assignedIugCircuit || 'IUG-1'}
+                                                    onChange={e => setNewEnv({ ...newEnv, assignedIugCircuit: e.target.value })}
+                                                >
+                                                    {Array.from({ length: circuitsNeeded.iug }).map((_, i) => {
+                                                        const circuit = `IUG-${i + 1}`;
+                                                        const currentLoad = circuitTotals[circuit] || 0;
+                                                        return (
+                                                            <option key={i} value={circuit}>
+                                                                {circuit} ({currentLoad}/15 bocas)
+                                                            </option>
+                                                        );
+                                                    })}
+                                                </select>
+                                            </div>
+                                            {(newEnv.bocasLuzRelevado || 0) + (newEnv.bocasLuzProyectado || 0) < suggestions.lights && (
+                                                <div className="bg-red-100 text-red-600 p-1 px-2 rounded-lg border border-red-200 text-[10px] font-black animate-bounce mt-3">
+                                                    MÍN: {suggestions.lights}
+                                                </div>
+                                            )}
+                                            {(newEnv.bocasLuzRelevado || 0) + (newEnv.bocasLuzProyectado || 0) >= suggestions.lights && (
+                                                <div className="bg-green-100 text-green-600 p-1 px-2 rounded-lg border border-green-200 text-[10px] font-black mt-3">
+                                                    OK
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -476,35 +660,76 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                                 <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
                                     <div className="grid grid-cols-12 gap-3 items-center">
                                         <div className="col-span-2 flex items-center gap-2">
-                                            <Plug className="w-4 h-4 text-blue-600" />
-                                            <label className="text-[10px] font-black text-blue-700 uppercase tracking-tight">TUG</label>
+                                            <Plug className={`w-4 h-4 ${(newEnv.bocasTomasRelevado || 0) + (newEnv.bocasTomasProyectado || 0) < suggestions.regularOutlets ? 'text-red-500 animate-pulse' : 'text-blue-600'}`} />
+                                            <label className={`text-[10px] font-black uppercase tracking-tight ${(newEnv.bocasTomasRelevado || 0) + (newEnv.bocasTomasProyectado || 0) < suggestions.regularOutlets ? 'text-red-600' : 'text-blue-700'}`}>TUG</label>
                                         </div>
-                                        <div className="col-span-3">
-                                            <label className="block text-[8px] font-bold text-blue-600 mb-1 uppercase">Bocas</label>
-                                            <input
-                                                type="number"
-                                                className="w-full p-2 border-2 border-blue-200 rounded-lg font-bold text-center text-base shadow-inner"
-                                                value={newEnv.regularOutlets}
-                                                onChange={e => setNewEnv({ ...newEnv, regularOutlets: parseInt(e.target.value) || 0 })}
-                                            />
-                                        </div>
-                                        <div className="col-span-7">
-                                            <label className="block text-[8px] font-bold text-blue-600 mb-1 uppercase">Circuito</label>
-                                            <select
-                                                className="w-full p-2 text-sm border-2 border-blue-200 rounded-lg bg-white font-medium shadow-sm"
-                                                value={newEnv.assignedTugCircuit || 'TUG-1'}
-                                                onChange={e => setNewEnv({ ...newEnv, assignedTugCircuit: e.target.value })}
-                                            >
-                                                {Array.from({ length: circuitsNeeded.tug }).map((_, i) => {
-                                                    const circuit = `TUG-${i + 1}`;
-                                                    const currentLoad = circuitTotals[circuit] || 0;
-                                                    return (
-                                                        <option key={i} value={circuit}>
-                                                            {circuit} ({currentLoad}/15 bocas)
-                                                        </option>
-                                                    );
-                                                })}
-                                            </select>
+                                        {/* 🆕 Inputs condicionales según estadoObra */}
+                                        {showNatureInputs ? (
+                                            // Modificación/Existente/Provisoria: Mostrar REL + PROY separados
+                                            <div className="col-span-3 grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="block text-[8px] font-bold text-blue-600 mb-1 uppercase text-center">Rel.</label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full p-2 border-2 border-blue-200 rounded-lg font-bold text-center text-sm shadow-inner bg-blue-50/30"
+                                                        value={newEnv.bocasTomasRelevado || 0}
+                                                        onChange={e => setNewEnv({ ...newEnv, bocasTomasRelevado: parseInt(e.target.value) || 0 })}
+                                                        title="Bocas RELEVADAS (Existentes)"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[8px] font-bold text-blue-600 mb-1 uppercase text-center">Proy.</label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full p-2 border-2 border-blue-200 rounded-lg font-bold text-center text-sm shadow-inner bg-white"
+                                                        value={newEnv.bocasTomasProyectado || 0}
+                                                        onChange={e => setNewEnv({ ...newEnv, bocasTomasProyectado: parseInt(e.target.value) || 0 })}
+                                                        title="Bocas PROYECTADAS (Nuevas)"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            // Obra Nueva: Input único (implícitamente proyectado)
+                                            <div className="col-span-3">
+                                                <label className="block text-[8px] font-bold text-blue-600 mb-1 uppercase text-center">Total</label>
+                                                <input
+                                                    type="number"
+                                                    className="w-full p-2 border-2 border-blue-200 rounded-lg font-bold text-center text-sm shadow-inner bg-white"
+                                                    value={newEnv.bocasTomasProyectado || 0}
+                                                    onChange={e => setNewEnv({ ...newEnv, bocasTomasProyectado: parseInt(e.target.value) || 0, bocasTomasRelevado: 0 })}
+                                                    title="Bocas Totales (Nuevas)"
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="col-span-7 flex items-center gap-2">
+                                            <div className="flex-1">
+                                                <label className="block text-[8px] font-bold text-blue-600 mb-1 uppercase">Circuito</label>
+                                                <select
+                                                    className="w-full p-2 text-sm border-2 border-blue-200 rounded-lg bg-white font-medium shadow-sm"
+                                                    value={newEnv.assignedTugCircuit || 'TUG-1'}
+                                                    onChange={e => setNewEnv({ ...newEnv, assignedTugCircuit: e.target.value })}
+                                                >
+                                                    {Array.from({ length: circuitsNeeded.tug }).map((_, i) => {
+                                                        const circuit = `TUG-${i + 1}`;
+                                                        const currentLoad = circuitTotals[circuit] || 0;
+                                                        return (
+                                                            <option key={i} value={circuit}>
+                                                                {circuit} ({currentLoad}/15 bocas)
+                                                            </option>
+                                                        );
+                                                    })}
+                                                </select>
+                                            </div>
+                                            {(newEnv.bocasTomasRelevado || 0) + (newEnv.bocasTomasProyectado || 0) < suggestions.regularOutlets && (
+                                                <div className="bg-red-100 text-red-600 p-1 px-2 rounded-lg border border-red-200 text-[10px] font-black animate-bounce mt-3">
+                                                    MÍN: {suggestions.regularOutlets}
+                                                </div>
+                                            )}
+                                            {(newEnv.bocasTomasRelevado || 0) + (newEnv.bocasTomasProyectado || 0) >= suggestions.regularOutlets && (
+                                                <div className="bg-green-100 text-green-600 p-1 px-2 rounded-lg border border-green-200 text-[10px] font-black mt-3">
+                                                    OK
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -521,7 +746,7 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div className="bg-white p-4 rounded-xl border border-amber-100 shadow-sm transition-all hover:shadow-md">
                                     <label className="block text-xs font-bold text-amber-700 mb-2 flex items-center gap-1">
                                         <Lightbulb className="w-4 h-4" /> Bocas de Luz
@@ -563,6 +788,39 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                                     />
                                     <p className="text-[10px] text-purple-600 mt-1 text-center font-bold uppercase tracking-tighter">VA Directos</p>
                                 </div>
+
+                                <div className="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm transition-all hover:shadow-md">
+                                    <label className="block text-xs font-bold text-indigo-700 mb-2 flex items-center gap-1">
+                                        <LayoutGrid className="w-4 h-4" /> Circuito de Grupo
+                                    </label>
+                                    <div className="space-y-3">
+                                        <input
+                                            type="text"
+                                            className="w-full p-2 border-2 border-indigo-50 rounded-lg font-bold text-center text-xl text-indigo-900 focus:border-indigo-500 outline-none shadow-inner"
+                                            value={newEnv.assignedIugCircuit || ''}
+                                            placeholder="Ej: C1"
+                                            onChange={e => setNewEnv({ ...newEnv, assignedIugCircuit: e.target.value.toUpperCase() })}
+                                        />
+
+                                        {/* Selectores rápidos de circuitos existentes */}
+                                        <div className="flex flex-wrap gap-1 justify-center">
+                                            {Array.from(new Set(environments.map(e => e.assignedIugCircuit).filter(Boolean))).sort().map(c => (
+                                                <button
+                                                    key={c}
+                                                    type="button"
+                                                    onClick={() => setNewEnv({ ...newEnv, assignedIugCircuit: c })}
+                                                    className={`px-3 py-1 rounded-full text-[10px] font-black transition-all border-2 ${newEnv.assignedIugCircuit === c
+                                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md scale-105'
+                                                        : 'bg-white border-indigo-100 text-indigo-400 hover:border-indigo-300 hover:text-indigo-600'
+                                                        }`}
+                                                >
+                                                    {c}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-indigo-600 mt-2 text-center font-bold uppercase tracking-tighter">Escriba o toque un circuito existente</p>
+                                </div>
                             </div>
                         </div>
                     ) : null}
@@ -582,16 +840,16 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                                         <option value="MBTF">MBTF (Muy Baja Tensión Funcional)</option>
                                         <option value="MBTS">MBTS (Muy Baja Tensión Seguridad)</option>
                                         {/* ITE solo si NO es vivienda */}
-                                        {config.destination !== 'vivienda' && config.destination !== 'habitacional' && (
+                                        {(config as any).regimenUso !== 'habitacional' && config.destination !== 'vivienda' && (
                                             <option value="ITE">ITE (Ilum. Trifásica Específica)</option>
                                         )}
                                         <option value="OCE">OCE (Otros Circuitos Específicos)</option>
                                         {/* AVP solo para proyectos transitorios */}
-                                        {config.projectType === 'provisorio_obra' && (
+                                        {(config as any).regimenUso === 'habitacional' || config.destination as string === 'provisorio_obra' && (
                                             <option value="AVP">AVP (Vivienda Provisoria)</option>
                                         )}
                                     </select>
-                                    {config.destination === 'vivienda' && tempLoad.type === 'ITE' && (
+                                    {(config as any).regimenUso === 'habitacional' || config.destination === 'vivienda' && tempLoad.type === 'ITE' && (
                                         <p className="text-[8px] text-red-600 mt-1 font-bold">⚠️ ITE prohibido en viviendas (AEA 771)</p>
                                     )}
                                 </div>
@@ -628,7 +886,7 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                                         title={tempLoad.type === 'ACU' || tempLoad.type === 'AVP' ? 'ACU y AVP siempre son 1 boca (circuito individual)' : 'Cantidad de bocas para este circuito especial'}
                                     />
                                 </div>
-                                <div className="col-span-12 md:col-span-6">
+                                <div className="col-span-12 md:col-span-4">
                                     <label className="block text-[8px] font-bold text-purple-600 mb-1 uppercase">Descripción (Opcional)</label>
                                     <input
                                         type="text"
@@ -638,25 +896,52 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                                         onChange={e => setTempLoad({ ...tempLoad, description: e.target.value } as any)}
                                     />
                                 </div>
+                                {/* 🆕 Selector de Naturaleza - Solo visible en modificación/existente/provisoria */}
+                                {showNatureInputs && (
+                                    <div className="col-span-12 md:col-span-2">
+                                        <label className="block text-[8px] font-bold text-purple-600 mb-1 uppercase">Naturaleza</label>
+                                        <div className="flex bg-purple-50 p-0.5 rounded-lg border-2 border-purple-100">
+                                            <button
+                                                onClick={() => setTempLoad({ ...tempLoad, nature: 'relevado' } as any)}
+                                                className={`flex-1 py-1 text-[9px] font-bold rounded transition-all ${(tempLoad as any).nature === 'relevado'
+                                                    ? 'bg-white text-purple-700 shadow-sm'
+                                                    : 'text-purple-400 hover:text-purple-600'
+                                                    }`}
+                                            >
+                                                EXIST.
+                                            </button>
+                                            <button
+                                                onClick={() => setTempLoad({ ...tempLoad, nature: 'proyectado' } as any)}
+                                                className={`flex-1 py-1 text-[9px] font-bold rounded transition-all ${(tempLoad as any).nature !== 'relevado'
+                                                    ? 'bg-purple-600 text-white shadow-sm'
+                                                    : 'text-purple-400 hover:text-purple-600'
+                                                    }`}
+                                            >
+                                                PROY.
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                                 <button
                                     onClick={() => {
                                         if (!tempLoad.value) return;
                                         const bocas = tempLoad.type === 'ACU' || tempLoad.type === 'AVP' ? 1 : ((tempLoad as any).bocas || undefined);
                                         const load = {
                                             id: Math.random().toString(36).substr(2, 9),
-                                            name: (tempLoad as any).description || tempLoad.type, // Usar descripción si existe
+                                            name: (tempLoad as any).description || tempLoad.type,
                                             type: tempLoad.type as any,
                                             value: parseFloat(tempLoad.value),
                                             unit: 'VA' as any,
                                             bocas,
-                                            isThreePhase: (tempLoad as any).isThreePhase || false  // 🆕 Guardar tipo mono/tri
+                                            isThreePhase: (tempLoad as any).isThreePhase || false,
+                                            nature: (tempLoad as any).nature || 'proyectado' // 🆕 Naturaleza
                                         };
                                         setNewEnv({ ...newEnv, specialLoads: [...(newEnv.specialLoads || []), load] });
-                                        setTempLoad({ ...tempLoad, value: '', bocas: undefined, description: '' } as any);
+                                        setTempLoad({ ...tempLoad, value: '', bocas: undefined, description: '', nature: 'proyectado' } as any);
                                     }}
-                                    className="col-span-12 md:col-span-6 bg-purple-600 text-white text-xs font-bold rounded-lg shadow-md hover:bg-purple-700 transition-all active:scale-95 py-2"
+                                    className="col-span-12 bg-purple-600 text-white text-xs font-bold rounded-lg shadow-md hover:bg-purple-700 transition-all active:scale-95 py-2 mt-2"
                                 >
-                                    + Agregar
+                                    + Agregar Carga Especial
                                 </button>
                             </div>
                             <p className="text-[9px] text-purple-600 mt-2 italic">
@@ -800,22 +1085,40 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                                             <Zap className="w-3 h-3" /> {env.cargasEspeciales} VA
                                         </div>
                                     )}
+                                    {env.assignedIugCircuit && (
+                                        <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded text-[10px] font-black text-slate-700 border border-slate-200 uppercase mt-1">
+                                            <LayoutGrid className="w-3 h-3" /> Circuito: {env.assignedIugCircuit}
+                                        </div>
+                                    )}
                                 </>
                             ) : (
                                 // Modo Instalación Nueva: Mostrar lights y regularOutlets con circuitos asignados
                                 <>
-                                    {(env.lights || 0) > 0 && (
+                                    {(env.bocasLuzRelevado > 0 || env.bocasLuzProyectado > 0 || env.lights > 0) && (
                                         <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded text-[10px] font-bold text-amber-700 border border-amber-100">
-                                            IUG: {env.lights} ({env.assignedIugCircuit || 'IUG-1'})
+                                            IUG: {(env.bocasLuzRelevado || 0) + (env.bocasLuzProyectado || 0) || (env.lights || 0)}
+                                            {(env.bocasLuzRelevado > 0 || env.bocasLuzProyectado > 0) && (
+                                                <span className="opacity-60 text-[8px] ml-1">
+                                                    ({env.bocasLuzRelevado || 0}R + {env.bocasLuzProyectado || 0}P)
+                                                </span>
+                                            )}
+                                            <span className="ml-1 opacity-40">({env.assignedIugCircuit || 'IUG-1'})</span>
                                         </div>
                                     )}
-                                    {(env.regularOutlets || 0) > 0 && (
+                                    {(env.bocasTomasRelevado > 0 || env.bocasTomasProyectado > 0 || env.regularOutlets > 0) && (
                                         <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded text-[10px] font-bold text-blue-700 border border-blue-100">
-                                            TUG: {env.regularOutlets} ({env.assignedTugCircuit || 'TUG-1'})
+                                            TUG: {(env.bocasTomasRelevado || 0) + (env.bocasTomasProyectado || 0) || (env.regularOutlets || 0)}
+                                            {(env.bocasTomasRelevado > 0 || env.bocasTomasProyectado > 0) && (
+                                                <span className="opacity-60 text-[8px] ml-1">
+                                                    ({env.bocasTomasRelevado || 0}R + {env.bocasTomasProyectado || 0}P)
+                                                </span>
+                                            )}
+                                            <span className="ml-1 opacity-40">({env.assignedTugCircuit || 'TUG-1'})</span>
                                         </div>
                                     )}
                                     {env.specialLoads?.map((load: any) => (
                                         <div key={load.id} className="flex items-center gap-1 bg-purple-50 px-2 py-1 rounded text-[10px] font-bold text-purple-700 border border-purple-100">
+                                            {load.nature === 'relevado' && <span className="text-[8px] bg-slate-200 text-slate-500 px-1 rounded mr-1">R</span>}
                                             {load.name}: {load.value} {load.unit} {load.bocas ? `(${load.bocas} b)` : ''}
                                         </div>
                                     ))}
@@ -826,8 +1129,8 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                 ))}
             </div>
 
-            {/* 📊 TABLA DE DISTRIBUCIÓN DE CIRCUITOS */}
-            {!modoSimplificado && environments.length > 0 && (
+            {/* 📊 TABLA DE DISTRIBUCIÓN DE CIRCUITOS (HABILITADA PARA AMBOS MODOS) */}
+            {environments.length > 0 && (
                 <div className="bg-white border-2 border-slate-200 rounded-xl p-4 mt-6 shadow-lg">
                     <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
                         <LayoutGrid className="w-5 h-5" />
@@ -839,18 +1142,27 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                             <thead>
                                 <tr className="bg-slate-100">
                                     <th className="p-2 text-left border font-bold text-slate-700">Ambiente</th>
-                                    {/* Columnas IUG */}
-                                    {Array.from({ length: circuitsNeeded.iug }, (_, i) => (
-                                        <th key={`iug-${i}`} className="p-2 text-center border bg-yellow-50 font-bold text-yellow-700">
-                                            💡 IUG-{i + 1}
-                                        </th>
-                                    ))}
-                                    {/* Columnas TUG */}
-                                    {Array.from({ length: circuitsNeeded.tug }, (_, i) => (
-                                        <th key={`tug-${i}`} className="p-2 text-center border bg-blue-50 font-bold text-blue-700">
-                                            🔌 TUG-{i + 1}
-                                        </th>
-                                    ))}
+                                    {/* Columnas IUG (o Circuitos de Grupo en modoExistente) */}
+                                    {modoSimplificado ? (
+                                        (circuitsNeeded as any).customIds.map((id: string) => (
+                                            <th key={id} className="p-2 text-center border bg-slate-100 font-bold text-slate-700 uppercase">
+                                                <LayoutGrid className="w-3 h-3 inline mr-1" /> {id}
+                                            </th>
+                                        ))
+                                    ) : (
+                                        <>
+                                            {Array.from({ length: circuitsNeeded.iug }, (_, i) => (
+                                                <th key={`iug-${i}`} className="p-2 text-center border bg-yellow-50 font-bold text-yellow-700">
+                                                    💡 IUG-{i + 1}
+                                                </th>
+                                            ))}
+                                            {Array.from({ length: circuitsNeeded.tug }, (_, i) => (
+                                                <th key={`tug-${i}`} className="p-2 text-center border bg-blue-50 font-bold text-blue-700">
+                                                    🔌 TUG-{i + 1}
+                                                </th>
+                                            ))}
+                                        </>
+                                    )}
                                     {/* Columnas Circuitos Especiales */}
                                     {specialCircuits.map(circuit => {
                                         const type = circuit.split('-')[0];
@@ -873,35 +1185,50 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                                             {env.customName || env.name}
                                         </td>
 
-                                        {/* Celdas IUG */}
-                                        {Array.from({ length: circuitsNeeded.iug }, (_, i) => {
-                                            const circuit = `IUG-${i + 1}`;
-                                            const bocas = circuitDistribution[env.id]?.[circuit] || 0;
-                                            return (
-                                                <td key={circuit} className="p-2 text-center border bg-yellow-50/30">
-                                                    {bocas > 0 ? (
-                                                        <span className="font-bold text-yellow-700">{bocas}</span>
-                                                    ) : (
-                                                        <span className="text-slate-300">-</span>
-                                                    )}
-                                                </td>
-                                            );
-                                        })}
-
-                                        {/* Celdas TUG */}
-                                        {Array.from({ length: circuitsNeeded.tug }, (_, i) => {
-                                            const circuit = `TUG-${i + 1}`;
-                                            const bocas = circuitDistribution[env.id]?.[circuit] || 0;
-                                            return (
-                                                <td key={circuit} className="p-2 text-center border bg-blue-50/30">
-                                                    {bocas > 0 ? (
-                                                        <span className="font-bold text-blue-700">{bocas}</span>
-                                                    ) : (
-                                                        <span className="text-slate-300">-</span>
-                                                    )}
-                                                </td>
-                                            );
-                                        })}
+                                        {/* Celdas IUG / Grupos Dinámicos */}
+                                        {modoSimplificado ? (
+                                            (circuitsNeeded as any).customIds.map((id: string) => {
+                                                const bocas = circuitDistribution[env.id]?.[id] || 0;
+                                                return (
+                                                    <td key={id} className="p-2 text-center border bg-slate-50/30">
+                                                        {bocas > 0 ? (
+                                                            <span className="font-bold text-slate-700">{bocas}</span>
+                                                        ) : (
+                                                            <span className="text-slate-300">-</span>
+                                                        )}
+                                                    </td>
+                                                );
+                                            })
+                                        ) : (
+                                            <>
+                                                {Array.from({ length: circuitsNeeded.iug }, (_, i) => {
+                                                    const circuit = `IUG-${i + 1}`;
+                                                    const bocas = circuitDistribution[env.id]?.[circuit] || 0;
+                                                    return (
+                                                        <td key={circuit} className="p-2 text-center border bg-yellow-50/30">
+                                                            {bocas > 0 ? (
+                                                                <span className="font-bold text-yellow-700">{bocas}</span>
+                                                            ) : (
+                                                                <span className="text-slate-300">-</span>
+                                                            )}
+                                                        </td>
+                                                    );
+                                                })}
+                                                {Array.from({ length: circuitsNeeded.tug }, (_, i) => {
+                                                    const circuit = `TUG-${i + 1}`;
+                                                    const bocas = circuitDistribution[env.id]?.[circuit] || 0;
+                                                    return (
+                                                        <td key={circuit} className="p-2 text-center border bg-blue-50/30">
+                                                            {bocas > 0 ? (
+                                                                <span className="font-bold text-blue-700">{bocas}</span>
+                                                            ) : (
+                                                                <span className="text-slate-300">-</span>
+                                                            )}
+                                                        </td>
+                                                    );
+                                                })}
+                                            </>
+                                        )}
 
                                         {/* Celdas Circuitos Especiales */}
                                         {specialCircuits.map(circuit => {
@@ -1014,7 +1341,9 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                                     ))}
                             </ul>
                             <p className="text-xs text-amber-600 mt-2 italic">
-                                Estos circuitos son requeridos por el grado de electrificación ({currentGrade}) pero no tienen carga asignada.
+                                {modoSimplificado
+                                    ? 'Estos circuitos han sido definidos en el relevamiento pero no contienen bocas.'
+                                    : `Estos circuitos son requeridos por el grado de electrificación (${currentGrade}) pero no tienen carga asignada.`}
                             </p>
                         </div>
                     )}
@@ -1050,7 +1379,12 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                             <div>
                                 <p className="font-bold text-blue-800 mb-1">Circuitos Calculados (según bocas):</p>
                                 <p className="text-blue-700">
-                                    {circuitsNeeded.iug} IUG + {circuitsNeeded.tug} TUG{specialCircuits.length > 0 ? ` + ${specialCircuits.length} Especiales` : ''} = {circuitsNeeded.iug + circuitsNeeded.tug + specialCircuits.length} circuitos
+                                    {modoSimplificado
+                                        ? `${(circuitsNeeded as any).customIds.length} Relevados`
+                                        : `${circuitsNeeded.iug} IUG + ${circuitsNeeded.tug} TUG`
+                                    }
+                                    {specialCircuits.length > 0 ? ` + ${specialCircuits.length} Especiales` : ''}
+                                    = {(modoSimplificado ? (circuitsNeeded as any).customIds.length : (circuitsNeeded.iug + circuitsNeeded.tug)) + specialCircuits.length} circuitos
                                 </p>
                             </div>
                         </div>

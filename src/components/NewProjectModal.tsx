@@ -4,7 +4,7 @@ import { X, Zap, Building2, FileCheck } from 'lucide-react';
 interface NewProjectModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSelectType: (type: 'flash' | 'complete' | 'regulated') => void;
+    onSelectType: (type: 'flash' | 'project') => void;
 }
 
 export default function NewProjectModal({ isOpen, onClose, onSelectType }: NewProjectModalProps) {
@@ -14,35 +14,24 @@ export default function NewProjectModal({ isOpen, onClose, onSelectType }: NewPr
         {
             id: 'flash' as const,
             icon: Zap,
-            title: 'Presupuesto Flash',
-            description: 'Trabajos rápidos y simples',
-            details: 'Cambiar llaves, instalar ventilador, reparaciones menores',
+            title: 'PRESUPUESTO FLASH',
+            description: 'Precio rápido para trabajos simples',
+            details: 'Cambiar llaves, artefactos, reparaciones menores',
             color: 'from-yellow-500 to-orange-500',
             bgColor: 'bg-yellow-50',
             borderColor: 'border-yellow-200',
             hoverColor: 'hover:border-yellow-400',
         },
         {
-            id: 'complete' as const,
-            icon: Building2,
-            title: 'Proyecto Completo',
-            description: 'Instalaciones eléctricas nuevas',
-            details: 'Wizard completo, Taller CAD, Documentación',
-            color: 'from-blue-500 to-indigo-500',
+            id: 'project' as const,
+            icon: FileCheck,
+            title: 'PROYECTO / CERTIFICACIÓN',
+            description: 'Documentación técnica completa',
+            details: 'Wizard 4 pasos → Taller CAD → Documentación y Presupuestos',
+            color: 'from-blue-500 to-indigo-600',
             bgColor: 'bg-blue-50',
             borderColor: 'border-blue-200',
             hoverColor: 'hover:border-blue-400',
-        },
-        {
-            id: 'regulated' as const,
-            icon: FileCheck,
-            title: 'Trabajo Reglamentado',
-            description: 'Certificación y relevamiento',
-            details: 'Instalaciones existentes, certificación ERSEP',
-            color: 'from-green-500 to-emerald-500',
-            bgColor: 'bg-green-50',
-            borderColor: 'border-green-200',
-            hoverColor: 'hover:border-green-400',
         },
     ];
 
@@ -66,7 +55,7 @@ export default function NewProjectModal({ isOpen, onClose, onSelectType }: NewPr
 
                 {/* Content */}
                 <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {projectTypes.map((type) => {
                             const Icon = type.icon;
                             return (
@@ -121,7 +110,7 @@ export default function NewProjectModal({ isOpen, onClose, onSelectType }: NewPr
                     {/* Help text */}
                     <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <p className="text-sm text-blue-900">
-                            <strong>💡 Ayuda:</strong> Si no estás seguro, elige <strong>Proyecto Completo</strong> para tener acceso a todas las funcionalidades.
+                            <strong>💡 Ayuda:</strong> Elegí <strong>Flash</strong> para presupuestos rápidos, o <strong>Proyecto/Certificación</strong> para trabajos con documentación completa.
                         </p>
                     </div>
                 </div>

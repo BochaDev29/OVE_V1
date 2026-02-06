@@ -149,6 +149,25 @@ export function PanelContentSection({
                                 ))}
                             </div>
                         )}
+
+                        {/* 🆕 Errores de Selectividad (NUEVO) */}
+                        {diagnostics.selectivity && (!diagnostics.selectivity.isValid || diagnostics.selectivity.warnings.length > 0) && (
+                            <div className="mt-2 space-y-1">
+                                <div className="text-[9px] font-bold text-red-700 uppercase">
+                                    {(diagnostics.selectivity.errors.length > 0) ? '❌ FALLA DE SELECTIVIDAD:' : '⚠️ ADVERTENCIAS DE SELECTIVIDAD:'}
+                                </div>
+                                {diagnostics.selectivity.errors.map((error: string, idx: number) => (
+                                    <div key={`err-${idx}`} className="text-[10px] text-red-600 font-bold leading-tight bg-red-100 p-1.5 rounded border border-red-300 animate-pulse">
+                                        {error}
+                                    </div>
+                                ))}
+                                {diagnostics.selectivity.warnings.map((warning: string, idx: number) => (
+                                    <div key={`warn-${idx}`} className="text-[10px] text-amber-700 font-medium leading-tight bg-amber-50 p-1.5 rounded border border-amber-200">
+                                        {warning}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* GRID 2 COLUMNAS: PROTECCIONES | GABINETE */}
@@ -159,6 +178,7 @@ export function PanelContentSection({
                                 headers={panel.protections?.headers || []}
                                 panelVoltage={panel.type === 'TP' ? config.voltage : panel.voltage}
                                 onUpdate={(headers) => onUpdate({ protections: { headers } })}
+                                estadoObra={config.estadoObra}
                             />
                         </div>
 
@@ -168,8 +188,8 @@ export function PanelContentSection({
                             </div>
 
                             <div className="space-y-3">
-                                {/* Fila 1: Módulos | IP | Material */}
-                                <div className="grid grid-cols-3 gap-2">
+                                {/* Fila 1: Módulos | IP | Material | Altura */}
+                                <div className="grid grid-cols-4 gap-2">
                                     <div>
                                         <label className="text-[10px] font-bold text-slate-600 block mb-1">Módulos</label>
                                         <select
@@ -186,6 +206,21 @@ export function PanelContentSection({
                                         <div className="text-[9px] text-indigo-600 mt-1 flex items-center gap-1">
                                             💡 {diagnostics.modules.suggested} sug.
                                         </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-600 block mb-1">Altura (m)</label>
+                                        <input
+                                            type="number"
+                                            value={panel.physicalData?.height ?? (panel.type === 'TP' ? 1.1 : 1.5)}
+                                            step="0.1"
+                                            min="0"
+                                            onChange={(e) => onUpdate({
+                                                physicalData: { ...(panel.physicalData || {}), height: parseFloat(e.target.value) }
+                                            })}
+                                            className="w-full text-xs border-slate-300 rounded p-1 font-mono"
+                                            placeholder="1.1"
+                                        />
                                     </div>
 
                                     <div>
@@ -219,6 +254,7 @@ export function PanelContentSection({
                                         </select>
                                     </div>
                                 </div>
+
 
                                 {/* Fila 2: Ubicación / Detalles */}
                                 <div className="pt-1 border-t border-green-100/50">
@@ -320,27 +356,34 @@ export function PanelContentSection({
                                                 <div className="flex items-start gap-2">
                                                     <input
                                                         type="checkbox"
-                                                        checked={panel.grounding?.materials?.cablePAT?.section === 4}
-                                                        onChange={(e) => onUpdate({
-                                                            grounding: {
-                                                                ...panel.grounding,
-                                                                hasPAT: true,
-                                                                materials: {
-                                                                    ...panel.grounding?.materials,
-                                                                    cablePAT: e.target.checked ? {
-                                                                        section: 4,
-                                                                        standard: 'IRAM NM 247-3',
-                                                                        color: 'Verde-Amarillo'
-                                                                    } : undefined
+                                                        checked={!!panel.grounding?.materials?.cablePAT}
+                                                        onChange={(e) => {
+                                                            const s = panel.incomingLine?.section || 4;
+                                                            const spe = s <= 16 ? s : (s / 2);
+                                                            const speFinal = Math.max(spe, 2.5);
+
+                                                            onUpdate({
+                                                                grounding: {
+                                                                    ...panel.grounding,
+                                                                    hasPAT: true,
+                                                                    materials: {
+                                                                        ...panel.grounding?.materials,
+                                                                        cablePAT: e.target.checked ? {
+                                                                            section: speFinal,
+                                                                            standard: 'IRAM NM 247-3',
+                                                                            color: 'Verde-Amarillo'
+                                                                        } : undefined
+                                                                    }
                                                                 }
-                                                            }
-                                                        })}
+                                                            });
+                                                        }}
                                                         className="rounded border-slate-300 w-3 h-3 text-green-600 focus:ring-green-500 mt-0.5"
                                                     />
                                                     <label className="text-[9px] text-slate-700 leading-tight">
-                                                        Cable PAT verde-amarillo <strong>4mm²</strong> (IRAM NM 247-3)
+                                                        Cable PAT verde-amarillo <strong>{panel.grounding?.materials?.cablePAT?.section || (panel.incomingLine?.section ? Math.max(panel.incomingLine.section <= 16 ? panel.incomingLine.section : panel.incomingLine.section / 2, 2.5) : 4)}mm²</strong> (IRAM NM 247-3)
                                                     </label>
                                                 </div>
+
 
                                                 {/* Tomacable */}
                                                 <div className="flex items-start gap-2">

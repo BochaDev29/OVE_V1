@@ -79,157 +79,157 @@ export default function DocMemory({ project: initialProject }: DocMemoryProps) {
 
         const clientName = config.clientName || owner.dniCuit || "A DEFINIR";
         const address = `${owner.street || ''} ${owner.number || ''}`.trim() || "NO INFORMADO";
-        const location = `${owner.city || ''} ${owner.province ? '-' + owner.province : ''}`.trim();
+        const city = owner.city || "NO INFORMADA";
+        const province = owner.province || "CÓRDOBA";
         const catastro = owner.catastro || "NO INFORMADO";
+
+        const isCordoba = province.toUpperCase() === 'CÓRDOBA';
+        const isExistente = config.estadoObra === 'existente';
+        const destMapping: Record<string, string> = {
+            'habitacional': 'Vivienda',
+            'vivienda': 'Vivienda',
+            'comercial': 'Local Comercial',
+            'oficina': 'Oficina',
+            'industrial': 'Industria'
+        };
+        const destType = destMapping[config.regimenUso] || config.regimenUso || 'Inmueble';
 
         let text = "";
 
-        // ENCABEZADO
-        const isExistente = config.projectType === 'existente';
-        text += "MEMORIA TÉCNICA DESCRIPTIVA\n";
-        text += isExistente
-            ? "Régimen de Instalación Existente (Res. 54/2018 - Ley 10.281)\n\n"
-            : "Instalación Eléctrica en Inmuebles - AEA 90364-7-770\n\n";
+        // 1. REGLAS DE LOCALIZACIÓN (EL SWITCH JURISDICCIONAL)
+        if (isCordoba) {
+            text += "CERTIFICADO DE INSTALACIÓN ELÉCTRICA APTA\n";
+            text += "Ley Provincial de Seguridad Eléctrica Nº 10.281\n";
+        } else {
+            text += "MEMORIA TÉCNICA DESCRIPTIVA\n";
+            text += "Reglamentación AEA 90364 - Sección 770/771\n";
+        }
         text += "________________________________________________________________________________\n\n";
 
-        // 1. DATOS
-        text += "1. DATOS DEL SOLICITANTE Y UBICACIÓN\n\n";
+        // BLOQUE A: ENCABEZADO Y DATOS DEL PROYECTO
+        text += "BLOQUE A: DATOS DEL PROYECTO\n\n";
         text += `Solicitante: ${clientName}\n`;
-        text += `Domicilio del Inmueble: ${address}\n`;
-        text += `Localidad: ${location}\n`;
+        text += `Ubicación: ${address} - ${city}\n`;
+        text += `Destino: ${destType}\n`;
+        text += `Superficie: ${config.surfaceArea || 0} m²\n`;
         text += `Nomenclatura Catastral: ${catastro}\n\n`;
 
-        // 2. OBJETO
-        text += "2. OBJETO DE LA MEMORIA\n\n";
-        if (config.estadoObra === 'provisoria') {
-            text += "La presente Memoria Técnica describe las características constructivas de la instalación eléctrica transitoria para obra (AVP), conforme a la Reglamentación AEA 90364-7-770 y requisitos de suministro provisorio.\n";
-            text += "⚠️ CERTIFICACIÓN VÁLIDA POR 12 MESES desde la fecha de emisión.\n\n";
-        } else if (isExistente) {
-            text += "La presente Memoria Técnica tiene por objeto describir las características constructivas de la instalación eléctrica existente, evaluada conforme a la Resolución 54/2018 de ERSeP y Ley Provincial 10281 de Seguridad Eléctrica.\n\n";
+        // BLOQUE B: OBJETO (Narrativa Híbrida)
+        text += "BLOQUE B: OBJETO DE LA PRESENTE\n\n";
+        if (!isExistente) {
+            text += `El objeto de la presente es certificar las características técnicas del proyecto y ejecución de la instalación eléctrica destinada a ${destType}, del propietario/a Sr./Sra. ${clientName}.\n\n`;
         } else {
-            text += "La presente Memoria Técnica tiene por objeto describir las características constructivas de la instalación eléctrica, ejecutada conforme a la Reglamentación AEA 90364-7-770 (Viviendas unifamiliares hasta 63A) y Ley Provincial 10281 de Seguridad Eléctrica.\n\n";
+            text += "El objeto de la presente es describir el relevamiento y verificación de las condiciones de seguridad de la instalación existente, a los fines de su regularización conforme a la normativa vigente.\n\n";
         }
 
-        // 3. CIRCUITOS
-        text += "3. DETALLE DE CIRCUITOS\n\n";
-        const circuits = calculation.circuits || [];
+        // BLOQUE C: SÍNTESIS DEL PROYECTO (Datos Duros)
+        text += "BLOQUE C: SÍNTESIS DEL PROYECTO\n\n";
+        text += `Grado de Electrificación: ${calculation.grade || 'Mínimo'}\n`;
+        if (isExistente) {
+            const pMax = calculation.totalKW || (calculation.totalDPMS * 0.85 / 1000);
+            text += `Potencia Máxima de la Instalación (Pmax): ${pMax.toFixed(2)} kW\n`;
+        }
+        text += `Demanda de Potencia (DPMS): ${(calculation.totalDPMS / 1000).toFixed(2)} kVA\n`;
+        text += `Tensión de Suministro: ${config.voltage || '220V'}\n`;
+        text += `Esquema de Conexión a Tierra: TT (Esquema de Puesta a Tierra Directa)\n`;
+        text += `Corriente de Cortocircuito (Icc): 3000 A (Mínima reglamentaria)\n\n`;
+
+        // BLOQUE D: DESCRIPCIÓN TÉCNICA
+        text += "BLOQUE D: DESCRIPCIÓN TÉCNICA\n\n";
+
+        // 1. Acometida y Medición
+        const acometidaType = config.acometida?.tipo || "Normalizada";
+        const acometidaMaterial = "Conductores de Cobre con aislación en XLPE/PVC";
+        text += "1. Acometida y Medición\n";
+        text += `El Punto de Conexión y Medición es del tipo ${acometidaType}, ejecutado con materiales de configuración de Doble Aislación (Clase II), conforme a los requerimientos de la Distribuidora local y la reglamentación vigente.\n`;
+        if (config.userNotes?.acometida) text += `Nota: ${config.userNotes.acometida}\n`;
+        text += "\n";
+
+        // 2. Tablero Principal y Seccionales
+        const ipRating = config.panels?.some((p: any) => p.isExterior) ? "IP65" : "IP40";
+        text += "2. Tablero Principal y Seccionales\n";
+        text += `La instalación cuenta con un Tablero Principal de material aislante, grado de protección IP ${ipRating}, ubicado según plano. Los dispositivos de maniobra y protección se encuentran instalados sobre riel DIN, garantizando la protección contra contactos accidentales.\n`;
+        if (config.userNotes?.panels) text += `Nota: ${config.userNotes.panels}\n`;
+        text += "\n";
+
+        // 3. Puesta a Tierra (PAT)
+        text += "3. Puesta a Tierra (PAT)\n";
+        text += "Se ha ejecutado/verificado un sistema de puesta a tierra de protección compuesto por jabalina cilíndrica de acero-cobre (IRAM 2309) y conductor de protección bicolor (verde-amarillo) que recorre toda la instalación, asegurando la equipotencialidad de las masas.\n\n";
+
+        // 4. Distribución y Circuitos (Iterador)
+        text += "4. Distribución y Circuitos\n";
+
+        // CORRECCIÓN: Intentar obtener circuitos de múltiples fuentes (Cálculo o Inventario Directo)
+        const circuits = (calculation.circuits && calculation.circuits.length > 0)
+            ? calculation.circuits
+            : (config.circuitInventory?.circuits || []);
+
+        console.log("🔍 DocMemory -> Circuitos detectados:", circuits.length);
+
         if (circuits.length > 0) {
+            text += "El sistema se distribuye en los siguientes circuitos terminales:\n\n";
             circuits.forEach((c: any) => {
-                text += `- ${c.id} (${c.type}): ${c.description}\n`;
-                text += `  Bocas: ${c.bocas} | Ib: ${c.ib?.toFixed(2) || 0} A | Cable: ${c.cable} | Prot: ${c.breaker}\n\n`;
+                const desc = c.description || c.nombre || c.type || "Circuito General";
+                const cable = c.cable ? c.cable.toString().replace('mm²', '') : '2.5';
+                const breaker = c.breaker ? c.breaker.toString().replace('A', '') : '16';
+
+                text += `* Circuito ${c.id}: Destinado a ${desc}. `;
+                text += `Cable de ${cable} mm². `;
+                text += `Protección Termomagnética de ${breaker} A. `;
+                if (c.userNote) text += `${c.userNote}`;
+                text += "\n";
             });
         } else {
-            text += "No se han definido circuitos en el cálculo.\n\n";
+            text += "⚠️ ATENCIÓN: No se han definido circuitos en el cálculo. Por favor, verifique el Paso 3 del Wizard.\n";
+            console.warn("⚠️ DocMemory -> El array de circuitos está vacío en todas las fuentes.");
         }
+        text += "\n";
 
-        // 3.5. ACOMETIDA ELÉCTRICA (si existe)
-        if (config.acometida) {
-            text += "3.5. ACOMETIDA ELÉCTRICA\n\n";
+        // BLOQUE E: ESPECIFICACIONES DE MATERIALES (Texto Legal Fijo)
+        text += "BLOQUE E: ESPECIFICACIONES DE MATERIALES\n\n";
+        text += "Cumplimiento Normativo:\n";
+        text += "Todos los materiales utilizados responden a las normas IRAM correspondientes y cuentan con Sello de Seguridad Eléctrica (Res. SC 169/2018):\n";
+        text += "* Conductores: IRAM NM 247-3 (No propagantes de llama).\n";
+        text += "* Canalizaciones: IRAM 62386 / IEC 61386 (Ignífugos).\n";
+        text += "* Protecciones: IEC 60898 (Termomagnéticas) e IEC 61008 (Diferenciales).\n";
+        text += "* Tableros: IRAM 62670 / IEC 60670.\n\n";
 
-            try {
-                const acometidaSpec = getAcometidaTypeSpec(config.acometida.tipo);
-
-                if (acometidaSpec) {
-                    text += `Tipo: ${acometidaSpec.descripcion}\n`;
-                    text += `Longitud: ${config.acometida.longitud} m\n`;
-                    text += `Método de Instalación: ${acometidaSpec.metodo_instalacion}\n`;
-                    text += `Material: ${acometidaSpec.material}\n`;
-                    text += `Sección Mínima: ${config.voltage === '380V' ? acometidaSpec.seccion_min_tri_mm2 : acometidaSpec.seccion_min_mono_mm2} mm²\n`;
-                    text += `Normativa: ${acometidaSpec.normativa}\n\n`;
-
-                    // Validación de longitud
-                    const validacionLongitud = validateAcometidaLength(
-                        config.acometida.longitud,
-                        config.acometida.tipo
-                    );
-
-                    if (!validacionLongitud.valid) {
-                        text += `⚠️ OBSERVACIÓN NORMATIVA:\n${validacionLongitud.alert}\n\n`;
-                    }
-
-                    // Diagnóstico de seguridad (solo para instalaciones existentes)
-                    if (config.estadoObra === 'existente' && config.acometida.seccion) {
-                        text += "DIAGNÓSTICO DE SEGURIDAD:\n";
-                        text += `Sección de cable existente: ${config.acometida.seccion} mm²\n`;
-
-                        // Buscar protección del TP
-                        const tpPanel = calculation.panels?.find((p: any) => p.type === 'TP');
-                        if (tpPanel?.existingPIA?.amperes) {
-                            const validacionSeguridad = validateCableSafety(
-                                config.acometida.seccion,
-                                tpPanel.existingPIA.amperes,
-                                config.voltage === '380V',
-                                acometidaSpec.metodo_instalacion
-                            );
-
-                            if (!validacionSeguridad.safe) {
-                                text += `\n🔥 ${validacionSeguridad.alert}\n`;
-                                text += `Nivel de Riesgo: ${validacionSeguridad.riskLevel}\n\n`;
-                            } else {
-                                text += `✓ La protección (${tpPanel.existingPIA.amperes}A) es compatible con el cable ${config.acometida.seccion}mm².\n\n`;
-                            }
-                        }
-                    }
-                } else {
-                    text += `Tipo: ${config.acometida.tipo}\n`;
-                    text += `Longitud: ${config.acometida.longitud} m\n\n`;
-                }
-            } catch (error) {
-                console.warn('Error al obtener datos de acometida:', error);
-                text += `Tipo: ${config.acometida.tipo}\n`;
-                text += `Longitud: ${config.acometida.longitud} m\n\n`;
-            }
-        }
-
-        // 4. RESUMEN
-        text += "4. RESUMEN DE CARACTERÍSTICAS TÉCNICAS\n\n";
-        text += `Tensión Nominal: ${config.voltage || '220V'}\n`;
-        text += `Grado de Electrificación: ${isExistente ? 'N/A (RES. 54/18)' : (calculation.grade || 'Minimo').toUpperCase()}\n`;
-        text += `D.P.M.S. Total: ${calculation.dpmsTotal ? Math.round(calculation.dpmsTotal) : 0} VA\n`;
-        text += `Intensidad de Proyecto (Ib): ${calculation.totalDPMS ? (calculation.totalDPMS / 220).toFixed(2) : (calculation.current ? calculation.current.toFixed(2) : 0)} A\n`;
-        text += `Cable Acometida (Sugerido): ${calculation.suggestedCable || '-'} mm²\n`;
-        text += `Protección Principal: ${calculation.suggestedBreaker || '-'}\n`;
-        text += `Puesta a Tierra: Jabalina Acero-Cobre + Cond. 10mm² (Verificado)\n\n`;
-
-        if (config.estadoObra === 'provisoria') {
-            text += "5. REQUISITOS TÉCNICOS PARA SUMINISTRO TRANSITORIO\n\n";
-            text += "1. El tablero provisorio de obra debe ser de material aislante con grado de protección IP43 o superior.\n";
-            text += "2. Todos los tomacorrientes deben contar con su respectiva tapa protectora (IP44/65).\n";
-            text += "3. Se debe contar con protección diferencial de 30mA y termomagnética adecuada.\n";
-            text += "4. La puesta a tierra es obligatoria mediante jabalina reglamentaria e inspeccionable.\n";
-            text += "5. Los conductores deben ser del tipo doble aislación (IRAM 2178) en tramos expuestos.\n";
-            text += "6. La altura del tablero debe situarse entre 0.8m y 1.5m del suelo.\n";
-            text += "7. Se prohíbe el uso de cables tipo taller para la instalación fija de obra.\n";
-            text += "8. El gabinete de medidor debe ser Clase II (Sintético) conforme a MN 127/128.\n";
-            text += "9. La instalación debe ser retirada una vez finalizada la obra o vencido el plazo de 12 meses.\n";
-            text += "10. No se permiten empalmes fuera de cajas de paso o derivación.\n";
-            text += "11. El tablero debe estar correctamente señalizado con riesgo eléctrico.\n\n";
-        }
+        // BLOQUE F: DISCLAIMER (Responsabilidad)
+        text += "BLOQUE F: RESPONSABILIDAD TÉCNICA\n\n";
+        text += "Este documento ha sido generado mediante el software OVE (Oficina Virtual Eléctrica) en base a los datos suministrados por el usuario. La verificación física de la obra, la dirección técnica y la veracidad de los datos declarados son responsabilidad exclusiva del Instalador Habilitado firmante.\n";
 
         setMemoryText(text);
     };
+
 
     const renderPreviewContent = () => {
         const config = projectData?.wizardData?.config || {};
         const owner = config.ownerDetail || {};
         const clientName = config.clientName || 'Cliente';
         const address = `${owner.street || ''} ${owner.number || ''}`.trim() || 'Dirección no especificada';
+        const province = owner.province || "CÓRDOBA";
+        const isCordoba = province.toUpperCase() === 'CÓRDOBA';
+
+        const mainTitle = isCordoba ? "CERTIFICADO DE INSTALACIÓN ELÉCTRICA APTA" : "MEMORIA TÉCNICA DESCRIPTIVA";
+        const subTitle = isCordoba ? "Ley Provincial de Seguridad Eléctrica Nº 10.281" : "Reglamentación AEA 90364 - Sección 770/771";
 
         return (
             <div className="space-y-6">
                 {/* Título */}
                 <div className="text-center border-b pb-6">
-                    <h1 className="text-3xl font-bold mb-2">MEMORIA TÉCNICA</h1>
-                    <p className="text-slate-600">Documentación Técnica</p>
+                    <h1 className="text-2xl font-bold mb-2 uppercase">{mainTitle}</h1>
+                    <p className="text-slate-600 font-medium italic">{subTitle}</p>
                 </div>
 
                 {/* Datos del Proyecto */}
-                <div>
-                    <h2 className="text-xl font-bold mb-3">Información de la Obra</h2>
-                    <div className="space-y-2 text-sm">
-                        <p><strong>Cliente:</strong> {clientName}</p>
-                        <p><strong>Ubicación:</strong> {address}</p>
-                        <p><strong>Destino:</strong> {config.destination || 'No especificado'}</p>
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <div>
+                        <h2 className="text-xs font-bold text-slate-400 uppercase mb-1">Solicitante</h2>
+                        <p className="text-sm font-semibold text-slate-700">{clientName}</p>
+                    </div>
+                    <div>
+                        <h2 className="text-xs font-bold text-slate-400 uppercase mb-1">Ubicación</h2>
+                        <p className="text-sm font-semibold text-slate-700">{address}</p>
                     </div>
                 </div>
 
@@ -249,31 +249,53 @@ export default function DocMemory({ project: initialProject }: DocMemoryProps) {
             const doc = new jsPDF();
 
             // 1. CARÁTULA
-            addPDFCoverPage(doc, "MEMORIA TÉCNICA", projectData, profileData);
+            // Título fijo solicitado por el usuario
+            const docTitle = "MEMORIA TÉCNICA";
+
+            addPDFCoverPage(doc, docTitle, projectData, profileData);
 
             // 2. CONTENIDO EDITABLE (Página 2)
+            // ELIMINADO: doc.addPage() ya que addPDFCoverPage lo hace internamente
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
+            doc.setTextColor(50);
 
             const splitText = doc.splitTextToSize(memoryText, 170);
 
             // Posición inicial en Pag 2
-            let y = 20;
-            // Si el texto es muy largo, jsPDF a veces necesita manejo manual de paginado si no se usa autoTable o html.
-            // splitTextToSize devuelve array de strings.
-            // doc.text maneja multilinea, pero si excede la pagina, no hace salto automatico nativo sin plugin.
-            // Implementamos un loop básico de paginado.
-
+            let y = 30;
             const pageHeight = doc.internal.pageSize.height;
             const margin = 20;
+
+            // Header simplificado para páginas internas
+            const addPageHeader = (pageDoc: jsPDF) => {
+                pageDoc.setFontSize(8);
+                pageDoc.setTextColor(150);
+                pageDoc.text(`${docTitle} - Proyecto: ${projectData.wizardData?.config?.clientName || 'S/D'}`, margin, 15);
+                pageDoc.line(margin, 18, 190, 18);
+                pageDoc.setFontSize(10);
+                pageDoc.setTextColor(50);
+            };
+
+            addPageHeader(doc);
 
             splitText.forEach((line: string) => {
                 if (y > pageHeight - margin) {
                     doc.addPage();
-                    y = margin;
+                    addPageHeader(doc);
+                    y = 30;
                 }
-                doc.text(line, margin, y);
-                y += 5; // Interlineado
+
+                // Si la línea empieza con "BLOQUE", poner en negrita
+                if (line.includes("BLOQUE") || line.includes("1.") || line.includes("2.") || line.includes("3.") || line.includes("4.")) {
+                    doc.setFont("helvetica", "bold");
+                    doc.text(line, margin, y);
+                    doc.setFont("helvetica", "normal");
+                } else {
+                    doc.text(line, margin, y);
+                }
+
+                y += 6; // Interlineado
             });
 
             // Guardar
@@ -312,10 +334,13 @@ export default function DocMemory({ project: initialProject }: DocMemoryProps) {
                 <div>
                     <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                         <FileText className="text-blue-600" />
-                        Memoria Técnica (ERSeP)
+                        {projectData?.wizardData?.config?.ownerDetail?.province?.toUpperCase() === 'CÓRDOBA'
+                            ? 'Certificado Apta (Ley 10281)'
+                            : 'Memoria Técnica (AEA)'
+                        }
                     </h2>
                     <p className="text-slate-500 mt-1">
-                        Generación automática conforme a Reglamentación AEA 90364-7-770.
+                        Generación automática profesional conforme a especificación maestra.
                     </p>
                 </div>
 

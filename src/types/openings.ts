@@ -5,7 +5,7 @@
  */
 export interface Opening {
     id: string;
-    type: 'door' | 'window';
+    type: 'door' | 'window' | 'passage';
 
     // Vinculación al ambiente
     roomGroupId: string;  // ID del RoomGroup al que pertenece
@@ -26,8 +26,9 @@ export interface Opening {
  */
 export interface DoorOpening extends Opening {
     type: 'door';
-    doorSwing: 'left' | 'right';  // Sentido de apertura
-    height: number;                // Alto de la puerta (típicamente 2.00m)
+    doorSwing: 'left' | 'right';      // Lado de la bisagra
+    openingDirection: 'in' | 'out'; // Sentido de apertura (Hacia adentro/afuera)
+    height: number;                   // Alto de la puerta (típicamente 2.00m)
 }
 
 /**
@@ -79,7 +80,8 @@ export const createDoor = (
     wallIndex: number,
     position: number,
     width: number = 0.80,
-    doorSwing: 'left' | 'right' = 'right'
+    doorSwing: 'left' | 'right' = 'right',
+    openingDirection: 'in' | 'out' = 'out'
 ): DoorOpening => {
     return {
         id: `door-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -90,6 +92,7 @@ export const createDoor = (
         width,
         height: DOOR_HEIGHT,
         doorSwing,
+        openingDirection,
         layerId: 'layer-0'
     };
 };
@@ -114,6 +117,26 @@ export const createWindow = (
         width,
         height,
         sillHeight,
+        layerId: 'layer-0'
+    };
+};
+
+/**
+ * Función helper para crear un vano/paso
+ */
+export const createPassage = (
+    roomGroupId: string,
+    wallIndex: number,
+    position: number,
+    width: number = 0.80
+): Opening => {
+    return {
+        id: `passage-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: 'passage',
+        roomGroupId,
+        wallIndex,
+        position,
+        width,
         layerId: 'layer-0'
     };
 };

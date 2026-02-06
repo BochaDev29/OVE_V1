@@ -17,9 +17,18 @@ export default function Profile() {
         license_number: '',
         phone: '',
         email: '',
+        email: '',
         address: '',
+        province: '', // Default vacío (se seleccionará Córdoba si es vacío al cargar)
         logo_base64: null
     });
+
+    const PROVINCIAS = [
+        "Buenos Aires", "Catamarca", "Chaco", "Chubut", "Ciudad Autónoma de Buenos Aires",
+        "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja",
+        "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis",
+        "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"
+    ];
 
     useEffect(() => {
         if (user) {
@@ -41,6 +50,7 @@ export default function Profile() {
                     phone: data.phone || '',
                     email: data.email || '',
                     address: data.address || '',
+                    province: data.province || 'Córdoba', // Default a Córdoba si no tiene
                     logo_base64: data.logo_base64 || null
                 });
             } else {
@@ -53,7 +63,7 @@ export default function Profile() {
         }
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
@@ -264,6 +274,24 @@ export default function Profile() {
                                 placeholder="+54 9 11 ..."
                                 className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                             />
+                        </div>
+
+                        {/* Province */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                                <MapPin size={16} className="text-slate-400" />
+                                Provincia
+                            </label>
+                            <select
+                                name="province"
+                                value={formData.province || 'Córdoba'}
+                                onChange={handleChange}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+                            >
+                                {PROVINCIAS.map(prov => (
+                                    <option key={prov} value={prov}>{prov}</option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* Email */}

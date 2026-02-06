@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FileText, Download, Loader2, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { FileText, Download, Loader2, AlertCircle, CheckCircle2, XCircle, Zap } from 'lucide-react';
 import { ProjectService } from '../../services/project.service';
 import { ProfileService } from '../../services/profile.service';
 import { useAuth } from '../../contexts/AuthContext';
@@ -19,39 +19,20 @@ interface ChecklistItem {
     descripcion: string;
     verificado: boolean;
     observaciones: string;
-    categoria: string;
 }
 
-const getPuntosVerificacion = (estadoObra?: string): Omit<ChecklistItem, 'verificado' | 'observaciones'>[] => {
-    if (estadoObra === 'provisoria') {
-        return [
-            { numero: 1, descripcion: 'Estado general del tablero de obra e instalaciones moviles', categoria: 'General' },
-            { numero: 2, descripcion: 'Protección diferencial 30mA presente y funcional (Obra)', categoria: 'Protecciones' },
-            { numero: 3, descripcion: 'Tomacorrientes con tapas IP44/IP65 en buen estado', categoria: 'Tableros' },
-            { numero: 4, descripcion: 'Sección de cables 2.5mm² mín. (Norma IRAM 2178/247-3)', categoria: 'Seguridad' },
-            { numero: 5, descripcion: 'Estado de aislación de conductores (sin empalmes expuestos)', categoria: 'Conductores' },
-            { numero: 6, descripcion: 'PAT obligatoria instalada e inspeccionable (Obra)', categoria: 'PAT' },
-            { numero: 7, descripcion: 'Tablero señalizado con riesgo eléctrico y cerrado', categoria: 'Tableros' },
-            { numero: 8, descripcion: 'Ausencia de cables tipo taller en instalación fija', categoria: 'Conductores' },
-            { numero: 9, descripcion: 'Cajas de paso cerradas y estancas si están a la intemperie', categoria: 'Seguridad' },
-            { numero: 10, descripcion: 'Altura de montaje de tomacorrientes (0.8m a 1.5m)', categoria: 'General' },
-            { numero: 11, descripcion: 'Vencimiento de certificación (12 meses) informado', categoria: 'Administrativo' }
-        ];
-    }
-    return [
-        { numero: 1, descripcion: 'Estado general de la instalación eléctrica', categoria: 'General' },
-        { numero: 2, descripcion: 'Protección diferencial (ID) presente y funcional', categoria: 'Protecciones' },
-        { numero: 3, descripcion: 'Selectividad entre protecciones (In_ID ≥ In_PIA)', categoria: 'Protecciones' },
-        { numero: 4, descripcion: 'Sección de cables vs corriente de protección (In ≤ Iz)', categoria: 'Seguridad' },
-        { numero: 5, descripcion: 'Estado de aislación de conductores', categoria: 'Conductores' },
-        { numero: 6, descripcion: 'Puesta a tierra (PAT) presente y medida', categoria: 'PAT' },
-        { numero: 7, descripcion: 'Tableros con tapa y señalización adecuada', categoria: 'Tableros' },
-        { numero: 8, descripcion: 'Ausencia de empalmes sin protección', categoria: 'Conductores' },
-        { numero: 9, descripcion: 'Tomacorrientes con puesta a tierra', categoria: 'Bocas' },
-        { numero: 10, descripcion: 'Iluminación de emergencia (si aplica)', categoria: 'Iluminación' },
-        { numero: 11, descripcion: 'Cumplimiento de distancias de seguridad', categoria: 'Seguridad' }
-    ];
-};
+const PUNTOS_RES_54 = [
+    { numero: 1, descripcion: 'Inexistencia de conductores a la vista, sin protección mecánica o con aislación dañada.' },
+    { numero: 2, descripcion: 'Inexistencia de conductores o elementos bajo tensión accesibles accidentalmente.' },
+    { numero: 3, descripcion: 'Presencia de protección diferencial (ID) de 30mA, funcionamiento mediante botón de test.' },
+    { numero: 4, descripcion: 'Presencia de protección contra sobrecorriente (PIA) en todos los circuitos terminales.' },
+    { numero: 5, descripcion: 'Inexistencia de fusibles (tapones) o hilos de cobre en reemplazo de protecciones.' },
+    { numero: 6, descripcion: 'Correcta vinculación de los conductores de protección (V/A) en todas las cajas y bocas.' },
+    { numero: 7, descripcion: 'Presencia de toma de tierra (jabalina) con caja de inspección accesible.' },
+    { numero: 8, descripcion: 'Tableros eléctricos construidos con materiales aislantes o con puesta a tierra de masas metálicas.' },
+    { numero: 9, descripcion: 'Las partes metálicas de la instalación (cañerías, cajas, tableros) están conectadas a tierra.' },
+    { numero: 10, descripcion: 'Inexistencia de instalaciones precarias o conexiones clandestinas dentro de la propiedad.' }
+];
 
 export default function DocChecklist({ project: initialProject, value, onChange }: DocChecklistProps) {
     const { id } = useParams();
@@ -64,6 +45,7 @@ export default function DocChecklist({ project: initialProject, value, onChange 
     const [generating, setGenerating] = useState(false);
 
     const [items, setItems] = useState<ChecklistItem[]>([]);
+    const [patValue, setPatValue] = useState<string>("");
 
     useEffect(() => {
         loadData();
@@ -71,64 +53,59 @@ export default function DocChecklist({ project: initialProject, value, onChange 
 
     useEffect(() => {
         if (projectData && items.length === 0) {
-            const initialItems = getPuntosVerificacion(projectData.wizardData?.config?.estadoObra).map(p => ({
-                ...p,
-                verificado: false,
-                observaciones: ''
-            }));
+            const exData = projectData.wizardData?.existenteData;
+            const exCheck = exData?.checklist || {};
+
+            // Mapeo Inteligente: Wizard -> Res. 54
+            const initialItems = PUNTOS_RES_54.map(p => {
+                let verificado = false;
+
+                // Mapeo de campos del Wizard a puntos del Checklist ERSeP
+                switch (p.numero) {
+                    case 1: verificado = exCheck.canalizaciones || false; break;
+                    case 2: verificado = exCheck.dobleAislacion || exCheck.restriccionAcceso || false; break;
+                    case 3: verificado = exCheck.diferencial || false; break;
+                    case 4: verificado = exCheck.protecciones || false; break;
+                    case 5: verificado = exCheck.protecciones || false; break; // Ausencia de fusibles se asocia a tener térmicas
+                    case 6: verificado = exCheck.equipotencializacion || false; break;
+                    case 7: verificado = exCheck.sistemaTT || false; break;
+                    case 8: verificado = exCheck.gradoProteccionIP || exCheck.cierreSeguridad || false; break;
+                    case 9: verificado = exCheck.equipotencializacion || false; break;
+                    case 10: verificado = exCheck.estadoGeneral || false; break;
+                }
+
+                return {
+                    ...p,
+                    verificado,
+                    observaciones: ''
+                };
+            });
+
             setItems(initialItems);
+
+            // Cargar PAT si existe (priorizar wizardData)
+            const valorPAT = exData?.valorPAT || projectData.wizardData?.valorPAT;
+            if (valorPAT) {
+                setPatValue(valorPAT.toString());
+            }
         }
     }, [projectData]);
-
-    useEffect(() => {
-        if (value && value.length > 0) {
-            setItems(value);
-        }
-    }, [value]);
-
-    useEffect(() => {
-        if (items.length > 0 && onChange) {
-            onChange(items);
-        }
-    }, [items]);
 
     const loadData = async () => {
         try {
             setLoading(true);
-
             let currentProject = initialProject;
             if (!currentProject && id) {
                 currentProject = await ProjectService.getProjectById(id);
             }
-
-            if (!currentProject) {
-                throw new Error("No se pudo cargar el proyecto.");
-            }
+            if (!currentProject) throw new Error("No se pudo cargar el proyecto.");
             setProjectData(currentProject);
 
             if (user) {
                 const profile = await ProfileService.getProfile(user.id);
                 setProfileData(profile);
             }
-
-            // Pre-llenar con datos de existenteData si existen
-            if (currentProject.wizardData?.existenteData) {
-                const existenteData = currentProject.wizardData.existenteData;
-
-                // Actualizar items con datos existentes
-                setItems(prev => prev.map(item => {
-                    if (item.numero === 2 && existenteData.tieneDiferencial !== undefined) {
-                        return { ...item, verificado: existenteData.tieneDiferencial };
-                    }
-                    if (item.numero === 6 && existenteData.tienePAT !== undefined) {
-                        return { ...item, verificado: existenteData.tienePAT };
-                    }
-                    return item;
-                }));
-            }
-
         } catch (err: any) {
-            console.error("Error loading data for checklist:", err);
             setError(err.message || "Error cargando datos.");
         } finally {
             setLoading(false);
@@ -136,283 +113,256 @@ export default function DocChecklist({ project: initialProject, value, onChange 
     };
 
     const handleToggle = (numero: number) => {
-        setItems(prev => prev.map(item =>
+        const newItems = items.map(item =>
             item.numero === numero ? { ...item, verificado: !item.verificado } : item
-        ));
+        );
+        setItems(newItems);
+        if (onChange) onChange(newItems);
     };
 
     const handleObservaciones = (numero: number, obs: string) => {
-        setItems(prev => prev.map(item =>
+        const newItems = items.map(item =>
             item.numero === numero ? { ...item, observaciones: obs } : item
-        ));
+        );
+        setItems(newItems);
+        if (onChange) onChange(newItems);
     };
+
+    // Lógica de Dictamen Binaria
+    const todosVerificados = items.length > 0 && items.every(i => i.verificado);
+    const patNumerico = parseFloat(patValue);
+    const patAceptable = !isNaN(patNumerico) && patNumerico > 0 && patNumerico <= 40;
+    const esApto = todosVerificados && patAceptable;
 
     const handleGeneratePDF = () => {
         if (!projectData) return;
-        setGenerating(true);
+        setGenerating(false); // Cambiado para que sea instantáneo en este flujo
 
         try {
             const doc = new jsPDF();
+            const config = projectData.wizardData?.config || {};
+            const owner = config.ownerDetail || {};
+            const province = owner.province || "CÓRDOBA";
+            const isCordoba = province.toUpperCase() === 'CÓRDOBA';
 
-            // Carátula
-            addPDFCoverPage(doc, "CHECKLIST RES. 54/2018", projectData, profileData);
+            // 1. CARÁTULA
+            addPDFCoverPage(doc, "CHECK-LIST DE SEGURIDAD", projectData, profileData);
 
-            // Título
+            // 2. CONTENIDO (Página 2)
             doc.setFont("helvetica", "bold");
             doc.setFontSize(14);
-            doc.text("VERIFICACIÓN TÉCNICA - INSTALACIÓN EXISTENTE", 105, 20, { align: "center" });
+            const mainTitle = isCordoba
+                ? "EXPENDIENTE TÉCNICO - RESOLUCIÓN ERSEP 54/2018"
+                : "INFORME DE VERIFICACIÓN DE SEGURIDAD ELÉCTRICA";
+            doc.text(mainTitle, 105, 30, { align: "center" });
 
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
-            doc.text("Resolución ERSeP 54/2018 - Ley Provincial 10.281", 105, 27, { align: "center" });
+            doc.text("Evaluación de condiciones mínimas de seguridad en instalaciones existentes", 105, 36, { align: "center" });
 
             // Tabla de verificación
             const tableBody = items.map(item => [
                 item.numero.toString(),
-                item.verificado ? '☑' : '☐',
                 item.descripcion,
-                item.categoria,
+                item.verificado ? 'CUMPLE' : 'NO CUMPLE',
                 item.observaciones || '-'
             ]);
 
             // @ts-ignore
             autoTable(doc, {
-                startY: 35,
-                head: [['#', '✓', 'Punto de Verificación', 'Categoría', 'Observaciones']],
+                startY: 45,
+                head: [['#', 'PUNTO DE RELEVAMIENTO (RES. 54)', 'ESTADO', 'OBSERVACIONES']],
                 body: tableBody,
                 theme: 'grid',
-                headStyles: {
-                    fillColor: [52, 73, 94],
-                    fontSize: 9,
-                    fontStyle: 'bold'
-                },
-                styles: {
-                    fontSize: 9,
-                    cellPadding: 3
-                },
+                headStyles: { fillColor: [44, 62, 80], fontSize: 9 },
                 columnStyles: {
-                    0: { width: 10, halign: 'center' },
-                    1: { width: 10, halign: 'center', fontSize: 12 },
-                    2: { width: 70 },
-                    3: { width: 30 },
-                    4: { width: 60 }
+                    0: { cellWidth: 10, halign: 'center' },
+                    1: { cellWidth: 80 },
+                    2: { cellWidth: 25, halign: 'center' },
+                    3: { cellWidth: 55 }
                 },
-                didParseCell: function (data) {
-                    // Colorear filas según verificación
-                    if (data.section === 'body' && data.column.index === 1) {
-                        const isVerified = data.cell.text[0] === '☑';
-                        if (isVerified) {
-                            data.cell.styles.textColor = [34, 197, 94]; // Green
+                didParseCell: (data) => {
+                    if (data.section === 'body' && data.column.index === 2) {
+                        if (data.cell.text[0] === 'CUMPLE') {
+                            data.cell.styles.textColor = [34, 197, 94];
+                            data.cell.styles.fontStyle = 'bold';
                         } else {
-                            data.cell.styles.textColor = [239, 68, 68]; // Red
+                            data.cell.styles.textColor = [239, 68, 68];
+                            data.cell.styles.fontStyle = 'bold';
                         }
                     }
                 }
             });
 
-            // Resumen
-            const verificados = items.filter(i => i.verificado).length;
-            const total = items.length;
-            const porcentaje = Math.round((verificados / total) * 100);
-
+            // Mediciones y Dictamen
             // @ts-ignore
-            const finalY = doc.lastAutoTable.finalY + 10;
+            let finalY = doc.lastAutoTable.finalY + 15;
 
-            doc.setFontSize(11);
+            // Recuadro de Medición PAT
+            doc.setDrawColor(200);
+            doc.setFillColor(245, 247, 250);
+            doc.roundedRect(20, finalY, 170, 25, 2, 2, 'FD');
+
             doc.setFont("helvetica", "bold");
-            doc.text("RESUMEN DE VERIFICACIÓN:", 20, finalY);
+            doc.setFontSize(11);
+            doc.setTextColor(44, 62, 80);
+            doc.text("DATOS DE LA CARGA E INSTALACIÓN", 25, finalY + 8);
+
+            const calculation = projectData.wizardData?.calculation || {};
+            const pMax = calculation.totalKW || (calculation.totalDPMS * 0.85 / 1000);
 
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
-            doc.text(`Puntos verificados: ${verificados} de ${total} (${porcentaje}%)`, 20, finalY + 7);
+            doc.text(`POTENCIA MÁXIMA (Pmax): ${pMax.toFixed(2)} kW`, 25, finalY + 15);
+            doc.text(`MEDICIÓN DE PUESTA A TIERRA`, 25, finalY + 22);
 
-            // Estado
-            let estadoColor: [number, number, number] = [239, 68, 68]; // Red
-            let estadoTexto = "NO CONFORME";
-
-            if (porcentaje === 100) {
-                estadoColor = [34, 197, 94]; // Green
-                estadoTexto = "CONFORME";
-            } else if (porcentaje >= 80) {
-                estadoColor = [251, 191, 36]; // Yellow
-                estadoTexto = "CONFORME CON OBSERVACIONES";
-            }
-
-            doc.setTextColor(...estadoColor);
             doc.setFont("helvetica", "bold");
-            doc.text(`Estado: ${estadoTexto}`, 20, finalY + 14);
+            doc.setFontSize(14);
+            doc.text(`VALOR PAT: ${patValue || '---'} Ohms`, 105, finalY + 18, { align: "center" });
 
-            // Disclaimer
-            doc.setTextColor(100);
+            finalY += 35;
+
+            // RECUADRO DE DICTAMEN FINAL
+            doc.setDrawColor(esApto ? [34, 197, 94] : [239, 68, 68]);
+            doc.setLineWidth(1);
+            doc.rect(20, finalY, 170, 30);
+
+            doc.setFontSize(16);
+            doc.setTextColor(esApto ? [34, 197, 94] : [239, 68, 68]);
+            doc.text("DICTAMEN FINAL:", 105, finalY + 12, { align: "center" });
+
+            doc.setFontSize(20);
+            const statusText = esApto ? "APTO - INSTALACIÓN SEGURA" : "NO APTO - REQUIERE ADECUACIÓN";
+            doc.text(statusText, 105, finalY + 22, { align: "center" });
+
+            // JURAMENTO LEGAL (Página 3 o pie según espacio)
+            if (finalY > 200) doc.addPage();
+            const juramentoY = doc.internal.pageSize.height - 60;
+
             doc.setFont("helvetica", "italic");
             doc.setFontSize(8);
-            const pageHeight = doc.internal.pageSize.height;
-            doc.text(
-                "NOTA: Este checklist es de carácter técnico y debe ser completado por el profesional responsable.",
-                105,
-                pageHeight - 15,
-                { align: "center" }
-            );
+            doc.setTextColor(100);
+            const juramentoText = [
+                "DECLARACIÓN JURADA: El profesional firmante declara bajo juramento que los datos aquí consignados son veraces",
+                "y reflejan fielmente el estado de la instalación al momento de la inspección. Se deja constancia que la",
+                "verificación se limita a los puntos exigidos por la Res. 54/2018 de ERSeP, no asumiendo responsabilidad",
+                "por vicios ocultos o modificaciones posteriores realizadas por terceros sin supervisión profesional."
+            ];
+
+            juramentoText.forEach((line, i) => {
+                doc.text(line, 105, juramentoY + (i * 4), { align: "center" });
+            });
+
+            // Firma
+            doc.line(70, juramentoY + 35, 140, juramentoY + 35);
+            doc.setFont("helvetica", "bold");
+            doc.text("Firma y Sello del Profesional Responsable", 105, juramentoY + 40, { align: "center" });
 
             const clientName = projectData.wizardData?.config?.clientName || 'Proyecto';
-            doc.save(`Checklist_Res54-2018_${clientName}.pdf`);
+            doc.save(`Checklist_Res54_${clientName}.pdf`);
 
         } catch (err) {
             console.error("Error generating PDF:", err);
-            alert("Error al generar el PDF. Revisa la consola.");
-        } finally {
-            setGenerating(false);
+            alert("Error al generar el PDF.");
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center p-12 text-slate-400">
-                <Loader2 className="animate-spin mb-2" size={32} />
-                <p>Cargando datos del proyecto...</p>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="flex items-center gap-3 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
-                <AlertCircle size={24} />
-                <p>{error}</p>
-            </div>
-        );
-    }
-
-    const verificados = items.filter(i => i.verificado).length;
-    const total = items.length;
-    const porcentaje = Math.round((verificados / total) * 100);
+    if (loading) return <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto mb-2" />Cargando...</div>;
+    if (error) return <div className="p-12 text-red-500 font-bold">{error}</div>;
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <div className="flex items-start justify-between">
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                            <FileText className="text-blue-600" />
-                            Checklist Res. 54/2018
-                        </h2>
-                        <p className="text-slate-500 mt-1">
-                            Verificación técnica para instalaciones existentes según ERSeP
+        <div className="max-w-5xl mx-auto space-y-6 pb-20">
+            {/* Header Profesional */}
+            <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-200">
+                <div className="flex justify-between items-start mb-8">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-blue-600 font-bold tracking-wider text-sm uppercase">
+                            <Zap size={16} fill="currentColor" />
+                            Seguridad Eléctrica ERSeP
+                        </div>
+                        <h1 className="text-3xl font-black text-slate-800">
+                            Check-list Resolución 54/2018
+                        </h1>
+                        <p className="text-slate-500">
+                            Ubicación: <span className="text-slate-700 font-medium">{projectData?.wizardData?.config?.ownerDetail?.street || 'S/D'} {projectData?.wizardData?.config?.ownerDetail?.number || ''}</span>
                         </p>
                     </div>
 
                     <button
                         onClick={handleGeneratePDF}
-                        disabled={generating}
-                        className={`
-                            flex items-center gap-2 px-6 py-3 rounded-lg font-semibold shadow-md transition-all
-                            ${generating
-                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg'
-                            }
-                        `}
+                        className={`flex items-center gap-2 px-8 py-4 rounded-xl font-bold shadow-lg transition-all ${esApto ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-800 text-white hover:bg-slate-900'
+                            }`}
                     >
-                        {generating ? (
-                            <>
-                                <Loader2 className="animate-spin" size={20} />
-                                Generando PDF...
-                            </>
-                        ) : (
-                            <>
-                                <Download size={20} />
-                                Descargar PDF
-                            </>
-                        )}
+                        <Download size={20} />
+                        Descargar Expediente
                     </button>
                 </div>
 
-                {/* DISCLAIMER LEGAL - ERSEP */}
-                <div className="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                        <div className="text-sm text-orange-900">
-                            <p className="font-semibold mb-1">Checklist Ley 10.281 - ERSEP Córdoba</p>
-                            <p>
-                                Este checklist es una <strong>herramienta de verificación técnica</strong>.
-                                El instalador electricista debe completarlo, firmarlo y presentarlo ante ERSEP
-                                junto con la documentación requerida.
-                                <strong> OVE no certifica ni aprueba instalaciones.</strong>
-                            </p>
+                {/* Grid de Datos y Medición */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="p-5 bg-slate-50 rounded-xl border border-slate-200">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-tight">Valor Puesta a Tierra (PAT)</label>
+                        <div className="flex items-center gap-2 mt-2">
+                            <input
+                                type="number"
+                                value={patValue}
+                                onChange={(e) => setPatValue(e.target.value)}
+                                placeholder="0.00"
+                                className="text-2xl font-black text-blue-700 bg-transparent w-full focus:outline-none"
+                            />
+                            <span className="text-lg font-bold text-slate-400">Ω</span>
                         </div>
+                        <p className="text-[10px] text-slate-400 mt-1 italic">Máximo admitido: 40 Ohms</p>
                     </div>
-                </div>
 
-                {/* Progress Bar */}
-                <div className="mt-6">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-slate-600">
-                            Progreso de Verificación
-                        </span>
-                        <span className="text-sm font-bold text-slate-800">
-                            {verificados} / {total} ({porcentaje}%)
-                        </span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-3">
-                        <div
-                            className={`h-3 rounded-full transition-all ${porcentaje === 100 ? 'bg-green-500' :
-                                porcentaje >= 80 ? 'bg-yellow-500' :
-                                    'bg-red-500'
-                                }`}
-                            style={{ width: `${porcentaje}%` }}
-                        />
+                    <div className="md:col-span-2 p-5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                        <div>
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-tight">Dictamen Automático</label>
+                            <div className={`text-xl font-black mt-1 ${esApto ? 'text-green-600' : 'text-red-500'}`}>
+                                {esApto ? 'APTO - INSTALACIÓN DE SEGURIDAD' : 'NO APTO / PENDIENTE'}
+                            </div>
+                        </div>
+                        {esApto ? <CheckCircle2 size={40} className="text-green-500" /> : <XCircle size={40} className="text-red-400" />}
                     </div>
                 </div>
             </div>
 
-            {/* Checklist Items */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* Tabla de Puntos */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
+                    <thead className="bg-slate-800 text-white">
                         <tr>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase w-12">#</th>
-                            <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase w-16">✓</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Punto de Verificación</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase w-32">Categoría</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase w-64">Observaciones</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold uppercase w-16">#</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold uppercase">Requerimiento Res. 54</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold uppercase w-32">Estado</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold uppercase">Observaciones</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {items.map((item) => (
-                            <tr key={item.numero} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-4 py-3 text-sm font-medium text-slate-600">
-                                    {item.numero}
+                            <tr key={item.numero} className="group hover:bg-slate-50 transition-colors">
+                                <td className="px-6 py-5 text-sm font-bold text-slate-400">{item.numero}</td>
+                                <td className="px-6 py-5">
+                                    <p className="text-sm font-semibold text-slate-700 leading-tight">{item.descripcion}</p>
                                 </td>
-                                <td className="px-4 py-3 text-center">
+                                <td className="px-6 py-5 text-center">
                                     <button
                                         onClick={() => handleToggle(item.numero)}
-                                        className={`p-2 rounded-lg transition-all ${item.verificado
-                                            ? 'bg-green-100 text-green-600 hover:bg-green-200'
-                                            : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                        className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${item.verificado
+                                            ? 'bg-green-100 text-green-700 ring-2 ring-green-500'
+                                            : 'bg-slate-100 text-slate-400 ring-1 ring-slate-200'
                                             }`}
                                     >
-                                        {item.verificado ? (
-                                            <CheckCircle2 size={20} />
-                                        ) : (
-                                            <XCircle size={20} />
-                                        )}
+                                        {item.verificado ? 'CUMPLE' : 'NO CUMPLE'}
                                     </button>
                                 </td>
-                                <td className="px-4 py-3 text-sm text-slate-700">
-                                    {item.descripcion}
-                                </td>
-                                <td className="px-4 py-3">
-                                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
-                                        {item.categoria}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3">
+                                <td className="px-6 py-5">
                                     <input
                                         type="text"
                                         value={item.observaciones}
                                         onChange={(e) => handleObservaciones(item.numero, e.target.value)}
-                                        placeholder="Agregar observación..."
-                                        className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        placeholder="Nota técnica..."
+                                        className="w-full bg-transparent border-b border-transparent focus:border-blue-300 focus:outline-none text-sm py-1"
                                     />
                                 </td>
                             </tr>
@@ -421,13 +371,15 @@ export default function DocChecklist({ project: initialProject, value, onChange 
                 </table>
             </div>
 
-            {/* Alert */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex gap-3">
-                <AlertCircle className="text-amber-600 flex-shrink-0" size={20} />
-                <div className="text-sm text-amber-800">
-                    <p className="font-semibold">Importante:</p>
-                    <p>Este checklist es obligatorio para instalaciones existentes según Res. 54/2018.
-                        Todos los puntos deben estar verificados para emitir el certificado de conformidad.</p>
+            {/* Banner Legal */}
+            <div className="p-6 bg-blue-900 rounded-2xl text-white flex gap-4 items-center">
+                <AlertCircle size={32} className="text-blue-300 flex-shrink-0" />
+                <div className="text-sm">
+                    <p className="font-bold text-base mb-1">Responsabilidad del Habilitado:</p>
+                    <p className="opacity-80 leading-relaxed font-medium">
+                        La Resolución 54/18 exige el cumplimiento del 100% de los puntos y una PAT inferior a 40Ω.
+                        Este documento tiene valor de declaración jurada y debe ser validado por el instalador actuante.
+                    </p>
                 </div>
             </div>
         </div>

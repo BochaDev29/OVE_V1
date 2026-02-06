@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Upload, X, Download, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Upload, X, Download, Image as ImageIcon, Loader2, Eye, GripVertical } from 'lucide-react';
+import { PDFPreview } from '../common/PDFPreview';
 import jsPDF from 'jspdf';
 import { addPDFCoverPage } from '../../lib/pdf-utils';
 
@@ -20,6 +21,8 @@ export default function DocPhotos({ project, value, onChange }: DocPhotosProps) 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [processing, setProcessing] = useState(false);
     const [generatingPdf, setGeneratingPdf] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
     // --- COMPRESSION LOGIC ---
     const compressImage = (file: File): Promise<string> => {
@@ -111,6 +114,78 @@ export default function DocPhotos({ project, value, onChange }: DocPhotosProps) 
         return colors[category];
     };
 
+    // --- DRAG & DROP LOGIC ---
+    const handleDragStart = (index: number) => {
+        setDraggedIndex(index);
+    };
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        if (draggedIndex === null || draggedIndex === index) return;
+
+        const newData = [...value];
+        const itemToMove = newData.splice(draggedIndex, 1)[0];
+        newData.splice(index, 0, itemToMove);
+        setDraggedIndex(index);
+        onChange(newData);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedIndex(null);
+    };
+
+    const renderPreviewContent = () => {
+        const photosByCategory = {
+            tablero: (value || []).filter(p => p.category === 'tablero'),
+            pat: (value || []).filter(p => p.category === 'pat'),
+            conductores: (value || []).filter(p => p.category === 'conductores'),
+            general: (value || []).filter(p => p.category === 'general')
+        };
+
+        const categories = [
+            { key: 'tablero' as const, title: '📋 TABLERO ELÉCTRICO' },
+            { key: 'pat' as const, title: '⚡ PUESTA A TIERRA (PAT)' },
+            { key: 'conductores' as const, title: '🔌 CONDUCTORES Y CABLEADO' },
+            { key: 'general' as const, title: '📷 GENERAL' }
+        ];
+
+        return (
+            <div className="space-y-8 p-2">
+                <div className="text-center border-b pb-6">
+                    <h1 className="text-2xl font-bold mb-1 uppercase text-slate-900 leading-tight">Registro Fotográfico de Obra</h1>
+                    <p className="text-slate-600 text-sm">Evidencia técnica de seguridad según AEA 90364</p>
+                </div>
+
+                {categories.map(category => {
+                    const photos = photosByCategory[category.key];
+                    if (photos.length === 0) return null;
+
+                    return (
+                        <div key={category.key} className="space-y-4">
+                            <h3 className="font-black text-slate-800 border-l-4 border-blue-600 pl-3 text-sm uppercase tracking-wider">{category.title}</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                {photos.map((photo, idx) => (
+                                    <div key={photo.id} className="border border-slate-200 rounded-lg p-2 bg-slate-50 flex flex-col gap-2 break-inside-avoid">
+                                        <div className="aspect-video bg-black rounded overflow-hidden">
+                                            <img src={photo.base64} className="w-full h-full object-contain" alt="Evidencia" />
+                                        </div>
+                                        {photo.caption ? (
+                                            <p className="text-[10px] text-slate-600 italic leading-tight px-1">
+                                                {photo.caption}
+                                            </p>
+                                        ) : (
+                                            <p className="text-[10px] text-slate-400 italic px-1">Sin descripción (Foto #{idx + 1})</p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
     // --- PDF GENERATION ---
     const handleDownloadPDF = () => {
         if (!value || value.length === 0) return;
@@ -120,10 +195,8 @@ export default function DocPhotos({ project, value, onChange }: DocPhotosProps) 
             const doc = new jsPDF();
             const clientName = project?.wizardData?.config?.clientName || 'Proyecto';
 
-            // --- COVER PAGE ---
             addPDFCoverPage(doc, "REGISTRO FOTOGRÁFICO", project, null);
 
-            // --- AGRUPAR FOTOS POR CATEGORÍA ---
             const photosByCategory = {
                 tablero: value.filter(p => p.category === 'tablero'),
                 pat: value.filter(p => p.category === 'pat'),
@@ -139,48 +212,64 @@ export default function DocPhotos({ project, value, onChange }: DocPhotosProps) 
             ];
 
             let yCursor = 20;
-            const photoHeight = 100;
-            const photoWidth = 150;
-            const marginX = (210 - photoWidth) / 2;
+            const marginX = 15;
+            const columnWidth = 85; // mm
+            const columnSpacing = 10; // mm
+            const maxPhotoHeight = 65; // mm
+            const captionHeight = 10; // mm
+            const blockHeight = maxPhotoHeight + captionHeight + 10; // total block space
 
             categories.forEach(category => {
                 const photos = photosByCategory[category.key];
-                if (photos.length === 0) return; // Skip empty categories
+                if (photos.length === 0) return;
 
-                // Título de categoría
+                // Título de categoría (siempre nueva fila si no cabe)
+                if (yCursor + 15 > 270) {
+                    doc.addPage();
+                    yCursor = 20;
+                }
+
                 doc.setFont("helvetica", "bold");
-                doc.setFontSize(14);
+                doc.setFontSize(12);
                 doc.setTextColor(44, 62, 80);
-                doc.text(category.title, 20, yCursor);
+                doc.text(category.title, marginX, yCursor);
                 yCursor += 10;
 
-                // Fotos de la categoría
-                photos.forEach((photo, index) => {
-                    // Nueva página si es necesario
-                    if (yCursor + photoHeight + 20 > 270) {
+                // Fotos en 2 columnas
+                for (let i = 0; i < photos.length; i += 2) {
+                    // Verificar si esta FILA entra en la página
+                    if (yCursor + blockHeight > 275) {
                         doc.addPage();
                         yCursor = 20;
                     }
 
-                    doc.addImage(photo.base64, 'JPEG', marginX, yCursor, photoWidth, photoHeight, undefined, 'FAST');
-
-                    // Caption
-                    doc.setFontSize(10);
+                    // Foto Izquierda
+                    const photoL = photos[i];
+                    doc.addImage(photoL.base64, 'JPEG', marginX, yCursor, columnWidth, maxPhotoHeight, undefined, 'FAST');
+                    doc.setFontSize(8);
                     doc.setFont("helvetica", "italic");
                     doc.setTextColor(100);
-                    const captionY = yCursor + photoHeight + 5;
+                    const captionL = photoL.caption || `Evidencia #${i + 1}`;
+                    const splitL = doc.splitTextToSize(captionL, columnWidth);
+                    doc.text(splitL, marginX, yCursor + maxPhotoHeight + 4);
 
-                    if (photo.caption) {
-                        const splitText = doc.splitTextToSize(photo.caption, photoWidth);
-                        doc.text(splitText, marginX, captionY);
-                    } else {
-                        doc.text(`Foto #${index + 1}`, marginX, captionY);
+                    // Foto Derecha (si existe)
+                    if (photos[i + 1]) {
+                        const photoR = photos[i + 1];
+                        const xR = marginX + columnWidth + columnSpacing;
+                        doc.addImage(photoR.base64, 'JPEG', xR, yCursor, columnWidth, maxPhotoHeight, undefined, 'FAST');
+                        const captionR = photoR.caption || `Evidencia #${i + 2}`;
+                        const splitR = doc.splitTextToSize(captionR, columnWidth);
+                        doc.text(splitR, xR, yCursor + maxPhotoHeight + 4);
                     }
 
-                    yCursor += photoHeight + 15;
-                });
+                    // Avanzar cursor basándose en cuántas líneas de texto hay (máximo de las dos columnas)
+                    const textLHeight = (splitL.length * 4);
+                    const textRHeight = photos[i + 1] ? (doc.splitTextToSize(photos[i + 1].caption || '', columnWidth).length * 4) : 0;
+                    yCursor += maxPhotoHeight + Math.max(textLHeight, textRHeight, 8) + 12;
+                }
 
-                yCursor += 10; // Espacio entre categorías
+                yCursor += 5;
             });
 
             // Footer info
@@ -189,10 +278,11 @@ export default function DocPhotos({ project, value, onChange }: DocPhotosProps) 
                 doc.setPage(i);
                 doc.setFontSize(8);
                 doc.setTextColor(150);
-                doc.text(`Página ${i} de ${pageCount}`, 190, 290, { align: "right" });
+                doc.text(`OVE - Informe Técnico Digital | Página ${i} de ${pageCount}`, 105, 290, { align: "center" });
             }
 
-            doc.save(`Fotos_${clientName}.pdf`);
+            const projectName = project?.name || project?.wizardData?.config?.clientName || 'Proyecto';
+            doc.save(`Registro_Fotografico_${projectName}.pdf`);
 
         } catch (err) {
             console.error("Error creating PDF:", err);
@@ -219,11 +309,18 @@ export default function DocPhotos({ project, value, onChange }: DocPhotosProps) 
                         {processing ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
                         {processing ? 'Procesando...' : 'Subir Fotos'}
                     </button>
+                    <button
+                        onClick={() => setShowPreview(true)}
+                        disabled={!value || value.length === 0}
+                        className="flex items-center gap-2 px-4 py-2 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 font-medium disabled:opacity-50"
+                    >
+                        <Eye size={18} /> Vista Previa
+                    </button>
                     {(value && value.length > 0) && (
                         <button
                             onClick={handleDownloadPDF}
                             disabled={generatingPdf}
-                            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium shadow-sm disabled:opacity-50"
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm disabled:opacity-50"
                         >
                             {generatingPdf ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
                             Descargar Reporte
@@ -255,11 +352,25 @@ export default function DocPhotos({ project, value, onChange }: DocPhotosProps) 
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {(value || []).map((photo: PhotoItem, index: number) => (
-                    <div key={photo.id} className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col group relative">
-                        <div className="relative aspect-video bg-slate-100 cursor-pointer">
-                            <img src={photo.base64} alt="Obra" className="w-full h-full object-contain bg-black" />
-                            <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 rounded text-xs text-white font-medium backdrop-blur-sm">
-                                Foto #{index + 1}
+                    <div
+                        key={photo.id}
+                        draggable
+                        onDragStart={() => handleDragStart(index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDragEnd={handleDragEnd}
+                        className={`bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col group relative transition-all duration-200 ${draggedIndex === index ? 'opacity-40 scale-95 border-blue-400 border-2 dashed' : 'opacity-100'}`}
+                    >
+                        {/* Drag Handle Overlay */}
+                        <div className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            <div className="bg-white/90 p-1.5 rounded shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing text-slate-500 hover:text-blue-600 transition-colors">
+                                <GripVertical size={16} />
+                            </div>
+                        </div>
+
+                        <div className="relative aspect-video bg-slate-100 cursor-grab active:cursor-grabbing">
+                            <img src={photo.base64} alt="Obra" className="w-full h-full object-contain bg-black pointer-events-none" />
+                            <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 rounded text-[10px] text-white font-medium backdrop-blur-sm">
+                                Posición #{index + 1}
                             </div>
                         </div>
 
@@ -299,11 +410,17 @@ export default function DocPhotos({ project, value, onChange }: DocPhotosProps) 
                 ))}
             </div>
 
-            {/* Footer usage info */}
-            {(value && value.length > 0) && (
-                <div className="text-center text-xs text-slate-400 mt-4">
-                    {value.length} fotos cargadas en el reporte.
-                </div>
+            {/* Modal de Vista Previa */}
+            {showPreview && (
+                <PDFPreview
+                    title="Registro Fotográfico"
+                    content={renderPreviewContent()}
+                    onClose={() => setShowPreview(false)}
+                    onDownload={() => {
+                        setShowPreview(false);
+                        handleDownloadPDF();
+                    }}
+                />
             )}
         </div>
     );

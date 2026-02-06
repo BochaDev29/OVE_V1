@@ -76,27 +76,18 @@ export default function Dashboard({
     }
   }, [user]);
 
-  const handleProjectTypeSelection = (type: 'flash' | 'complete' | 'regulated') => {
+  // Handler para selección de tipo de proyecto desde el modal
+  const handleProjectTypeSelection = (type: 'flash' | 'project') => {
     console.log('🎯 Tipo de proyecto seleccionado:', type);
-
-    // Guardar el tipo de proyecto en sessionStorage para que el Wizard lo use
     sessionStorage.setItem('projectType', type);
 
     if (type === 'flash') {
-      // Presupuesto Flash: Ir directamente al Wizard Paso 1
-      // TODO: Implementar flujo específico de Flash
       console.log('⚡ Iniciando Presupuesto Flash');
-      onNewProject(); // Por ahora usa el flujo normal
-    } else if (type === 'complete') {
-      // Proyecto Completo: Wizard completo normal
-      console.log('🏗️ Iniciando Proyecto Completo');
-      onNewProject();
-    } else if (type === 'regulated') {
-      // Trabajo Reglamentado: Wizard completo (modo relevamiento)
-      console.log('📋 Iniciando Trabajo Reglamentado');
-      sessionStorage.setItem('installationType', 'Existente'); // Marcar como existente por defecto
-      onNewProject();
+    } else {
+      console.log('📋 Iniciando Proyecto/Certificación');
     }
+
+    onNewProject();
   };
 
 

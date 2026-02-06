@@ -5,6 +5,8 @@ export interface ProjectData {
   projectName: string;
   address: string;
   installer: string;
+  licenseNumber: string; // 🆕 Matrícula/Habilitación
+  planNumber: string;    // 🆕 Nº de Plano
   category: string;
   date: string;
 }
@@ -25,6 +27,8 @@ export default function ProjectInfoModal({ isOpen, onClose, onSave, initialData 
         projectName: initialData.projectName || '',
         address: initialData.address || '',
         installer: initialData.installer || '',
+        licenseNumber: initialData.licenseNumber || '',
+        planNumber: initialData.planNumber || '',
         category: initialData.category || 'Categoría III',
         date: initialData.date || new Date().toISOString().split('T')[0]
       });
@@ -104,8 +108,37 @@ export default function ProjectInfoModal({ isOpen, onClose, onSave, initialData 
               onChange={(e) => handleChange('installer', e.target.value)}
               onKeyDown={(e) => e.stopPropagation()}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ej: Juan Pérez - Mat. 12345"
+              placeholder="Ej: Juan Pérez"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Matrícula/Habilitación
+              </label>
+              <input
+                type="text"
+                value={formData.licenseNumber}
+                onChange={(e) => handleChange('licenseNumber', e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ej: Mat. 12345"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Nº de Plano
+              </label>
+              <input
+                type="text"
+                value={formData.planNumber}
+                onChange={(e) => handleChange('planNumber', e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ej: IE-01"
+              />
+            </div>
           </div>
 
           <div>

@@ -113,22 +113,30 @@ export const DEFAULT_LAYERS: Layer[] = [
         order: 2
     },
     {
-        id: 'layer-3',
-        name: 'IUG-3',
-        color: '#0000FF', // Azul
+        id: 'layer-4',
+        name: 'TUG-1',
+        color: '#FF8C00', // Naranja
         visible: true,
         locked: false,
-        order: 3
+        order: 4
+    },
+    {
+        id: 'layer-5',
+        name: 'TUG-2',
+        color: '#8A2BE2', // Violeta
+        visible: true,
+        locked: false,
+        order: 5
     }
 ];
 
 // Función helper para crear una planta nueva
-export const createFloor = (name: string, formatKey: string = 'A4-landscape'): Floor => {
+export const createFloor = (name: string, formatKey: string = 'A4-landscape', initialLayers?: Layer[]): Floor => {
     return {
         id: `floor-${Date.now()}`,
         name,
         format: PAPER_FORMATS[formatKey],
-        layers: DEFAULT_LAYERS,
+        layers: initialLayers || DEFAULT_LAYERS,
         elements: {
             roomGroups: [],
             walls: [],

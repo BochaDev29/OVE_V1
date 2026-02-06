@@ -76,7 +76,7 @@ export default function ProjectWizardStep4({
           description: c.name,
           bocas: c.bocas,
           power: c.power,
-          cable: c.conductor?.section ? `${c.conductor.section}mm²` : 'N/A',
+          cable: c.cable || (c.terminalLine?.section ? `${c.terminalLine.section}mm²` : 'N/A'),
           breaker: c.breaker || 'N/A'
         }))
       }
@@ -253,11 +253,16 @@ export default function ProjectWizardStep4({
                 <div className="flex-1">
                   <div className="flex justify-between items-center italic">
                     <span className="text-[10px] text-indigo-400 uppercase font-semibold">{header.type}</span>
-                    <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1 rounded">{header.poles}P</span>
+                    <div className="flex gap-1 items-center">
+                      {header.nature === 'relevado' && (
+                        <span className="text-[8px] bg-slate-200 text-slate-500 px-1 rounded font-bold">REL</span>
+                      )}
+                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1 rounded">{header.poles}P</span>
+                    </div>
                   </div>
                   <p className="font-bold text-slate-800 text-sm leading-none mt-1">{header.name}</p>
                   <p className="text-xs text-slate-500 mt-1">
-                    {header.rating}A • {header.type === 'PIA' ? `Curva ${header.curve}` : `Sens. ${header.sensitivity}`}
+                    {header.rating}A • {header.type === 'PIA' ? `Curva ${header.curve}` : `Sens. ${header.sensitivity || '30mA'}`}
                   </p>
                 </div>
               </div>
@@ -299,7 +304,12 @@ export default function ProjectWizardStep4({
                 {/* CIRCUITOS TERMINALES */}
                 {circuitInventory?.circuits.map(circuit => (
                   <th key={`c-${circuit.id}`} className="p-2 text-center border-r border-slate-100 min-w-[100px]">
-                    <div className="font-bold text-slate-700 whitespace-nowrap">{circuit.id.split('-').length > 1 ? `${circuit.id.split('-')[0]}-${circuit.id.split('-')[1]}` : circuit.id}</div>
+                    <div className="flex items-center justify-center gap-1">
+                      <div className="font-bold text-slate-700 whitespace-nowrap">{circuit.id.split('-').length > 1 ? `${circuit.id.split('-')[0]}-${circuit.id.split('-')[1]}` : circuit.id}</div>
+                      {circuit.nature === 'relevado' && (
+                        <span className="text-[8px] bg-slate-200 text-slate-500 px-0.5 rounded leading-none">R</span>
+                      )}
+                    </div>
                     <div className="text-[9px] font-normal text-slate-500 truncate max-w-[100px]" title={circuit.name}>{circuit.name}</div>
                   </th>
                 ))}
@@ -400,9 +410,9 @@ export default function ProjectWizardStep4({
                 ))}
               </tr>
 
-              {/* FILA 6: Sección PE (mm²) */}
+              {/* FILA 6: Sección PAT / PE (mm²) */}
               <tr className="hover:bg-slate-50 transition-colors">
-                <td className="p-2 font-bold text-slate-600 bg-white sticky left-0 border-r border-slate-200 shadow-sm">Sección PE</td>
+                <td className="p-2 font-bold text-slate-600 bg-white sticky left-0 border-r border-slate-200 shadow-sm">Sección PAT / PE</td>
                 {/* LP */}
                 {config.panels.filter(p => p.type === 'TP').map(panel => {
                   const s = panel.incomingLine?.section || 0;
@@ -487,7 +497,7 @@ export default function ProjectWizardStep4({
                 })}
               </tr>
 
-              {/* FILA 8: In (A) - Protecciones */}
+              {/* FILA 8: In (A) - Protecciones (PIA) */}
               <tr className="hover:bg-slate-50 transition-colors">
                 <td className="p-2 font-bold text-slate-600 bg-white sticky left-0 border-r border-slate-200 shadow-sm">In (A) - Prot.</td>
                 {/* LP (Protección de cabecera) */}
@@ -513,6 +523,45 @@ export default function ProjectWizardStep4({
                   <td key={circuit.id} className="p-2 text-center font-bold text-red-700 text-xs">
                     {/* "2x16A" -> "16A" */}
                     {circuit.breaker.split('x')[1] || circuit.breaker}
+                  </td>
+                ))}
+              </tr>
+
+              {/* FILA 9: Disyuntor / ID */}
+              <tr className="hover:bg-slate-50 transition-colors">
+                <td className="p-2 font-bold text-slate-600 bg-white sticky left-0 border-r border-slate-200 shadow-sm">ID / Dif.</td>
+                {/* LP (ID Cabecera) */}
+                {config.panels.filter(p => p.type === 'TP').map(panel => {
+                  const headerID = panel.protections?.headers?.find(h => h.type === 'ID');
+                  return (
+                    <td key={panel.id} className="p-2 text-center text-xs font-bold text-blue-700">
+                      {headerID ? (
+                        <div className="flex flex-col">
+                          <span>{headerID.rating}A</span>
+                          <span className="text-[9px] text-blue-500 font-normal">{headerID.sensitivity || '30mA'}</span>
+                        </div>
+                      ) : '-'}
+                    </td>
+                  );
+                })}
+                {/* CS */}
+                {config.panels.filter(p => p.type !== 'TP').map(panel => {
+                  const headerID = panel.protections?.headers?.find(h => h.type === 'ID');
+                  return (
+                    <td key={panel.id} className="p-2 text-center text-xs font-bold text-indigo-700">
+                      {headerID ? (
+                        <div className="flex flex-col">
+                          <span>{headerID.rating}A</span>
+                          <span className="text-[9px] text-indigo-500 font-normal">{headerID.sensitivity || '30mA'}</span>
+                        </div>
+                      ) : '-'}
+                    </td>
+                  );
+                })}
+                {/* Circuitos (No llevan ID por circuito en este resumen, salvo que sea específico, pero en general no) */}
+                {circuitInventory?.circuits.map(circuit => (
+                  <td key={circuit.id} className="p-2 text-center text-[10px] text-slate-400">
+                    -
                   </td>
                 ))}
               </tr>
