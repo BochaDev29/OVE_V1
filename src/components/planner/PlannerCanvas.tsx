@@ -30,7 +30,7 @@ import { usePipeRenderer } from '../../lib/planner/hooks/usePipeRenderer';
 import { PipeRenderer } from './PipeRenderer'; // 🆕 Circuit-based layers
 
 // Generación de Ambientes
-import { RightSidebar } from './RightSidebar';
+import { PlannerVisionPanel } from './PlannerVisionPanel'; // 🆕 Panel Unificado "El Cerebro"
 import { DoorComponent } from './DoorComponent';
 import { WindowComponent } from './WindowComponent';
 import { generateRoomWalls, getRoomCenter } from '../../lib/planner/utils/roomGenerator';
@@ -38,10 +38,10 @@ import { PassageComponent } from './PassageComponent';
 
 // Sistema de Múltiples Plantas y Capas
 import { FloorTabs } from './FloorTabs';
-import { LayersPanel } from './LayersPanel';
 import { NewFloorModal } from './NewFloorModal';
 import { EditFloorModal } from './EditFloorModal';
-import { OpeningConfigModal, type DoorConfig, type WindowConfig } from './OpeningConfigModal';
+import { OpeningConfigModal, type DoorConfig, type WindowConfig, type PassageConfig } from './OpeningConfigModal';
+import { PlannerBottomHub } from './PlannerBottomHub';
 import type { PaperFormat } from '../../types/floors';
 import type { Opening } from '../../types/openings';
 import { createDoor, createWindow, createPassage } from '../../types/openings';
@@ -104,6 +104,7 @@ export default function PlannerCanvas() {
     toggleLayerVisibility,
     toggleLayerLock,
     updateLayerColor,
+    setFloors,
 
     // Elementos (compatibilidad)
     symbols,
@@ -129,6 +130,8 @@ export default function PlannerCanvas() {
     addAuxLine
   } = canvasState;
 
+  const [isVisionPanelCollapsed, setIsVisionPanelCollapsed] = useState(false); // 🆕 Estado para Modo Foco
+  const [visionActiveTab, setVisionActiveTab] = useState<'layers' | 'environments' | 'control' | 'help'>('layers');
   const [showMaterialModal, setShowMaterialModal] = useState(false);
   const [showProjectInfoModal, setShowProjectInfoModal] = useState(false);
   const [showNewFloorModal, setShowNewFloorModal] = useState(false);
@@ -143,6 +146,9 @@ export default function PlannerCanvas() {
   const [backgroundBase64, setBackgroundBase64] = useState<string | null>(null);
   const [backgroundProps, setBackgroundProps] = useState({ x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 });
   const [isBackgroundLocked, setIsBackgroundLocked] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<'architecture' | 'electricity'>('architecture'); // 🆕 Especialidad activa
+  const [isHubCollapsed, setIsHubCollapsed] = useState(false); // 🆕 Estado del dock inferior
+  const [pendingRoom, setPendingRoom] = useState<{ name: string; width: number; length: number; area: number } | null>(null); // 🆕 Tap-to-place room
 
   // --- CATALOG SYSTEM ---
   const catalogLoader = useMemo(() => new CatalogLoader(), []);
@@ -281,7 +287,8 @@ export default function PlannerCanvas() {
     dimensionFirstPoint,
     dimensionPreview,
     getCursorStyle,
-    cancelDrawing
+    cancelDrawing,
+    getPointerPosition
   } = drawingTools;
 
   // ✅ HOOK: Persistencia
@@ -406,7 +413,153 @@ export default function PlannerCanvas() {
     e.preventDefault();
   };
 
+  const handleRoomSelect = (room: { name: string; width: number; length: number; area: number }) => {
+    setPendingRoom(room);
+    console.log('🎯 Ambiente seleccionado (Tap-to-place):', room.name);
+    // Colapsar panel en móvil para mejor visibilidad
+    if (window.innerWidth < 1024) {
+      setIsVisionPanelCollapsed(true);
+    }
+  };
+
+  // --- HANDLER: MOUSE DOWN EN STAGE (Interceder para Tap-to-place y Aberturas) ---
+  const handleStageMouseDown = (e: any) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    // 0. DESELECCION: Si clickeamos el fondo o el papel, limpiar selecciones
+    // En Konva, e.target es el objeto clickeado. Si es el stage o el papel, deseleccionamos.
+    const clickedOnStage = e.target === stage;
+    const clickedOnPaper = e.target.name() === 'paper-bg';
+
+    if (clickedOnStage || clickedOnPaper) {
+      if (selectedOpeningId) setSelectedOpeningId(null);
+      if (selectedId) selectShape(null);
+      if (selectedGroupId) setSelectedGroupId(null);
+      console.log('🧹 Selección limpiada (Click en fondo)');
+    }
+
+    // 1. Si hay un ambiente pendiente, colocarlo y salir
+    if (pendingRoom) {
+      const pos = getPointerPosition(stage);
+
+      const roomGroupId = `room-${Date.now()}`;
+      const labelId = `label-${Date.now()}`;
+
+      const newWalls = generateRoomWalls(
+        { width: pendingRoom.width, length: pendingRoom.length },
+        { x: 0, y: 0 },
+        pixelsPerMeter
+      );
+
+      const newGroup: RoomGroup = {
+        id: roomGroupId,
+        walls: newWalls,
+        labelId: labelId,
+        originalWidth: pendingRoom.width,
+        originalLength: pendingRoom.length,
+        x: pos.x,
+        y: pos.y,
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+        layerId: 'layer-0',
+        openings: []
+      };
+
+      setRoomGroups(prev => [...prev, newGroup]);
+
+      const center = getRoomCenter(
+        { width: pendingRoom.width, length: pendingRoom.length },
+        { x: 0, y: 0 },
+        pixelsPerMeter
+      );
+
+      addSymbol({
+        id: labelId,
+        type: 'text',
+        x: pos.x + center.x,
+        y: pos.y + center.y,
+        label: pendingRoom.name,
+        fontSize: 14,
+        color: '#1e40af',
+        rotation: 0,
+        groupId: roomGroupId
+      });
+
+      setPendingRoom(null);
+      console.log('✅ Ambiente colocado vía Tap-to-place:', pendingRoom.name);
+      return;
+    }
+
+    // 2. Si la herramienta es una abertura y hay configuración activa, intentar insertar en muro
+    if (['door', 'window', 'passage'].includes(tool) && openingConfig) {
+      const pos = getPointerPosition(stage);
+
+      let foundWall: { groupId: string, wallIndex: number, position: number } | null = null;
+
+      roomGroups.forEach(group => {
+        const result = findNearestWall(
+          group.walls,
+          pos.x,
+          pos.y,
+          group.x,
+          group.y,
+          group.rotation,
+          group.scaleX,
+          group.scaleY,
+          30
+        );
+        if (result && !foundWall) { // Solo toma el primer muro encontrado dentro de la tolerancia
+          foundWall = { groupId: group.id, ...result };
+        }
+      });
+
+      if (foundWall) {
+        const { groupId, wallIndex, position } = foundWall;
+
+        // Crear apertura usando los helpers de types/openings.ts
+        // Nota: Los helpers generan su propio ID.
+        let newOpening: any;
+        if (tool === 'door') {
+          const cfg = openingConfig as DoorConfig;
+          newOpening = createDoor(groupId, wallIndex, position, cfg.width, cfg.doorSwing, cfg.openingDirection);
+        } else if (tool === 'window') {
+          const cfg = openingConfig as WindowConfig;
+          newOpening = createWindow(groupId, wallIndex, position, cfg.width, cfg.height, cfg.sillHeight);
+        } else {
+          const cfg = openingConfig as PassageConfig;
+          newOpening = createPassage(groupId, wallIndex, position, cfg.width || 0.80);
+        }
+
+        setRoomGroups((prev: RoomGroup[]) => prev.map(g =>
+          g.id === groupId
+            ? { ...g, openings: [...g.openings, newOpening] }
+            : g
+        ));
+
+        console.log(`✅ ${tool} colocada en muro:`, newOpening);
+        setTool('select'); // Volver a selección después de colocar
+        setOpeningConfig(null);
+        return;
+      } else {
+        console.log('⚠️ No se encontró un muro cercano para colocar la abertura');
+      }
+    }
+
+    // 3. Si no hay nada pendiente, llamar al handler estándar de dibujo
+    handleMouseDown(e);
+  };
+
   // --- EFECTOS ---
+  // Limpiar ambiente pendiente al cambiar de pestaña, herramienta o modo para evitar colocaciones accidentales
+  useEffect(() => {
+    if (pendingRoom) {
+      setPendingRoom(null);
+      console.log('🧹 Limpiando ambiente pendiente por cambio de contexto');
+    }
+  }, [tool, activeMode, visionActiveTab]);
+
   // Cargar catálogo eléctrico al montar el componente
   useEffect(() => {
     catalogLoader.loadCatalog('electrical')
@@ -723,140 +876,6 @@ export default function PlannerCanvas() {
     console.log(`🚪 Herramienta ${config.type} activada (Nueva):`, config);
   };
 
-  // Handler: Click en Stage para insertar abertura
-  const handleStageClick = (e: any) => {
-    // DESELECCION: Si clickeamos el fondo o el papel, limpiar selecciones
-    const clickedOnStage = e.target === e.target.getStage();
-    const clickedOnPaper = e.target.name() === 'paper-bg';
-
-    if (clickedOnStage || clickedOnPaper) {
-      if (selectedOpeningId) setSelectedOpeningId(null);
-      if (selectedId) selectShape(null);
-      if (selectedGroupId) setSelectedGroupId(null);
-    }
-
-    // HERRAMIENTA: DIMENSION (Cota) - 🆕 ELIMINADO PARA EVITAR CONFLICTO
-    /*
-    if (tool === 'dimension') {
-      const stage = e.target.getStage();
-      const pointerPos = stage.getPointerPosition();
-      if (!pointerPos) return;
-
-      // Ajustar por escala y posición del stage
-      const clickX = (pointerPos.x - stagePos.x) / stageScale;
-      const clickY = (pointerPos.y - stagePos.y) / stageScale;
-
-      if (!dimensionFirstPoint) {
-        // Primer click: guardar punto inicial
-        setDimensionFirstPoint({ x: clickX, y: clickY });
-        console.log('📏 Punto inicial de cota:', clickX.toFixed(0), clickY.toFixed(0));
-      } else {
-        // Segundo click: crear cota
-        const newDimension = createDimension(
-          dimensionFirstPoint,
-          { x: clickX, y: clickY },
-          pixelsPerMeter,
-          currentLayerId || 'layer-0'
-        );
-
-        // Agregar a la planta actual
-        setFloors(prev => prev.map(f =>
-          f.id === currentFloorId
-            ? {
-              ...f,
-              elements: {
-                ...f.elements,
-                dimensions: [...f.elements.dimensions, newDimension]
-              }
-            }
-            : f
-        ));
-
-        console.log(`✅ Cota creada: ${newDimension.distanceMeters.toFixed(2)}m`);
-
-        // Reset para siguiente cota
-        setDimensionFirstPoint(null);
-      }
-      return;
-    }
-    */
-
-    // HERRAMIENTA: DOOR, WINDOW o PASSAGE (Aberturas)
-    // Solo procesar si la herramienta es door, window o passage
-    if (tool !== 'door' && tool !== 'window' && tool !== 'passage') return;
-    if (!openingConfig) return;
-
-    const stage = e.target.getStage();
-    const pointerPos = stage.getPointerPosition();
-    if (!pointerPos) return;
-
-    // Ajustar por escala y posición del stage
-    const mouseX = (pointerPos.x - stagePos.x) / stageScale;
-    const mouseY = (pointerPos.y - stagePos.y) / stageScale;
-
-    // Buscar el RoomGroup más cercano con un muro cerca del cursor
-    let foundOpening = false;
-
-    for (const group of roomGroups) {
-      const result = findNearestWall(
-        group.walls,
-        mouseX,
-        mouseY,
-        group.x,
-        group.y,
-        group.rotation,
-        group.scaleX,
-        group.scaleY,
-        30 // máximo 30 píxeles de distancia
-      );
-
-      if (result) {
-        // Crear abertura
-        let newOpening: Opening;
-
-        if (openingConfig.type === 'door') {
-          newOpening = createDoor(
-            group.id,
-            result.wallIndex,
-            result.position,
-            openingConfig.width,
-            (openingConfig as DoorConfig).doorSwing
-          );
-        } else if (openingConfig.type === 'window') {
-          newOpening = createWindow(
-            group.id,
-            result.wallIndex,
-            result.position,
-            openingConfig.width,
-            (openingConfig as WindowConfig).height,
-            (openingConfig as WindowConfig).sillHeight
-          );
-        } else {
-          newOpening = createPassage(
-            group.id,
-            result.wallIndex,
-            result.position,
-            openingConfig.width
-          );
-        }
-
-        // Agregar abertura al grupo
-        setRoomGroups(prev => prev.map(g =>
-          g.id === group.id
-            ? { ...g, openings: [...g.openings, newOpening] }
-            : g
-        ));
-
-        console.log(`✅ ${openingConfig.type === 'door' ? 'Puerta' : openingConfig.type === 'window' ? 'Ventana' : 'Paso'} insertado en muro ${result.wallIndex} del ambiente ${group.id}`);
-        foundOpening = true;
-        break;
-      }
-    }
-
-    if (!foundOpening) {
-      console.log('⚠️ No se encontró ningún muro cercano');
-    }
-  };
 
   const handleCalibrateEnd = (points: number[]) => {
     const dx = points[2] - points[0];
@@ -972,11 +991,25 @@ export default function PlannerCanvas() {
 
   // --- CLICS ---
 
-  const updateLinePoint = (id: string, type: 'wall' | 'aux', pointIndex: 0 | 2, newX: number, newY: number) => {
+  const updateLinePoint = (id: string, type: 'wall' | 'aux' | 'pipe', pointIndex: 0 | 1 | 2, newX: number, newY: number) => {
     if (type === 'wall') {
       setWalls(prev => prev.map(w => w.id !== id ? w : { ...w, points: pointIndex === 0 ? [newX, newY, w.points[2], w.points[3]] : [w.points[0], w.points[1], newX, newY] }));
-    } else {
+    } else if (type === 'aux') {
       setAuxLines(prev => prev.map(a => a.id !== id ? a : { ...a, points: pointIndex === 0 ? [newX, newY, a.points[2], a.points[3]] : [a.points[0], a.points[1], newX, newY] }));
+    } else if (type === 'pipe') {
+      setPipes(prev => prev.map(p => {
+        if (p.id !== id) return p;
+        if (pointIndex === 1) {
+          // Actualizar punto de control
+          return { ...p, controlPoint: { x: newX, y: newY } };
+        } else {
+          // Actualizar extremos
+          const newPoints = pointIndex === 0
+            ? [newX, newY, p.points[2], p.points[3]]
+            : [p.points[0], p.points[1], newX, newY];
+          return { ...p, points: newPoints };
+        }
+      }));
     }
   };
 
@@ -1055,6 +1088,7 @@ export default function PlannerCanvas() {
     if (!selectedId || tool !== 'select') return null;
     const selectedWall = walls.find(w => w.id === selectedId);
     const selectedAux = auxLines.find(a => a.id === selectedId);
+    const selectedPipe = pipes.find(p => p.id === selectedId);
 
     if (selectedWall) {
       return (
@@ -1069,6 +1103,22 @@ export default function PlannerCanvas() {
         <>
           <Circle x={selectedAux.points[0]} y={selectedAux.points[1]} radius={5} fill="#22c55e" stroke="white" strokeWidth={2} draggable onDragMove={(e) => { const pos = e.target.position(); updateLinePoint(selectedAux.id, 'aux', 0, pos.x, pos.y); }} />
           <Circle x={selectedAux.points[2]} y={selectedAux.points[3]} radius={5} fill="#22c55e" stroke="white" strokeWidth={2} draggable onDragMove={(e) => { const pos = e.target.position(); updateLinePoint(selectedAux.id, 'aux', 2, pos.x, pos.y); }} />
+        </>
+      );
+    }
+    if (selectedPipe) {
+      const cp = selectedPipe.controlPoint || {
+        x: (selectedPipe.points[0] + selectedPipe.points[2]) / 2,
+        y: (selectedPipe.points[1] + selectedPipe.points[3]) / 2 + 30
+      };
+
+      return (
+        <>
+          <Circle x={selectedPipe.points[0]} y={selectedPipe.points[1]} radius={5} fill="#ef4444" stroke="white" strokeWidth={2} draggable onDragMove={(e) => { const pos = e.target.position(); updateLinePoint(selectedPipe.id, 'pipe', 0, pos.x, pos.y); }} />
+          {selectedPipe.type === 'curved' && (
+            <Circle x={cp.x} y={cp.y} radius={5} fill="#f59e0b" stroke="white" strokeWidth={2} draggable onDragMove={(e) => { const pos = e.target.position(); updateLinePoint(selectedPipe.id, 'pipe', 1, pos.x, pos.y); }} />
+          )}
+          <Circle x={selectedPipe.points[2]} y={selectedPipe.points[3]} radius={5} fill="#ef4444" stroke="white" strokeWidth={2} draggable onDragMove={(e) => { const pos = e.target.position(); updateLinePoint(selectedPipe.id, 'pipe', 2, pos.x, pos.y); }} />
         </>
       );
     }
@@ -1409,760 +1459,694 @@ export default function PlannerCanvas() {
     }, 100);
   };
 
+  const deleteSelected = () => handleDeleteSelected();
+  const clearAll = () => handleClearAll();
+  const handleCalibrate = () => { setTool('calibrate'); alert("DIBUJA UNA LÍNEA sobre una medida conocida."); };
+  const handleUploadImage = (file: File) => handleImageUpload(file);
+  const calibrationMeters = 100 / pixelsPerMeter; // Assuming 100px is the reference for scaleText
+
   return (
-    <div className="flex flex-col h-screen bg-slate-100">
-      {/* HEADER BLINDADO: 
-          1. h-16: Altura suficiente para botones grandes.
-          2. relative: Contexto de posición.
-      */}
-      <header className="flex items-center justify-between px-4 bg-white border-b shadow-sm z-30 h-16 min-h-[64px] relative shrink-0">
-        {/* LADO IZQUIERDO: Navegación + Título + Badge + Modos */}
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-slate-100 rounded-full transition-colors shrink-0"
-            title="Volver al Dashboard"
-          >
-            <ArrowLeft className="w-5 h-5 text-slate-600" />
-          </button>
-
-          <div className="flex flex-col justify-center">
-            <div className="flex items-center gap-3">
-              <h1 className="text-sm font-bold text-slate-800 whitespace-nowrap">Taller CAD</h1>
-
-              {/* 🆕 Badge de Estado de Obra - Más prominente */}
-              <div
-                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border shadow-sm ${estadoObra === 'nueva'
-                  ? 'bg-blue-600 text-white border-blue-700'
-                  : estadoObra === 'existente'
-                    ? 'bg-yellow-400 text-gray-900 border-yellow-500'
-                    : estadoObra === 'modificacion'
-                      ? 'bg-orange-500 text-white border-orange-600'
-                      : 'bg-purple-600 text-white border-purple-700'
-                  }`}
-              >
-                {estadoObra === 'existente' ? '🏗️ Existente' :
-                  estadoObra === 'modificacion' ? '🔧 Modif' :
-                    estadoObra === 'provisoria' ? '⚡ Provis' : '🆕 Obra Nueva'}
-              </div>
-
-              {/* TABS DE MODO - Integrados en la misma fila si hay espacio o justo debajo */}
-              <div className="flex space-x-1 bg-slate-100 rounded p-1 ml-4">
-                <button
-                  onClick={() => handleSwitchMode('floorPlan')}
-                  className={`px-2 py-0.5 text-[11px] rounded font-medium transition-colors ${activeMode === 'floorPlan' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:bg-slate-200'}`}
-                >
-                  Planta
-                </button>
-                <button
-                  onClick={() => handleSwitchMode('singleLine')}
-                  className={`px-2 py-0.5 text-[11px] rounded font-medium transition-colors ${activeMode === 'singleLine' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-500 hover:bg-slate-200'}`}
-                >
-                  Unifilar
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        {/* CENTRO: Herramientas Arquitectura (SOLO EN MODO PLANTA) */}
-        {
-          activeMode === 'floorPlan' && (
-            <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-lg p-1 shadow-inner">
-              <button
-                onClick={() => handleOpeningTool('door')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${tool === 'door'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-600 hover:bg-slate-200'
-                  }`}
-              >
-                🚪 Puerta
-              </button>
-              <button
-                onClick={() => handleOpeningTool('window')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${tool === 'window'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-600 hover:bg-slate-200'
-                  }`}
-              >
-                🪟 Ventana
-              </button>
-              <button
-                onClick={() => handleOpeningTool('passage')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${tool === 'passage'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-600 hover:bg-slate-200'
-                  }`}
-              >
-                ⬜ Paso
-              </button>
-              <button
-                onClick={() => { setTool('dimension'); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${tool === 'dimension'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-600 hover:bg-slate-200'
-                  }`}
-              >
-                📏 Cota
-              </button>
-            </div>
-          )
-        }
-
-        {/* LADO DERECHO: Acciones + Sidebar */}
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-3">
-
-            {/* Botón Volver a Calculadora */}
-            {calculationData && (
-              <button
-                onClick={() => {
-                  // Guardar datos para abrir wizard en modo edición
-                  sessionStorage.setItem('editProjectData', JSON.stringify(calculationData));
-                  sessionStorage.setItem('openWizardOnDashboard', 'true');
-                  navigate('/dashboard');
-                }}
-                className="flex items-center justify-center w-9 h-9 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
-                title="Volver a la Calculadora"
-              >
-                <Calculator className="w-5 h-5" />
-              </button>
-            )}
-
-            <button
-              onClick={handleSaveProject}
-              className="w-9 h-9 flex items-center justify-center bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-              title="Guardar Proyecto"
-            >
-              <Save className="w-5 h-5" />
-            </button>
-          </div>
-
-          <PlannerSidebar
-            tool={tool}
-            setTool={setTool}
-            activeMode={activeMode}
-            onOpenReport={() => setShowMaterialModal(true)}
-            onOpenProjectInfo={() => setShowProjectInfoModal(true)}
-          />
-        </div>
-      </header>
-
-      {/* FLOOR TABS - Sistema de Múltiples Plantas */}
-      < FloorTabs
-        floors={floors}
-        currentFloorId={currentFloorId}
-        onFloorChange={setCurrentFloorId}
-        onAddFloor={() => setShowNewFloorModal(true)
-        }
-        onEditFloor={handleEditFloor}
+    <div className="flex flex-col h-screen overflow-hidden bg-slate-100 font-sans">
+      {/* BARRA SUPERIOR (LA MANO) */}
+      <PlannerSidebar
+        tool={tool}
+        setTool={setTool}
+        activeMode={activeMode}
+        setActiveMode={setActiveMode}
+        activeCategory={activeCategory}
+        setActiveCategory={setActiveCategory}
+        onOpenReport={() => setShowMaterialModal(true)}
+        onOpenProjectInfo={() => setShowProjectInfoModal(true)}
+        onDownloadPDF={() => setShowExportModal(true)}
+        onSave={saveProject}
+        onBack={() => navigate('/dashboard')}
+        onOpenWizard={() => {
+          sessionStorage.setItem('openWizardOnDashboard', 'true');
+          navigate('/dashboard');
+        }}
+        estadoObra={estadoObra}
       />
 
-      <div className="flex flex-1 overflow-hidden relative">
+      {/* ÁREA PRINCIPAL: CANVAS + EL CEREBRO */}
+      <div className="flex-1 flex overflow-hidden relative">
+
+        {/* BARRA DE HERRAMIENTAS IZQUIERDA (DIBUJO) */}
         <PlannerToolbar
+          tool={tool}
+          setTool={setTool}
           currentCircuitColor={currentCircuitColor}
           setCurrentCircuitColor={setCurrentCircuitColor}
           currentPipeType={currentPipeType}
           setCurrentPipeType={setCurrentPipeType}
           currentPipeDashMode={currentPipeDashMode}
           setCurrentPipeDashMode={setCurrentPipeDashMode}
-          onDownloadPDF={handleOpenExportModal}
-          onDeleteSelected={handleDeleteSelected}
-          onClearAll={handleClearAll}
-          onCalibrate={() => { setTool('calibrate'); alert("DIBUJA UNA LÍNEA sobre una medida conocida."); }}
-          scaleText={`1m = ${Math.round(pixelsPerMeter)}px`}
-          onUploadImage={handleImageUpload}
+          onDownloadPDF={() => setShowExportModal(true)}
+          onDeleteSelected={deleteSelected}
+          onClearAll={clearAll}
+          onCalibrate={handleCalibrate}
+          scaleText={`100px = ${calibrationMeters.toFixed(2)}m`}
+          onUploadImage={handleUploadImage}
           isBackgroundLocked={isBackgroundLocked}
-          onToggleLock={() => {
-            setIsBackgroundLocked(!isBackgroundLocked);
-            if (!isBackgroundLocked) selectShape(null);
-          }}
+          onToggleLock={() => setIsBackgroundLocked(!isBackgroundLocked)}
           hasBackgroundImage={!!backgroundImage}
           onDeleteImage={handleDeleteImage}
         />
 
+        {/* CONTENEDOR DEL LIENZO (65% o 100%) - REGLA 35/65 */}
         <div
-          className="flex-1 bg-slate-200 relative overflow-hidden cursor-crosshair"
-          onDrop={handleCanvasDrop}
-          onDragOver={handleCanvasDragOver}
+          className={`relative transition-all duration-500 ease-in-out bg-slate-200 shadow-inner flex flex-col ${isVisionPanelCollapsed ? 'flex-1' : 'w-[65%]'
+            }`}
+          style={{ cursor: tool === 'select' ? 'default' : 'crosshair' }}
         >
-          <Stage
-            width={window.innerWidth} height={window.innerHeight}
-            draggable={tool === 'select'}
-            ref={stageRef} scaleX={stageScale} scaleY={stageScale} x={stagePos.x} y={stagePos.y}
-            onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onWheel={handleWheel}
-            onClick={handleStageClick}
-            style={{ cursor: getCursorStyle() }}
-          >
-            <Layer>
-              {(() => {
+          {/* Tabs de Plantas (Piso) */}
+          <div className="bg-slate-50/50 border-b border-slate-200 px-2 py-0 flex items-center justify-between min-h-[32px]">
+            <FloorTabs
+              floors={floors}
+              currentFloorId={currentFloorId}
+              onFloorChange={setCurrentFloorId}
+              onEditFloor={(id) => {
+                setEditingFloorId(id);
+                setShowEditFloorModal(true);
+              }}
+              onAddFloor={() => setShowNewFloorModal(true)}
+              activeLayer={(() => {
                 const floor = getCurrentFloor();
-                const { width: uWmm, height: uHmm } = getUsableDimensions(
-                  floor?.format.widthMm || 297,
-                  floor?.format.heightMm || 210
-                );
-                const sheetW = mmToPixels(uWmm);
-                const sheetH = mmToPixels(uHmm);
-                return (
-                  <>
-                    <Rect x={4} y={4} width={sheetW} height={sheetH} fill="black" opacity={0.1} cornerRadius={2} blurRadius={10} name="paper-shadow" listening={false} />
-                    <Rect
-                      x={0}
-                      y={0}
-                      width={sheetW}
-                      height={sheetH}
-                      fill="white"
-                      name="paper-bg"
-                      listening={!isBackgroundLocked} // CRÍTICO: Si está bloqueado, clics pasan a través
-                    />
-                  </>
-                );
+                const layer = floor?.layers.find(l => l.id === currentLayerId);
+                return layer ? { name: layer.name, color: layer.color } : undefined;
               })()}
+              onClickIndicator={() => {
+                setVisionActiveTab('layers');
+                setIsVisionPanelCollapsed(false);
+              }}
+            />
+            <div className="flex gap-2 px-2">
+              <button
+                onClick={() => setIsVisionPanelCollapsed(!isVisionPanelCollapsed)}
+                className="p-1 text-slate-500 hover:bg-slate-100 rounded-md transition-all md:hidden"
+                title="Toggle Sidebar"
+              >
+                <Calculator className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
 
-              {/* CAPA DE FONDO (BLUEPRINT) - SOLO EN FLOORPLAN */}
-              {backgroundImage && activeMode === 'floorPlan' && (
-                <KonvaImage
-                  id="blueprint-bg"
-                  image={backgroundImage}
-                  x={backgroundProps.x}
-                  y={backgroundProps.y}
-                  scaleX={backgroundProps.scaleX}
-                  scaleY={backgroundProps.scaleY}
-                  rotation={backgroundProps.rotation}
-                  draggable={!isBackgroundLocked && tool === 'select'}
-                  opacity={0.5} // Semi-transparente para calcar fácil
-                  name="blueprint"
-                  onDragEnd={(e) => {
-                    setBackgroundProps({
-                      ...backgroundProps,
-                      x: e.target.x(),
-                      y: e.target.y()
-                    });
-                  }}
-                  onTransformEnd={(e) => {
-                    const node = e.target;
-                    setBackgroundProps({
-                      x: node.x(),
-                      y: node.y(),
-                      scaleX: node.scaleX(),
-                      scaleY: node.scaleY(),
-                      rotation: node.rotation()
-                    });
-                  }}
-                  onTap={() => {
-                    if (!isBackgroundLocked && tool === 'select') selectShape('blueprint-bg');
-                  }}
-                  listening={!isBackgroundLocked} // CRÍTICO: Si está bloqueado, clics pasan a través
-                />
-              )}
+          <div
+            className="flex-1 overflow-hidden relative"
+            onDrop={handleCanvasDrop}
+            onDragOver={handleCanvasDragOver}
+          >
+            <Stage
+              width={window.innerWidth * (isVisionPanelCollapsed ? 1 : 0.65)}
+              height={window.innerHeight - 140}
+              onMouseDown={handleStageMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onWheel={handleWheel}
+              scaleX={stageScale}
+              scaleY={stageScale}
+              x={stagePos.x}
+              y={stagePos.y}
+              draggable={tool === 'select' && !selectedId}
+              ref={stageRef}
+            >
+              <Layer>
+                {(() => {
+                  const floor = getCurrentFloor();
+                  const { width: uWmm, height: uHmm } = getUsableDimensions(
+                    floor?.format.widthMm || 297,
+                    floor?.format.heightMm || 210
+                  );
+                  const sheetW = mmToPixels(uWmm);
+                  const sheetH = mmToPixels(uHmm);
+                  return (
+                    <>
+                      <Rect x={4} y={4} width={sheetW} height={sheetH} fill="black" opacity={0.1} cornerRadius={2} blurRadius={10} name="paper-shadow" listening={false} />
+                      <Rect
+                        x={0}
+                        y={0}
+                        width={sheetW}
+                        height={sheetH}
+                        fill="white"
+                        name="paper-bg"
+                        listening={!isBackgroundLocked} // CRÍTICO: Si está bloqueado, clics pasan a través
+                      />
+                    </>
+                  );
+                })()}
 
-              {renderGrid()}
+                {/* CAPA DE FONDO (BLUEPRINT) - SOLO EN FLOORPLAN */}
+                {backgroundImage && activeMode === 'floorPlan' && (
+                  <KonvaImage
+                    id="blueprint-bg"
+                    image={backgroundImage}
+                    x={backgroundProps.x}
+                    y={backgroundProps.y}
+                    scaleX={backgroundProps.scaleX}
+                    scaleY={backgroundProps.scaleY}
+                    rotation={backgroundProps.rotation}
+                    draggable={!isBackgroundLocked && tool === 'select'}
+                    opacity={0.5} // Semi-transparente para calcar fácil
+                    name="blueprint"
+                    onDragEnd={(e) => {
+                      setBackgroundProps({
+                        ...backgroundProps,
+                        x: e.target.x(),
+                        y: e.target.y()
+                      });
+                    }}
+                    onTransformEnd={(e) => {
+                      const node = e.target;
+                      setBackgroundProps({
+                        x: node.x(),
+                        y: node.y(),
+                        scaleX: node.scaleX(),
+                        scaleY: node.scaleY(),
+                        rotation: node.rotation()
+                      });
+                    }}
+                    onTap={() => {
+                      if (!isBackgroundLocked && tool === 'select') selectShape('blueprint-bg');
+                    }}
+                    listening={!isBackgroundLocked} // CRÍTICO: Si está bloqueado, clics pasan a través
+                  />
+                )}
 
-              {/* RÓTULO DINÁMICO IRAM 4508 */}
-              {(() => {
-                const floor = getCurrentFloor();
-                const { width: uWmm, height: uHmm } = getUsableDimensions(
-                  floor?.format.widthMm || 297,
-                  floor?.format.heightMm || 210
-                );
-                const sheetW = mmToPixels(uWmm);
-                const sheetH = mmToPixels(uHmm);
+                {renderGrid()}
 
-                const rWidth = mmToPixels(TITLE_BLOCK_CONFIG.width);
-                const rHeight = mmToPixels(TITLE_BLOCK_CONFIG.height);
-                const calculatedScale = calculateStandardScale(pixelsPerMeter);
+                {/* RÓTULO DINÁMICO IRAM 4508 */}
+                {(() => {
+                  const floor = getCurrentFloor();
+                  const { width: uWmm, height: uHmm } = getUsableDimensions(
+                    floor?.format.widthMm || 297,
+                    floor?.format.heightMm || 210
+                  );
+                  const sheetW = mmToPixels(uWmm);
+                  const sheetH = mmToPixels(uHmm);
 
-                return (
-                  <Group x={sheetW - rWidth} y={sheetH - rHeight} name="rotulo-visual" listening={false}>
-                    <Rect width={rWidth} height={rHeight} stroke="black" strokeWidth={1} fill="white" />
-                    {TITLE_BLOCK_CONFIG.cells.map(cell => {
-                      const cx = mmToPixels(cell.x);
-                      const cy = mmToPixels(cell.y);
-                      const cw = mmToPixels(cell.width);
-                      const ch = mmToPixels(cell.height);
+                  const rWidth = mmToPixels(TITLE_BLOCK_CONFIG.width);
+                  const rHeight = mmToPixels(TITLE_BLOCK_CONFIG.height);
+                  const calculatedScale = calculateStandardScale(pixelsPerMeter);
 
-                      let value = "";
-                      if (cell.dataKey === 'calculatedScale') value = calculatedScale;
-                      else if (cell.dataKey === 'clientName') value = calculationData?.config?.clientName || "---";
-                      else value = (projectData as any)[cell.dataKey || ""] || "";
+                  return (
+                    <Group x={sheetW - rWidth} y={sheetH - rHeight} name="rotulo-visual" listening={false}>
+                      <Rect width={rWidth} height={rHeight} stroke="black" strokeWidth={1} fill="white" />
+                      {TITLE_BLOCK_CONFIG.cells.map(cell => {
+                        const cx = mmToPixels(cell.x);
+                        const cy = mmToPixels(cell.y);
+                        const cw = mmToPixels(cell.width);
+                        const ch = mmToPixels(cell.height);
+
+                        let value = "";
+                        if (cell.dataKey === 'calculatedScale') value = calculatedScale;
+                        else if (cell.dataKey === 'clientName') value = calculationData?.config?.clientName || "---";
+                        else value = (projectData as any)[cell.dataKey || ""] || "";
+
+                        return (
+                          <Group key={cell.id} x={cx} y={cy}>
+                            <Rect width={cw} height={ch} stroke="black" strokeWidth={0.5} />
+                            <Text text={cell.label} x={2} y={2} fontSize={6} fill="#64748b" fontStyle="italic" />
+                            <Text
+                              text={value}
+                              width={cw - 4}
+                              height={ch - 10}
+                              x={2}
+                              y={10}
+                              fontSize={cell.fontSize * 0.8}
+                              fontStyle={cell.isBold ? "bold" : "normal"}
+                              align={cell.align}
+                              verticalAlign="middle"
+                              fill="black"
+                              wrap="char"
+                            />
+                          </Group>
+                        );
+                      })}
+                    </Group>
+                  );
+                })()}
+
+                <Group>
+                  {/* GRUPOS DE AMBIENTES (con Transformer) - ORDEN Z: PRIMERO (ABAJO) */}
+                  {roomGroups
+                    .filter(group => {
+                      // Filtrar por visibilidad de capa
+                      const layer = getCurrentFloor()?.layers.find(l => l.id === group.layerId);
+                      return layer?.visible !== false;
+                    })
+                    .map(group => {
+                      // Obtener capa del grupo
+                      const layer = getCurrentFloor()?.layers.find(l => l.id === group.layerId);
+                      const isLocked = layer?.locked || false;
 
                       return (
-                        <Group key={cell.id} x={cx} y={cy}>
-                          <Rect width={cw} height={ch} stroke="black" strokeWidth={0.5} />
-                          <Text text={cell.label} x={2} y={2} fontSize={6} fill="#64748b" fontStyle="italic" />
-                          <Text
-                            text={value}
-                            width={cw - 4}
-                            height={ch - 10}
-                            x={2}
-                            y={10}
-                            fontSize={cell.fontSize * 0.8}
-                            fontStyle={cell.isBold ? "bold" : "normal"}
-                            align={cell.align}
-                            verticalAlign="middle"
-                            fill="black"
-                            wrap="char"
+                        <Group
+                          key={group.id}
+                          id={group.id}
+                          x={group.x}
+                          y={group.y}
+                          rotation={group.rotation}
+                          scaleX={group.scaleX}
+                          scaleY={group.scaleY}
+                          draggable={tool === 'select' && !isLocked} // No arrastrable si está bloqueado
+                          onDragEnd={(e) => {
+                            if (isLocked) {
+                              e.target.position({ x: group.x, y: group.y });
+                              return;
+                            }
+
+                            const node = e.target;
+                            const newX = node.x();
+                            const newY = node.y();
+
+                            // Actualizar posición del grupo
+                            setRoomGroups(prev => prev.map(g =>
+                              g.id === group.id
+                                ? { ...g, x: newX, y: newY }
+                                : g
+                            ));
+
+                            // Actualizar posición de la etiqueta asociada
+                            setSymbols(prev => prev.map(sym =>
+                              sym.id === group.labelId
+                                ? { ...sym, x: sym.x + newX - group.x, y: sym.y + newY - group.y }
+                                : sym
+                            ));
+
+                            console.log(`📍 Ambiente movido a: (${newX.toFixed(0)}, ${newY.toFixed(0)})`);
+                          }}
+                          onClick={(e) => {
+                            e.cancelBubble = true;
+
+                            // Validar bloqueo
+                            if (isLocked) {
+                              alert('⚠️ Capa bloqueada. Desbloquea la capa para editar.');
+                              return;
+                            }
+
+                            if (tool === 'select') {
+                              setSelectedGroupId(group.id);
+                              selectShape(group.id);
+                              // Adjuntar Transformer al grupo
+                              const stage = stageRef.current;
+                              if (stage && transformerRef.current) {
+                                const node = stage.findOne(`#${group.id}`);
+                                if (node) {
+                                  transformerRef.current.nodes([node]);
+                                  transformerRef.current.getLayer()?.batchDraw();
+                                }
+                              }
+                            }
+                          }}
+                          onTransformEnd={(e) => {
+                            // Validar bloqueo antes de transformar
+                            if (isLocked) {
+                              e.target.to({ scaleX: group.scaleX, scaleY: group.scaleY, rotation: group.rotation });
+                              return;
+                            }
+
+                            const node = e.target;
+                            const scaleX = node.scaleX();
+                            const scaleY = node.scaleY();
+
+                            // Calcular nuevas dimensiones en píxeles
+                            const originalWidthPx = group.originalWidth * pixelsPerMeter;
+                            const originalLengthPx = group.originalLength * pixelsPerMeter;
+
+                            const newWidthPx = originalWidthPx * scaleX;
+                            const newLengthPx = originalLengthPx * scaleY;
+
+                            // Convertir a metros
+                            const newWidthM = (newWidthPx / pixelsPerMeter).toFixed(2);
+                            const newLengthM = (newLengthPx / pixelsPerMeter).toFixed(2);
+                            const newAreaM = (parseFloat(newWidthM) * parseFloat(newLengthM)).toFixed(2);
+
+                            console.log(`📏 Ambiente redimensionado: ${newWidthM}m × ${newLengthM}m = ${newAreaM}m²`);
+
+                            // Actualizar grupo (Sincronizando metros reales)
+                            setRoomGroups(prev => prev.map(g => {
+                              if (g.id !== group.id) return g;
+
+                              const widthM = parseFloat(newWidthM);
+                              const lengthM = parseFloat(newLengthM);
+                              const wPx = widthM * pixelsPerMeter;
+                              const lPx = lengthM * pixelsPerMeter;
+
+                              return {
+                                ...g,
+                                x: node.x(),
+                                y: node.y(),
+                                rotation: node.rotation(),
+                                scaleX: 1, // Resetear escala tras persistir metros
+                                scaleY: 1,
+                                originalWidth: widthM,
+                                originalLength: lengthM,
+                                // Actualizar puntos de muros para que coincidan con los nuevos metros en píxeles
+                                walls: [
+                                  { ...g.walls[0], points: [0, 0, wPx, 0] },         // Top
+                                  { ...g.walls[1], points: [wPx, 0, wPx, lPx] },     // Right
+                                  { ...g.walls[2], points: [wPx, lPx, 0, lPx] },     // Bottom
+                                  { ...g.walls[3], points: [0, lPx, 0, 0] }          // Left
+                                ]
+                              };
+                            }));
+
+                            // Resetear escala del nodo físico para que no haya doble escalado
+                            node.scaleX(1);
+                            node.scaleY(1);
+
+                            // NOTA: La etiqueta NO se sincroniza en transformaciones (rotar/escalar)
+                            // Solo se mueve cuando ARRASTRAS el ambiente (ver onDragEnd)
+
+                            // TODO: Actualizar calculation_data
+                          }}
+                        >
+                          {/* Paredes del grupo */}
+                          {group.walls.map(wall => (
+                            <Line
+                              key={wall.id}
+                              points={wall.points}
+                              stroke="black"
+                              strokeWidth={5}
+                              lineCap="round"
+                              strokeScaleEnabled={false}
+                            />
+                          ))}
+
+                          {/* Aberturas del grupo (puertas y ventanas) */}
+                          {group.openings?.map((opening) => {
+                            const wall = group.walls[opening.wallIndex];
+                            if (!wall) return null;
+
+                            // Calcular longitud teórica del muro en metros (0 y 2: ancho, 1 y 3: largo)
+                            const wallLengthMeters = (opening.wallIndex % 2 === 0)
+                              ? (group.originalWidth || 0)
+                              : (group.originalLength || 0);
+
+                            if (opening.type === 'door') {
+                              return (
+                                <DoorComponent
+                                  key={opening.id}
+                                  door={opening as any}
+                                  wall={wall}
+                                  roomGroupX={group.x}
+                                  roomGroupY={group.y}
+                                  roomGroupRotation={group.rotation}
+                                  roomGroupScaleX={group.scaleX}
+                                  roomGroupScaleY={group.scaleY}
+                                  pixelsPerMeter={pixelsPerMeter}
+                                  isSelectMode={tool === 'select'}
+                                  isSelected={selectedOpeningId === opening.id}
+                                  onUpdatePosition={(pos) => handleOpeningUpdatePosition(group.id, opening.id, pos)}
+                                  onSelect={handleOpeningSelect}
+                                  onEdit={handleOpeningEdit}
+                                />
+                              );
+                            } else if (opening.type === 'window') {
+                              return (
+                                <WindowComponent
+                                  key={opening.id}
+                                  window={opening as any}
+                                  wall={wall}
+                                  roomGroupX={group.x}
+                                  roomGroupY={group.y}
+                                  roomGroupRotation={group.rotation}
+                                  roomGroupScaleX={group.scaleX}
+                                  roomGroupScaleY={group.scaleY}
+                                  pixelsPerMeter={pixelsPerMeter}
+                                  isSelectMode={tool === 'select'}
+                                  isSelected={selectedOpeningId === opening.id}
+                                  onUpdatePosition={(pos) => handleOpeningUpdatePosition(group.id, opening.id, pos)}
+                                  onSelect={handleOpeningSelect}
+                                  onEdit={handleOpeningEdit}
+                                />
+                              );
+                            } else if (opening.type === 'passage') {
+                              return (
+                                <PassageComponent
+                                  key={opening.id}
+                                  passage={opening}
+                                  wall={wall}
+                                  roomGroupX={group.x}
+                                  roomGroupY={group.y}
+                                  roomGroupRotation={group.rotation}
+                                  roomGroupScaleX={group.scaleX}
+                                  roomGroupScaleY={group.scaleY}
+                                  pixelsPerMeter={pixelsPerMeter}
+                                  isSelectMode={tool === 'select'}
+                                  isSelected={selectedOpeningId === opening.id}
+                                  onUpdatePosition={(pos) => handleOpeningUpdatePosition(group.id, opening.id, pos)}
+                                  onSelect={handleOpeningSelect}
+                                  onEdit={handleOpeningEdit}
+                                />
+                              );
+                            }
+                            return null;
+                          })}
+                        </Group>
+                      );
+                    })}
+
+                  {/* COTAS / DIMENSIONES ELIMINADAS DE AQUÍ (Z-ORDER INCORRECTO) */}
+
+                  {/* COTAS PREVIEW (Dibujo) */}
+                  {dimensionPreview && dimensionFirstPoint && (
+                    <DimensionComponent
+                      dimension={{
+                        id: 'preview-dim',
+                        type: 'dimension',
+                        startPoint: dimensionFirstPoint,
+                        endPoint: {
+                          x: dimensionPreview[2],
+                          y: dimensionPreview[3]
+                        },
+                        distanceMeters: Math.sqrt(
+                          Math.pow(dimensionPreview[2] - dimensionFirstPoint.x, 2) +
+                          Math.pow(dimensionPreview[3] - dimensionFirstPoint.y, 2)
+                        ) / pixelsPerMeter,
+                        distancePixels: Math.sqrt(
+                          Math.pow(dimensionPreview[2] - dimensionFirstPoint.x, 2) +
+                          Math.pow(dimensionPreview[3] - dimensionFirstPoint.y, 2)
+                        ),
+                        textOffset: 20,
+                        layerId: currentLayerId
+                      }}
+                    />
+                  )}
+
+                  {/* Transformer */}
+                  <Transformer ref={transformerRef} />
+
+                  {/* PAREDES INDIVIDUALES - ORDEN Z: SEGUNDO (DESPUÉS DE MUROS) */}
+                  {walls
+                    .filter(w => {
+                      // Filtrar por visibilidad de capa
+                      const layer = getCurrentFloor()?.layers.find(l => l.id === (w as any).layerId);
+                      return layer?.visible !== false;
+                    })
+                    .map((w, i) => {
+                      const layer = getCurrentFloor()?.layers.find(l => l.id === (w as any).layerId);
+                      const isLocked = layer?.locked || false;
+
+                      return (
+                        <Group
+                          key={w.id || i}
+                          draggable={tool === 'select' && !isLocked}
+                          onDragEnd={(e) => {
+                            if (isLocked) {
+                              e.target.position({ x: 0, y: 0 });
+                              return;
+                            }
+
+                            const dx = e.target.x();
+                            const dy = e.target.y();
+
+                            // Si la pared tiene groupId, mover todo el grupo
+                            if ((w as any).groupId) {
+                              const groupId = (w as any).groupId;
+                              console.log('🔄 Moviendo grupo:', groupId, 'dx:', dx, 'dy:', dy);
+
+                              // Mover todas las paredes del grupo
+                              setWalls(ws => ws.map(item =>
+                                (item as any).groupId === groupId
+                                  ? { ...item, points: [item.points[0] + dx, item.points[1] + dy, item.points[2] + dx, item.points[3] + dy] }
+                                  : item
+                              ));
+
+                              // Mover símbolos del grupo (etiqueta)
+                              setSymbols(syms => syms.map(sym =>
+                                (sym as any).groupId === groupId
+                                  ? { ...sym, x: sym.x + dx, y: sym.y + dy }
+                                  : sym
+                              ));
+                            } else {
+                              // Pared sin grupo: mover solo esta pared
+                              setWalls(ws => ws.map(item =>
+                                item.id === w.id
+                                  ? { ...item, points: [item.points[0] + dx, item.points[1] + dy, item.points[2] + dx, item.points[3] + dy] }
+                                  : item
+                              ));
+                            }
+
+                            e.target.position({ x: 0, y: 0 });
+                          }}
+                        >
+                          <Line
+                            points={w.points}
+                            stroke={selectedId === w.id ? "#3b82f6" : (w.nature === 'relevado' ? "#cbd5e1" : "black")}
+                            strokeWidth={5}
+                            lineCap="round"
+                            opacity={w.nature === 'relevado' ? 0.6 : 1}
+                            onClick={(e) => {
+                              e.cancelBubble = true;
+                              if (tool === 'select' && !isLocked) {
+                                selectShape(w.id);
+                              } else if (isLocked) {
+                                alert('⚠️ Capa bloqueada. Desbloquea la capa para editar.');
+                              }
+                            }}
                           />
                         </Group>
                       );
                     })}
-                  </Group>
-                );
-              })()}
+                  {currentWall && <Line points={currentWall} stroke="black" strokeWidth={5} opacity={0.5} />}
 
-              <Group>
-                {/* GRUPOS DE AMBIENTES (con Transformer) - ORDEN Z: PRIMERO (ABAJO) */}
-                {roomGroups
-                  .filter(group => {
-                    // Filtrar por visibilidad de capa
-                    const layer = getCurrentFloor()?.layers.find(l => l.id === group.layerId);
-                    return layer?.visible !== false;
-                  })
-                  .map(group => {
-                    // Obtener capa del grupo
-                    const layer = getCurrentFloor()?.layers.find(l => l.id === group.layerId);
-                    const isLocked = layer?.locked || false;
+                  {/* COTAS/DIMENSIONES - ORDEN Z: DESPUÉS DE PAREDES, ANTES DE PIPES */}
+                  {dimensions
+                    ?.filter(dim => {
+                      // 🆕 Filtrar por visibilidad de capa
+                      const layer = getCurrentFloor()?.layers.find(l => l.id === dim.layerId);
+                      return layer?.visible !== false;
+                    })
+                    .map((dimension) => (
+                      <DimensionComponent
+                        key={dimension.id}
+                        dimension={dimension}
+                        isSelected={selectedId === dimension.id}
+                        onSelect={(id) => selectShape(id)}
+                        isSelectMode={tool === 'select'}
+                        pixelsPerMeter={pixelsPerMeter}
+                      />
+                    ))}
 
-                    return (
-                      <Group
-                        key={group.id}
-                        id={group.id}
-                        x={group.x}
-                        y={group.y}
-                        rotation={group.rotation}
-                        scaleX={group.scaleX}
-                        scaleY={group.scaleY}
-                        draggable={tool === 'select' && !isLocked} // No arrastrable si está bloqueado
-                        onDragEnd={(e) => {
-                          if (isLocked) {
-                            e.target.position({ x: group.x, y: group.y });
-                            return;
-                          }
+                  {/* CAÑERÍAS/PIPES - ORDEN Z: TERCERO (DESPUÉS DE PAREDES) */}
+                  {pipes
+                    .filter(p => {
+                      // Filtrar por visibilidad de capa
+                      const layer = getCurrentFloor()?.layers.find(l => l.id === (p as any).layerId);
+                      return layer?.visible !== false;
+                    })
+                    .map((p, i) => {
+                      const layer = getCurrentFloor()?.layers.find(l => l.id === (p as any).layerId);
+                      const isLocked = layer?.locked || false;
+                      const pipeColor = layer?.color || p.color; // Usar color de capa
 
-                          const node = e.target;
-                          const newX = node.x();
-                          const newY = node.y();
-
-                          // Actualizar posición del grupo
-                          setRoomGroups(prev => prev.map(g =>
-                            g.id === group.id
-                              ? { ...g, x: newX, y: newY }
-                              : g
-                          ));
-
-                          // Actualizar posición de la etiqueta asociada
-                          setSymbols(prev => prev.map(sym =>
-                            sym.id === group.labelId
-                              ? { ...sym, x: sym.x + newX - group.x, y: sym.y + newY - group.y }
-                              : sym
-                          ));
-
-                          console.log(`📍 Ambiente movido a: (${newX.toFixed(0)}, ${newY.toFixed(0)})`);
-                        }}
-                        onClick={(e) => {
-                          e.cancelBubble = true;
-
-                          // Validar bloqueo
-                          if (isLocked) {
-                            alert('⚠️ Capa bloqueada. Desbloquea la capa para editar.');
-                            return;
-                          }
-
-                          if (tool === 'select') {
-                            setSelectedGroupId(group.id);
-                            selectShape(group.id);
-                            // Adjuntar Transformer al grupo
-                            const stage = stageRef.current;
-                            if (stage && transformerRef.current) {
-                              const node = stage.findOne(`#${group.id}`);
-                              if (node) {
-                                transformerRef.current.nodes([node]);
-                                transformerRef.current.getLayer()?.batchDraw();
-                              }
-                            }
-                          }
-                        }}
-                        onTransformEnd={(e) => {
-                          // Validar bloqueo antes de transformar
-                          if (isLocked) {
-                            e.target.to({ scaleX: group.scaleX, scaleY: group.scaleY, rotation: group.rotation });
-                            return;
-                          }
-
-                          const node = e.target;
-                          const scaleX = node.scaleX();
-                          const scaleY = node.scaleY();
-
-                          // Calcular nuevas dimensiones en píxeles
-                          const originalWidthPx = group.originalWidth * pixelsPerMeter;
-                          const originalLengthPx = group.originalLength * pixelsPerMeter;
-
-                          const newWidthPx = originalWidthPx * scaleX;
-                          const newLengthPx = originalLengthPx * scaleY;
-
-                          // Convertir a metros
-                          const newWidthM = (newWidthPx / pixelsPerMeter).toFixed(2);
-                          const newLengthM = (newLengthPx / pixelsPerMeter).toFixed(2);
-                          const newAreaM = (parseFloat(newWidthM) * parseFloat(newLengthM)).toFixed(2);
-
-                          console.log(`📏 Ambiente redimensionado: ${newWidthM}m × ${newLengthM}m = ${newAreaM}m²`);
-
-                          // Actualizar grupo (Sincronizando metros reales)
-                          setRoomGroups(prev => prev.map(g => {
-                            if (g.id !== group.id) return g;
-
-                            const widthM = parseFloat(newWidthM);
-                            const lengthM = parseFloat(newLengthM);
-                            const wPx = widthM * pixelsPerMeter;
-                            const lPx = lengthM * pixelsPerMeter;
-
-                            return {
-                              ...g,
-                              x: node.x(),
-                              y: node.y(),
-                              rotation: node.rotation(),
-                              scaleX: 1, // Resetear escala tras persistir metros
-                              scaleY: 1,
-                              originalWidth: widthM,
-                              originalLength: lengthM,
-                              // Actualizar puntos de muros para que coincidan con los nuevos metros en píxeles
-                              walls: [
-                                { ...g.walls[0], points: [0, 0, wPx, 0] },         // Top
-                                { ...g.walls[1], points: [wPx, 0, wPx, lPx] },     // Right
-                                { ...g.walls[2], points: [wPx, lPx, 0, lPx] },     // Bottom
-                                { ...g.walls[3], points: [0, lPx, 0, 0] }          // Left
-                              ]
-                            };
-                          }));
-
-                          // Resetear escala del nodo físico para que no haya doble escalado
-                          node.scaleX(1);
-                          node.scaleY(1);
-
-                          // NOTA: La etiqueta NO se sincroniza en transformaciones (rotar/escalar)
-                          // Solo se mueve cuando ARRASTRAS el ambiente (ver onDragEnd)
-
-                          // TODO: Actualizar calculation_data
-                        }}
-                      >
-                        {/* Paredes del grupo */}
-                        {group.walls.map(wall => (
-                          <Line
-                            key={wall.id}
-                            points={wall.points}
-                            stroke="black"
-                            strokeWidth={5}
-                            lineCap="round"
-                            strokeScaleEnabled={false}
-                          />
-                        ))}
-
-                        {/* Aberturas del grupo (puertas y ventanas) */}
-                        {group.openings?.map((opening) => {
-                          const wall = group.walls[opening.wallIndex];
-                          if (!wall) return null;
-
-                          // Calcular longitud teórica del muro en metros (0 y 2: ancho, 1 y 3: largo)
-                          const wallLengthMeters = (opening.wallIndex % 2 === 0)
-                            ? (group.originalWidth || 0)
-                            : (group.originalLength || 0);
-
-                          if (opening.type === 'door') {
-                            return (
-                              <DoorComponent
-                                key={opening.id}
-                                door={opening as any}
-                                wall={wall}
-                                roomGroupX={group.x}
-                                roomGroupY={group.y}
-                                roomGroupRotation={group.rotation}
-                                roomGroupScaleX={group.scaleX}
-                                roomGroupScaleY={group.scaleY}
-                                pixelsPerMeter={pixelsPerMeter}
-                                wallLengthMeters={wallLengthMeters}
-                                isSelectMode={tool === 'select'}
-                                isSelected={selectedOpeningId === opening.id}
-                                onUpdatePosition={(pos) => handleOpeningUpdatePosition(group.id, opening.id, pos)}
-                                onSelect={handleOpeningSelect}
-                                onEdit={handleOpeningEdit}
-                              />
-                            );
-                          } else if (opening.type === 'window') {
-                            return (
-                              <WindowComponent
-                                key={opening.id}
-                                window={opening as any}
-                                wall={wall}
-                                roomGroupX={group.x}
-                                roomGroupY={group.y}
-                                roomGroupRotation={group.rotation}
-                                roomGroupScaleX={group.scaleX}
-                                roomGroupScaleY={group.scaleY}
-                                pixelsPerMeter={pixelsPerMeter}
-                                wallLengthMeters={wallLengthMeters}
-                                isSelectMode={tool === 'select'}
-                                isSelected={selectedOpeningId === opening.id}
-                                onUpdatePosition={(pos) => handleOpeningUpdatePosition(group.id, opening.id, pos)}
-                                onSelect={handleOpeningSelect}
-                                onEdit={handleOpeningEdit}
-                              />
-                            );
-                          } else if (opening.type === 'passage') {
-                            return (
-                              <PassageComponent
-                                key={opening.id}
-                                passage={opening}
-                                wall={wall}
-                                roomGroupX={group.x}
-                                roomGroupY={group.y}
-                                roomGroupRotation={group.rotation}
-                                roomGroupScaleX={group.scaleX}
-                                roomGroupScaleY={group.scaleY}
-                                pixelsPerMeter={pixelsPerMeter}
-                                wallLengthMeters={wallLengthMeters}
-                                isSelectMode={tool === 'select'}
-                                isSelected={selectedOpeningId === opening.id}
-                                onUpdatePosition={(pos) => handleOpeningUpdatePosition(group.id, opening.id, pos)}
-                                onSelect={handleOpeningSelect}
-                                onEdit={handleOpeningEdit}
-                              />
-                            );
-                          }
-                          return null;
-                        })}
-                      </Group>
-                    );
-                  })}
-
-                {/* COTAS / DIMENSIONES ELIMINADAS DE AQUÍ (Z-ORDER INCORRECTO) */}
-
-                {/* COTAS PREVIEW (Dibujo) */}
-                {dimensionPreview && dimensionFirstPoint && (
-                  <DimensionComponent
-                    dimension={{
-                      id: 'preview-dim',
-                      type: 'dimension',
-                      startPoint: dimensionFirstPoint,
-                      endPoint: {
-                        x: dimensionPreview[2],
-                        y: dimensionPreview[3]
-                      },
-                      distanceMeters: Math.sqrt(
-                        Math.pow(dimensionPreview[2] - dimensionFirstPoint.x, 2) +
-                        Math.pow(dimensionPreview[3] - dimensionFirstPoint.y, 2)
-                      ) / pixelsPerMeter,
-                      distancePixels: Math.sqrt(
-                        Math.pow(dimensionPreview[2] - dimensionFirstPoint.x, 2) +
-                        Math.pow(dimensionPreview[3] - dimensionFirstPoint.y, 2)
-                      ),
-                      textOffset: 20,
-                      layerId: currentLayerId
-                    }}
-                  />
-                )}
-
-                {/* Transformer */}
-                <Transformer ref={transformerRef} />
-
-                {/* PAREDES INDIVIDUALES - ORDEN Z: SEGUNDO (DESPUÉS DE MUROS) */}
-                {walls
-                  .filter(w => {
-                    // Filtrar por visibilidad de capa
-                    const layer = getCurrentFloor()?.layers.find(l => l.id === (w as any).layerId);
-                    return layer?.visible !== false;
-                  })
-                  .map((w, i) => {
-                    const layer = getCurrentFloor()?.layers.find(l => l.id === (w as any).layerId);
-                    const isLocked = layer?.locked || false;
-
-                    return (
-                      <Group
-                        key={w.id || i}
-                        draggable={tool === 'select' && !isLocked}
-                        onDragEnd={(e) => {
-                          if (isLocked) {
-                            e.target.position({ x: 0, y: 0 });
-                            return;
-                          }
-
-                          const dx = e.target.x();
-                          const dy = e.target.y();
-
-                          // Si la pared tiene groupId, mover todo el grupo
-                          if ((w as any).groupId) {
-                            const groupId = (w as any).groupId;
-                            console.log('🔄 Moviendo grupo:', groupId, 'dx:', dx, 'dy:', dy);
-
-                            // Mover todas las paredes del grupo
-                            setWalls(ws => ws.map(item =>
-                              (item as any).groupId === groupId
-                                ? { ...item, points: [item.points[0] + dx, item.points[1] + dy, item.points[2] + dx, item.points[3] + dy] }
-                                : item
-                            ));
-
-                            // Mover símbolos del grupo (etiqueta)
-                            setSymbols(syms => syms.map(sym =>
-                              (sym as any).groupId === groupId
-                                ? { ...sym, x: sym.x + dx, y: sym.y + dy }
-                                : sym
-                            ));
-                          } else {
-                            // Pared sin grupo: mover solo esta pared
-                            setWalls(ws => ws.map(item =>
-                              item.id === w.id
-                                ? { ...item, points: [item.points[0] + dx, item.points[1] + dy, item.points[2] + dx, item.points[3] + dy] }
-                                : item
-                            ));
-                          }
-
-                          e.target.position({ x: 0, y: 0 });
-                        }}
-                      >
-                        <Line
-                          points={w.points}
-                          stroke={selectedId === w.id ? "#3b82f6" : (w.nature === 'relevado' ? "#cbd5e1" : "black")}
-                          strokeWidth={5}
-                          lineCap="round"
-                          opacity={w.nature === 'relevado' ? 0.6 : 1}
+                      return (
+                        <Group
+                          key={p.id || i}
                           onClick={(e) => {
                             e.cancelBubble = true;
                             if (tool === 'select' && !isLocked) {
-                              selectShape(w.id);
+                              selectShape(p.id);
                             } else if (isLocked) {
                               alert('⚠️ Capa bloqueada. Desbloquea la capa para editar.');
                             }
                           }}
-                        />
-                      </Group>
-                    );
-                  })}
-                {currentWall && <Line points={currentWall} stroke="black" strokeWidth={5} opacity={0.5} />}
+                        >
+                          {(() => {
+                            const circuitMethod = calculationData?.config?.circuitInventoryForCAD?.find(c => c.id === p.circuitId)?.conduit?.method;
+                            return (
+                              <PipeRenderer
+                                pipe={p}
+                                {...getPipeStyle(p, selectedId)}
+                                dash={getPipeDash(p, circuitMethod)}
+                              />
+                            );
+                          })()}
+                        </Group>
+                      );
+                    })}
+                  {currentPipePreview && <Line points={currentPipePreview} stroke={currentCircuitColor} strokeWidth={2} dash={[2, 2]} />}
 
-                {/* COTAS/DIMENSIONES - ORDEN Z: DESPUÉS DE PAREDES, ANTES DE PIPES */}
-                {getCurrentFloor()?.elements.dimensions
-                  ?.filter(dim => {
-                    // 🆕 Filtrar por visibilidad de capa
-                    const layer = getCurrentFloor()?.layers.find(l => l.id === dim.layerId);
-                    return layer?.visible !== false;
-                  })
-                  .map((dimension) => (
-                    <DimensionComponent
-                      key={dimension.id}
-                      dimension={dimension}
-                      isSelected={selectedId === dimension.id}
-                      onSelect={(id) => selectShape(id)}
-                      isSelectMode={tool === 'select'}
-                      pixelsPerMeter={pixelsPerMeter}
-                    />
+                  {auxLines.map((l, i) => (
+                    <Group key={l.id || i} draggable={tool === 'select'}
+                      onDragEnd={(e) => {
+                        const x = e.target.x(); const y = e.target.y();
+                        setAuxLines(as => as.map(item => item.id === l.id ? { ...item, points: [item.points[0] + x, item.points[1] + y, item.points[2] + x, item.points[3] + y] } : item));
+                        e.target.position({ x: 0, y: 0 });
+                      }}>
+                      <Line points={l.points} stroke={selectedId === l.id ? "#3b82f6" : "#000000"} strokeWidth={3} onClick={(e) => { e.cancelBubble = true; selectShape(l.id); }} />
+                    </Group>
                   ))}
+                  {currentAuxLine && <Line points={currentAuxLine} stroke="#000000" strokeWidth={3} opacity={0.7} />}
 
-                {/* CAÑERÍAS/PIPES - ORDEN Z: TERCERO (DESPUÉS DE PAREDES) */}
-                {pipes
-                  .filter(p => {
-                    // Filtrar por visibilidad de capa
-                    const layer = getCurrentFloor()?.layers.find(l => l.id === (p as any).layerId);
-                    return layer?.visible !== false;
-                  })
-                  .map((p, i) => {
-                    const layer = getCurrentFloor()?.layers.find(l => l.id === (p as any).layerId);
-                    const isLocked = layer?.locked || false;
-                    const pipeColor = layer?.color || p.color; // Usar color de capa
+                  {calibrationLine && <Line points={calibrationLine} stroke="red" strokeWidth={2} dash={[5, 5]} />}
 
-                    return (
-                      <Group
-                        key={p.id || i}
-                        onClick={(e) => {
-                          e.cancelBubble = true;
-                          if (tool === 'select' && !isLocked) {
-                            selectShape(p.id);
-                          } else if (isLocked) {
-                            alert('⚠️ Capa bloqueada. Desbloquea la capa para editar.');
-                          }
-                        }}
-                      >
-                        {(() => {
-                          const circuitMethod = calculationData?.config?.circuitInventoryForCAD?.find(c => c.id === p.circuitId)?.conduit?.method;
-                          return (
-                            <PipeRenderer
-                              pipe={p}
-                              selectedId={selectedId}
-                              {...getPipeStyle(p, selectedId)}
-                              dash={getPipeDash(p, circuitMethod)}
-                            />
-                          );
-                        })()}
-                      </Group>
-                    );
-                  })}
-                {currentPipePreview && <Line points={currentPipePreview} stroke={currentCircuitColor} strokeWidth={2} dash={[2, 2]} />}
+                  {/* SÍMBOLOS (LUCES, TOMAS, ETIQUETAS) - ORDEN Z: CUARTO (ARRIBA DE TODO) */}
+                  {symbols
+                    .filter(sym => {
+                      // Filtrar por visibilidad de capa
+                      const layer = getCurrentFloor()?.layers.find(l => l.id === (sym as any).layerId);
+                      return layer?.visible !== false;
+                    })
+                    .map(renderSymbol)}
+                  {renderSelectionNodes()}
+                  <Transformer
+                    ref={transformerRef}
+                    onTransformEnd={() => {
+                      const node = transformerRef.current.nodes()[0];
+                      if (!node) return;
+                      if (node.id() === 'blueprint-bg') return; // Handled in KonvaImage
 
-                {auxLines.map((l, i) => (
-                  <Group key={l.id || i} draggable={tool === 'select'}
-                    onDragEnd={(e) => {
-                      const x = e.target.x(); const y = e.target.y();
-                      setAuxLines(as => as.map(item => item.id === l.id ? { ...item, points: [item.points[0] + x, item.points[1] + y, item.points[2] + x, item.points[3] + y] } : item));
-                      e.target.position({ x: 0, y: 0 });
-                    }}>
-                    <Line points={l.points} stroke={selectedId === l.id ? "#3b82f6" : "#000000"} strokeWidth={3} onClick={(e) => { e.cancelBubble = true; selectShape(l.id); }} />
-                  </Group>
-                ))}
-                {currentAuxLine && <Line points={currentAuxLine} stroke="#000000" strokeWidth={3} opacity={0.7} />}
-
-                {calibrationLine && <Line points={calibrationLine} stroke="red" strokeWidth={2} dash={[5, 5]} />}
-
-                {/* SÍMBOLOS (LUCES, TOMAS, ETIQUETAS) - ORDEN Z: CUARTO (ARRIBA DE TODO) */}
-                {symbols
-                  .filter(sym => {
-                    // Filtrar por visibilidad de capa
-                    const layer = getCurrentFloor()?.layers.find(l => l.id === (sym as any).layerId);
-                    return layer?.visible !== false;
-                  })
-                  .map(renderSymbol)}
-                {renderSelectionNodes()}
-                <Transformer
-                  ref={transformerRef}
-                  onTransformEnd={() => {
-                    const node = transformerRef.current.nodes()[0];
-                    if (!node) return;
-                    if (node.id() === 'blueprint-bg') return; // Handled in KonvaImage
-
-                    const symbolId = node.id();
-                    // Solo actualizamos si es un símbolo (no paredes ni aux)
-                    if (symbols.find(s => s.id === symbolId)) {
-                      setSymbols(prev => prev.map(s => s.id === symbolId ? {
-                        ...s,
-                        x: node.x(),
-                        y: node.y(),
-                        rotation: node.rotation(),
-                        scaleX: node.scaleX(),
-                        scaleY: node.scaleY()
-                      } : s));
-                    }
-                  }}
-                />
-              </Group>
-            </Layer>
-          </Stage>
+                      const symbolId = node.id();
+                      // Solo actualizamos si es un símbolo (no paredes ni aux)
+                      if (symbols.find(s => s.id === symbolId)) {
+                        setSymbols(prev => prev.map(s => s.id === symbolId ? {
+                          ...s,
+                          x: node.x(),
+                          y: node.y(),
+                          rotation: node.rotation(),
+                          scaleX: node.scaleX(),
+                          scaleY: node.scaleY()
+                        } : s));
+                      }
+                    }}
+                  />
+                </Group>
+              </Layer>
+            </Stage>
+          </div>
         </div>
 
-        {/* SIDEBAR DERECHO: Ambientes + Cálculos */}
-        <RightSidebar
+        {/* EL CEREBRO (VISOR LATERAL UNIFICADO - 35%) */}
+        <PlannerVisionPanel
           calculationData={calculationData}
           symbols={symbols}
           activeMode={activeMode}
-          onRoomDragStart={handleRoomDragStart}
-        />
-
-        <LayersPanel
           layers={getCurrentFloor()?.layers || []}
           currentLayerId={currentLayerId}
           onLayerChange={setCurrentLayerId}
           onToggleVisibility={toggleLayerVisibility}
           onToggleLock={toggleLayerLock}
           onColorChange={updateLayerColor}
+          onRoomDragStart={handleRoomDragStart}
+          onRoomSelect={handleRoomSelect}
+          isCollapsed={isVisionPanelCollapsed}
+          onToggleCollapse={() => setIsVisionPanelCollapsed(!isVisionPanelCollapsed)}
+          activeTab={visionActiveTab}
+          onTabChange={setVisionActiveTab}
+        />
+
+        <PlannerBottomHub
+          tool={tool}
+          setTool={setTool}
+          activeMode={activeMode}
+          activeCategory={activeCategory}
+          isCollapsed={isHubCollapsed}
+          setIsCollapsed={setIsHubCollapsed}
+          onOpeningTool={handleOpeningTool}
         />
       </div>
+
       {/* MODAL DE EXPORTACIÓN (NOTAS) */}
       {
         showExportModal && (
@@ -2272,11 +2256,11 @@ export default function PlannerCanvas() {
                 <button
                   onClick={() => {
                     if (symbols.find(s => s.id === selectedId)) {
-                      setSymbols(prev => prev.map(s => s.id === selectedId ? { ...s, nature: 'relevado' } : s));
+                      setSymbols((prev: any[]) => prev.map((s: any) => s.id === selectedId ? { ...s, nature: 'relevado' } : s));
                     } else if (walls.find(w => w.id === selectedId)) {
-                      setWalls(prev => prev.map(w => w.id === selectedId ? { ...w, nature: 'relevado' } : w));
+                      setWalls((prev: any[]) => prev.map((w: any) => w.id === selectedId ? { ...w, nature: 'relevado' } : w));
                     } else if (pipes.find(p => p.id === selectedId)) {
-                      setPipes(prev => prev.map(p => p.id === selectedId ? { ...p, nature: 'relevado' } : p));
+                      setPipes((prev: any[]) => prev.map((p: any) => p.id === selectedId ? { ...p, nature: 'relevado' } : p));
                     }
                   }}
                   className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${(symbols.find(s => s.id === selectedId)?.nature === 'relevado' ||

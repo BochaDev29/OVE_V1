@@ -2,93 +2,79 @@ import React from 'react';
 import { Home } from 'lucide-react';
 
 /**
- * Componente para mostrar ambientes del Wizard como elementos arrastrables
- * 
- * Lee los datos de environments del calculationData (Paso 2 del Wizard)
- * y permite arrastrarlos al canvas para generar automáticamente
- * rectángulos con las dimensiones especificadas.
+ * Componente para mostrar ambientes del Wizard como elementos accionables (Drag o Tap)
  */
 
 interface RoomData {
     name: string;
     width: number;  // Ancho en metros
     length: number; // Largo en metros
-    area: number;
+    area: number;   // Superficie en m2
 }
 
 interface EnvironmentBlocksProps {
     calculationData: any;
     onDragStart: (room: RoomData) => void;
+    onSelect?: (room: RoomData) => void;
 }
 
 export const EnvironmentBlocks: React.FC<EnvironmentBlocksProps> = ({
     calculationData,
-    onDragStart
+    onDragStart,
+    onSelect
 }) => {
-    // Extraer ambientes del calculation data
-    const environments = calculationData?.environments || [];
+    // Extraer ambientes del cálculo (Step 2 del Wizard) e inyectar fallbacks para visualización
+    const rawEnvironments = calculationData?.environments || [];
+    const environments: RoomData[] = rawEnvironments.map((env: any) => ({
+        name: env.name || 'Sin nombre',
+        width: env.width || 0,
+        length: env.length || 0,
+        area: env.surface || 0 // Mapear surface del motor de reglas a area para el bloque
+    }));
 
-    // Filtrar solo ambientes con dimensiones válidas
-    const validRooms: RoomData[] = environments
-        .filter((env: any) => env.width && env.length)
-        .map((env: any) => ({
-            name: env.name || 'Ambiente',
-            width: parseFloat(env.width) || 0,
-            length: parseFloat(env.length) || 0,
-            area: env.area || 0
-        }))
-        .filter((room: RoomData) => room.width > 0 && room.length > 0);
-
-    if (validRooms.length === 0) {
+    if (environments.length === 0) {
         return (
-            <div className="p-4 text-sm text-gray-500 text-center">
-                <Home className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p>No hay ambientes con dimensiones</p>
-                <p className="text-xs mt-1">Completa el Paso 2 del Wizard</p>
+            <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center">
+                <p className="text-xs text-slate-400 font-medium">No hay ambientes configurados en el Wizard.</p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-2">
-            <div className="text-xs font-semibold text-gray-600 px-2 mb-2">
-                AMBIENTES DEL PROYECTO
-            </div>
+        <div className="grid grid-cols-1 gap-2">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1 flex items-center gap-2">
+                <Home className="w-3 h-3" /> Insertar Ambiente
+            </h4>
 
-            {validRooms.map((room, index) => (
+            {environments.map((room, index) => (
                 <div
                     key={index}
                     draggable
                     onDragStart={() => onDragStart(room)}
-                    className="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-3 cursor-move hover:shadow-lg hover:scale-105 transition-all duration-200"
+                    onClick={() => onSelect && onSelect(room)}
+                    className="group flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:shadow-md transition-all cursor-pointer active:scale-[0.98]"
                 >
-                    <div className="flex items-center gap-2 mb-1">
-                        <Home className="w-4 h-4 text-blue-600" />
-                        <span className="font-semibold text-sm text-gray-800">
-                            {room.name}
-                        </span>
-                    </div>
-
-                    <div className="text-xs text-gray-600 space-y-0.5">
-                        <div className="flex justify-between">
-                            <span>Ancho:</span>
-                            <span className="font-mono font-semibold">{room.width.toFixed(2)}m</span>
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            <Home className="w-4 h-4" />
                         </div>
-                        <div className="flex justify-between">
-                            <span>Largo:</span>
-                            <span className="font-mono font-semibold">{room.length.toFixed(2)}m</span>
-                        </div>
-                        <div className="flex justify-between border-t border-blue-200 pt-1 mt-1">
-                            <span>Área:</span>
-                            <span className="font-mono font-semibold text-blue-700">{room.area.toFixed(2)}m²</span>
+                        <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-700 group-hover:text-blue-700">{room.name}</span>
+                            <span className="text-[10px] text-slate-400 font-medium tracking-tight">
+                                {room.width}m x {room.length}m • {room.area}m²
+                            </span>
                         </div>
                     </div>
 
-                    <div className="mt-2 text-xs text-blue-600 font-medium">
-                        ⤢ Arrastra al canvas
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[8px] font-black bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full uppercase">Toca para colocar</span>
                     </div>
                 </div>
             ))}
+
+            <p className="text-[9px] text-center text-slate-400 mt-2 italic px-2">
+                * Arrastra al lienzo o toca para activar el modo de colocación.
+            </p>
         </div>
     );
 };

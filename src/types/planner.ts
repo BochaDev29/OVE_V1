@@ -4,7 +4,9 @@ import { CircuitInventoryItemForCAD } from '../lib/electrical-rules';
 export type SymbolType =
     // Símbolos de Planta
     | 'light' | 'wall_light' | 'outlet' | 'double_outlet'
-    | 'switch' | 'bell_button' | 'cp' | 'ac' | 'fan'
+    | 'switch' | 'switch_2e' | 'switch_3e' | 'switch_3way' | 'bell_button'
+    | 'motion_sensor' | 'photo_cell' | 'riser'
+    | 'cp' | 'ac' | 'fan' | 'motor_1p' | 'motor_3p'
     | 'board' | 'tpu' | 'ground'
     // Símbolos Unifilares
     | 'feed_point' | 'meter' | 'main_breaker'
@@ -65,6 +67,7 @@ export interface Pipe {
     points: number[];
     color: string;
     type: 'straight' | 'curved';
+    controlPoint?: { x: number; y: number }; // 🆕 Punto de control para curvas (novedad)
     layer?: LayerId;
     nature?: 'relevado' | 'proyectado'; // 🆕 NATURALEZA
 

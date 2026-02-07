@@ -1,17 +1,18 @@
 import React, { useRef } from 'react';
-import { Download, Minus, Activity, Trash2, XCircle, Ruler, Image as ImageIcon, Lock, Unlock, MoreHorizontal } from 'lucide-react';
+import { Minus, Activity, Trash2, XCircle, Ruler, Image as ImageIcon, Lock, Unlock, MoreHorizontal, Palette, MousePointer2 } from 'lucide-react';
 
 export type Tool = 'select' | 'wall' | 'pipe' | 'outlet' | 'light' | 'wall_light' | 'switch' | 'board' | 'fan' | 'ac' | 'tpu' | 'ground' | 'text' | 'table' | 'aux_line' | 'cp' | 'calibrate' |
-  'feed_point' | 'meter' | 'main_breaker' | 'tm_1p' | 'tm_2p' | 'tm_4p' | 'diff_switch' | 'dist_block' | 'load_arrow' | 'door' | 'window' | 'dimension';
+  'feed_point' | 'meter' | 'main_breaker' | 'tm_1p' | 'tm_2p' | 'tm_4p' | 'diff_switch' | 'dist_block' | 'load_arrow' | 'door' | 'window' | 'passage' | 'dimension' | 'double_outlet' | 'bell_button';
 
 interface PlannerToolbarProps {
+  tool: Tool;
+  setTool: (tool: Tool) => void;
   currentCircuitColor: string;
   setCurrentCircuitColor: (color: string) => void;
   currentPipeType: 'straight' | 'curved';
   setCurrentPipeType: (type: 'straight' | 'curved') => void;
   currentPipeDashMode: 'solid' | 'dashed'; // 🆕 Trazo (sólido vs segmentado)
   setCurrentPipeDashMode: (mode: 'solid' | 'dashed') => void; // 🆕
-  onDownloadPDF: () => void;
   onDeleteSelected: () => void;
   onClearAll: () => void;
   onCalibrate: () => void;
@@ -24,13 +25,14 @@ interface PlannerToolbarProps {
 }
 
 export default function PlannerToolbar({
+  tool,
+  setTool,
   currentCircuitColor,
   setCurrentCircuitColor,
   currentPipeType,
   setCurrentPipeType,
   currentPipeDashMode, // 🆕
   setCurrentPipeDashMode, // 🆕
-  onDownloadPDF,
   onDeleteSelected,
   onClearAll,
   onCalibrate,
@@ -43,6 +45,7 @@ export default function PlannerToolbar({
 }: PlannerToolbarProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const colorInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -50,32 +53,47 @@ export default function PlannerToolbar({
     }
   };
 
-  const colors = [
-    { value: '#dc2626', label: 'Rojo (IUG)' },
-    { value: '#2563eb', label: 'Azul (TUG)' },
-    { value: '#7c3aed', label: 'Violeta (TUE)' },
-    { value: '#16a34a', label: 'Verde (MBT)' },
-    { value: '#ea580c', label: 'Naranja (Datos)' },
-    { value: '#78350f', label: 'Marrón (Retornos)' },
-  ];
-
   return (
-    <div className="absolute left-4 top-24 bottom-6 w-14 bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200 z-20 flex flex-col items-center py-4 space-y-2">
+    <div className="absolute left-4 top-16 bottom-6 w-14 bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200 z-20 flex flex-col items-center py-4 space-y-2 overflow-y-auto no-scrollbar">
 
-      {/* COLORES */}
-      <div className="flex flex-col space-y-2 w-full items-center">
-        <div className="grid grid-cols-1 gap-2">
-          {colors.map((c) => (
-            <button
-              key={c.value}
-              onClick={() => setCurrentCircuitColor(c.value)}
-              className={`w-5 h-5 rounded-full border-2 transition-all ${currentCircuitColor === c.value ? 'border-slate-800 scale-125 shadow-md' : 'border-transparent hover:scale-110'
-                }`}
-              style={{ backgroundColor: c.value }}
-              title={c.label}
-            />
-          ))}
-        </div>
+      {/* SELECT TOOL (SISTEMA) */}
+      <div className="flex flex-col items-center w-full px-2">
+        <button
+          onClick={() => setTool('select')}
+          className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all ${tool === 'select'
+            ? 'bg-blue-600 text-white shadow-lg scale-110'
+            : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+            }`}
+          title="Herramienta de Selección"
+        >
+          <MousePointer2 className="w-5 h-5" />
+        </button>
+        <span className="text-[7px] font-black text-slate-400 mt-1 uppercase tracking-tighter text-center">Selecc.</span>
+      </div>
+
+      <div className="w-8 h-px bg-slate-100 my-1" />
+
+      {/* COLOR SELECTOR (UNIVERSAL) */}
+      <div className="flex flex-col items-center w-full px-2">
+        <input
+          type="color"
+          ref={colorInputRef}
+          value={currentCircuitColor}
+          onChange={(e) => setCurrentCircuitColor(e.target.value)}
+          className="hidden"
+        />
+        <button
+          onClick={() => colorInputRef.current?.click()}
+          className="group relative flex flex-col items-center justify-center w-10 h-10 rounded-xl transition-all hover:bg-slate-50 border-2 border-transparent hover:border-slate-100"
+          title="Color de Dibujo"
+        >
+          <div
+            className="w-6 h-6 rounded-full shadow-md border-2 border-white transition-transform group-hover:scale-110"
+            style={{ backgroundColor: currentCircuitColor }}
+          />
+          <Palette className="w-3 h-3 absolute -bottom-1 -right-1 text-slate-400 bg-white rounded-full p-0.5 shadow-sm" />
+        </button>
+        <span className="text-[7px] font-black text-slate-400 mt-1 uppercase tracking-tighter text-center">Color</span>
       </div>
 
       <hr className="w-8 border-slate-200 my-1" />
@@ -162,11 +180,6 @@ export default function PlannerToolbar({
 
         <button onClick={onClearAll} className="p-2 text-red-300 hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors" title="Limpiar Todo">
           <XCircle className="w-5 h-5" />
-        </button>
-
-        {/* BOTÓN PDF SUBIDO (Sin wrapper pt-2) */}
-        <button onClick={onDownloadPDF} className="p-2 bg-slate-800 text-white hover:bg-slate-700 rounded-xl shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 mt-1" title="Exportar PDF">
-          <Download className="w-5 h-5" />
         </button>
       </div>
     </div>

@@ -17,7 +17,6 @@ interface DrawingToolsConfig {
     currentPipeType: 'straight' | 'curved';
     currentPipeDashMode: 'solid' | 'dashed'; // 🆕 Modo de trazo para pipes
     pixelsPerMeter: number;
-    stageRef: React.RefObject<any>;
     onCalibrationComplete?: (newPixelsPerMeter: number) => void;
 
     // 🆕 Circuit-based layers
@@ -38,7 +37,7 @@ export const useDrawingTools = (
         registerPipe?: (pipeId: string, dashMode: 'solid' | 'dashed') => void; // 🆕 Callback para marcar pipes
     }
 ) => {
-    const { tool, currentCircuitColor, currentPipeType, currentPipeDashMode, pixelsPerMeter, stageRef, onCalibrationComplete, currentLayerId, circuitLayers, estadoObra } = config;
+    const { tool, currentCircuitColor, currentPipeType, currentPipeDashMode, pixelsPerMeter, onCalibrationComplete, currentLayerId, circuitLayers, estadoObra } = config;
     const { addSymbol, addWall, addPipe, addAuxLine, addDimension, selectShape, registerPipe } = canvasActions;
 
     /**
@@ -102,11 +101,20 @@ export const useDrawingTools = (
 
         const stage = e.target.getStage();
         const pos = getPointerPosition(stage);
-        const isBackgroundClick = e.target === stage || e.target.name() === 'paper-bg';
+
+        // Determinar si se hizo click en el fondo (donde no hay elementos del taller)
+        const targetName = e.target.name();
+        const isBackgroundClick = e.target === stage ||
+            targetName === 'paper-bg' ||
+            targetName === 'paper-shadow' ||
+            e.target.id() === 'blueprint-bg';
 
         // Modo selección: solo deseleccionar si click en fondo
         if (tool === 'select') {
-            if (isBackgroundClick) selectShape(null);
+            if (isBackgroundClick) {
+                console.log('🟦 Click en fondo detectado - Deseleccionando');
+                selectShape(null);
+            }
             return;
         }
 
@@ -203,6 +211,10 @@ export const useDrawingTools = (
                     points: [pipeStartPoint.x, pipeStartPoint.y, pos.x, pos.y],
                     color, // 🆕 Usar color de la capa
                     type: currentPipeType,
+                    controlPoint: currentPipeType === 'curved' ? {
+                        x: (pipeStartPoint.x + pos.x) / 2,
+                        y: (pipeStartPoint.y + pos.y) / 2 + 30
+                    } : undefined,
                     circuitId, // 🆕 Heredar circuito
                     nature, // 🆕 Heredar naturaleza
                 });
@@ -245,7 +257,7 @@ export const useDrawingTools = (
 
         // CUALQUIER OTRA HERRAMIENTA: insertar símbolo genérico del catálogo
         // 🛡️ EXCLUSIÓN: No crear símbolos para herramientas que tienen su propia lógica (aberturas y cotas)
-        const excludedTools: Tool[] = ['select', 'wall', 'pipe', 'aux_line', 'calibrate', 'text', 'table', 'door', 'window', 'dimension'];
+        const excludedTools: Tool[] = ['select', 'wall', 'pipe', 'aux_line', 'calibrate', 'text', 'table', 'door', 'window', 'passage', 'dimension'];
 
         if (isBackgroundClick && !excludedTools.includes(tool)) {
             const { circuitId, nature, color } = getActiveCircuitData(); // 🆕 Heredar color

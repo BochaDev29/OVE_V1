@@ -71,6 +71,45 @@ export const electricalSymbols: SymbolDefinition[] = [
         }
     },
     {
+        id: 'switch_2e',
+        name: 'Llave de 2 Efectos',
+        category: 'electrical',
+        svgPath: 'M-5,0 A5,5 0 1,0 5,0 A5,5 0 1,0 -5,0 M0,0 L15,-15 M0,0 L18,-10',
+        strokeColor: '#475569',
+        fillColor: '#475569',
+        metadata: {
+            description: 'Interruptor de dos efectos',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'S2'
+        }
+    },
+    {
+        id: 'switch_3e',
+        name: 'Llave de 3 Efectos',
+        category: 'electrical',
+        svgPath: 'M-5,0 A5,5 0 1,0 5,0 A5,5 0 1,0 -5,0 M0,0 L15,-15 M0,0 L18,-10 M0,0 L10,-18',
+        strokeColor: '#475569',
+        fillColor: '#475569',
+        metadata: {
+            description: 'Interruptor de tres efectos',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'S3'
+        }
+    },
+    {
+        id: 'switch_3way',
+        name: 'Llave Combinada',
+        category: 'electrical',
+        svgPath: 'M-5,0 A5,5 0 1,0 5,0 A5,5 0 1,0 -5,0 M-5,0 L-15,-5 M5,0 L15,5',
+        strokeColor: '#475569',
+        fillColor: '#475569',
+        metadata: {
+            description: 'Interruptor de combinación',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'C'
+        }
+    },
+    {
         id: 'bell_button',
         name: 'Pulsador de Timbre',
         category: 'electrical',
@@ -155,6 +194,66 @@ export const electricalSymbols: SymbolDefinition[] = [
             description: 'Jabalina de puesta a tierra',
             normative: 'AEA 90364-5-54',
             defaultLabel: 'PAT'
+        }
+    },
+    {
+        id: 'motion_sensor',
+        name: 'Sensor de Movimiento',
+        category: 'electrical',
+        svgPath: 'M-10,-10 h20 v20 h-20 z M0,0 L5,5 M0,0 L-5,5 M0,0 L0,-7',
+        strokeColor: '#f59e0b',
+        metadata: {
+            description: 'Detector de movimiento PIR',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'PIR'
+        }
+    },
+    {
+        id: 'photo_cell',
+        name: 'Fotocélula',
+        category: 'electrical',
+        svgPath: 'M-10,0 A10,10 0 0,1 10,0 L10,10 L-10,10 z M-12,-10 L-7,-5 M0,-12 L0,-7 M12,-10 L7,-5',
+        strokeColor: '#f59e0b',
+        metadata: {
+            description: 'Sensor de iluminación (Fotocélula)',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'FC'
+        }
+    },
+    {
+        id: 'motor_1p',
+        name: 'Motor Monofásico',
+        category: 'electrical',
+        svgPath: 'M-15,0 A15,15 0 1,0 15,0 A15,15 0 1,0 -15,0 M-7,5 L-7,-5 L7,5 L7,-5 M-5,10 Q0,6 5,10',
+        strokeColor: '#059669',
+        metadata: {
+            description: 'Motor eléctrico monofásico',
+            normative: 'AEA 90364-5-55',
+            defaultLabel: 'M 1~'
+        }
+    },
+    {
+        id: 'motor_3p',
+        name: 'Motor Trifásico',
+        category: 'electrical',
+        svgPath: 'M-15,0 A15,15 0 1,0 15,0 A15,15 0 1,0 -15,0 M-7,5 L-7,-5 L7,5 L7,-5 M-8,10 L-4,10 M-2,10 L2,10 M4,10 L8,10',
+        strokeColor: '#059669',
+        metadata: {
+            description: 'Motor eléctrico trifásico',
+            normative: 'AEA 90364-5-55',
+            defaultLabel: 'M 3~'
+        }
+    },
+    {
+        id: 'riser',
+        name: 'Montante (Sube/Baja)',
+        category: 'electrical',
+        svgPath: 'M-10,-10 h20 v20 h-20 z M0,0 L0,-14 M-5,-9 L0,-14 L5,-9',
+        strokeColor: '#000000',
+        metadata: {
+            description: 'Pase de cañería entre plantas (Montante)',
+            normative: 'AEA 90364-5-52',
+            defaultLabel: 'MON'
         }
     },
 

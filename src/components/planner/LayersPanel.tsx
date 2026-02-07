@@ -24,7 +24,7 @@ export const LayersPanel = ({
     const [isOpen, setIsOpen] = useState(true);
 
     return (
-        <div className="bg-white border-l border-gray-300 w-64 flex flex-col">
+        <div className="w-full flex flex-col">
             {/* Header */}
             <div
                 className="p-3 bg-gray-100 font-semibold flex justify-between items-center cursor-pointer hover:bg-gray-200 transition-colors"
