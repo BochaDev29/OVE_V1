@@ -13,7 +13,7 @@ export type SymbolType =
     | 'tm_1p' | 'tm_2p' | 'tm_4p' | 'diff_switch'
     | 'dist_block' | 'load_arrow'
     // Especiales
-    | 'text' | 'table';
+    | 'text' | 'table' | 'rect' | 'circle' | 'triangle' | 'line' | 'arrow';
 
 export type TradeCategory = 'electrical' | 'gas' | 'plumbing';
 
@@ -46,10 +46,17 @@ export interface SymbolItem {
     color?: string;
     fontSize?: number;
     layer?: LayerId;
+    points?: number[]; // 🆕 Para geometrías basadas en puntos (línea, flecha)
     nature?: 'relevado' | 'proyectado'; // 🆕 NATURALEZA
 
     // 🆕 Circuit data (heredado de la capa)
     circuitId?: string; // ID del circuito (ej: "TP-IUG-1")
+
+    // 🆕 Propiedades de Geometría
+    fill?: string;
+    strokeDash?: number[];
+    isSolid?: boolean;
+    lineType?: 'solid' | 'dashed' | 'dotted' | 'symmetry';
 }
 
 export interface Wall {

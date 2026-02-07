@@ -1,5 +1,5 @@
 import {
-  Zap, Compass, Cpu, ArrowLeft, Save, Calculator, LayoutGrid, FileText, Download
+  Zap, Compass, Cpu, ArrowLeft, Save, Calculator, LayoutGrid, FileText, Download, LayoutTemplate
 } from 'lucide-react';
 import { Tool } from './PlannerToolbar';
 
@@ -8,8 +8,8 @@ interface PlannerSidebarProps {
   setTool: (tool: Tool) => void;
   activeMode: 'floorPlan' | 'singleLine';
   setActiveMode: (mode: 'floorPlan' | 'singleLine') => void;
-  activeCategory: 'architecture' | 'electricity';
-  setActiveCategory: (cat: 'architecture' | 'electricity') => void;
+  activeCategory: 'architecture' | 'electricity' | 'geometry';
+  setActiveCategory: (cat: 'architecture' | 'electricity' | 'geometry') => void;
   onOpenReport: () => void;
   onOpenProjectInfo: () => void;
   onDownloadPDF: () => void;
@@ -111,6 +111,20 @@ export default function PlannerSidebar({
           <Zap className="w-4 h-4" />
           <span className="hidden md:inline text-[10px] font-bold tracking-widest uppercase">Elec</span>
           {activeCategory === 'electricity' && (
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full shadow-[0_0_5px_#fff]"></div>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveCategory('geometry')}
+          className={`relative p-1.5 md:px-4 md:py-1.5 rounded-lg transition-all active:scale-95 flex items-center gap-2 ${activeCategory === 'geometry'
+            ? 'bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.3)]'
+            : 'text-white/40 hover:text-white/60'
+            }`}
+          title="Herramientas de Geometría"
+        >
+          <LayoutTemplate className="w-4 h-4" />
+          <span className="hidden md:inline text-[10px] font-bold tracking-widest uppercase">Geom</span>
+          {activeCategory === 'geometry' && (
             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full shadow-[0_0_5px_#fff]"></div>
           )}
         </button>

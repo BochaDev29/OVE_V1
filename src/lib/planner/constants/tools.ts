@@ -2,7 +2,7 @@ import {
     Square, Zap, Lightbulb, ToggleLeft, Box, Fan, Snowflake,
     FileText, Table, Minus, PenTool, LayoutTemplate,
     ArrowDownToLine, StopCircle, LampWallUp, Bell, DoorOpen, ScanLine, Ruler,
-    Cpu, Radar, Sun, MoveUp, GitMerge, ToggleRight
+    Cpu, Radar, Sun, MoveUp, GitMerge, ToggleRight, Triangle, ArrowUpRight, Circle
 } from 'lucide-react';
 import { Tool } from '../components/planner/PlannerToolbar';
 
@@ -59,4 +59,12 @@ export const UNIFILAR_TOOLS: ToolDef[] = [
     { id: 'dist_block', icon: Table, label: 'Bornes' },
     { id: 'load_arrow', icon: ArrowDownToLine, label: 'Salida' },
     { id: 'ground', icon: ArrowDownToLine, label: 'PAT' },
+];
+
+export const GEOM_TOOLS: ToolDef[] = [
+    { id: 'rect', icon: Square, label: 'Rectáng.' },
+    { id: 'circle', icon: Circle, label: 'Círculo' },
+    { id: 'triangle', icon: Triangle, label: 'Triáng.' },
+    { id: 'line', icon: Minus, label: 'Línea' },
+    { id: 'arrow', icon: ArrowUpRight, label: 'Flecha' },
 ];

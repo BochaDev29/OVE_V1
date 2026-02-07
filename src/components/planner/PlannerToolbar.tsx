@@ -2,7 +2,8 @@ import React, { useRef } from 'react';
 import { Minus, Activity, Trash2, XCircle, Ruler, Image as ImageIcon, Lock, Unlock, MoreHorizontal, Palette, MousePointer2 } from 'lucide-react';
 
 export type Tool = 'select' | 'wall' | 'pipe' | 'outlet' | 'light' | 'wall_light' | 'switch' | 'board' | 'fan' | 'ac' | 'tpu' | 'ground' | 'text' | 'table' | 'aux_line' | 'cp' | 'calibrate' |
-  'feed_point' | 'meter' | 'main_breaker' | 'tm_1p' | 'tm_2p' | 'tm_4p' | 'diff_switch' | 'dist_block' | 'load_arrow' | 'door' | 'window' | 'passage' | 'dimension' | 'double_outlet' | 'bell_button';
+  'feed_point' | 'meter' | 'main_breaker' | 'tm_1p' | 'tm_2p' | 'tm_4p' | 'diff_switch' | 'dist_block' | 'load_arrow' | 'door' | 'window' | 'passage' | 'dimension' | 'double_outlet' | 'bell_button' |
+  'rect' | 'circle' | 'triangle' | 'line' | 'arrow';
 
 interface PlannerToolbarProps {
   tool: Tool;

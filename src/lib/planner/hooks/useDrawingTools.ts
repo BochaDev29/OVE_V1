@@ -82,6 +82,7 @@ export const useDrawingTools = (
     const [calibrationLine, setCalibrationLine] = useState<number[] | null>(null);
     const [dimensionFirstPoint, setDimensionFirstPoint] = useState<{ x: number; y: number } | null>(null);
     const [dimensionPreview, setDimensionPreview] = useState<number[] | null>(null);
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 }); // 🆕 Seguimiento para modo fantasma
 
     /**
      * Obtiene la posición del puntero transformada según el zoom/pan del stage
@@ -255,6 +256,31 @@ export const useDrawingTools = (
             return;
         }
 
+        // Modo Geometría (Tap-to-place)
+        const geoms = ['rect', 'circle', 'triangle', 'line', 'arrow'];
+        if (geoms.includes(tool)) {
+            const { circuitId, nature, color } = getActiveCircuitData();
+            if (!validateNatureCoherence(nature as any)) return;
+
+            addSymbol({
+                id: `${tool}-${Date.now()}`,
+                type: tool as any,
+                x: (tool === 'line' || tool === 'arrow') ? 0 : pos.x,
+                y: (tool === 'line' || tool === 'arrow') ? 0 : pos.y,
+                points: (tool === 'line' || tool === 'arrow')
+                    ? [pos.x - 40, pos.y, pos.x + 40, pos.y]
+                    : undefined,
+                rotation: 0,
+                color,
+                circuitId,
+                nature,
+                isSolid: false, // Default: Contorno
+                lineType: 'solid'
+            });
+            selectShape(null);
+            return;
+        }
+
         // CUALQUIER OTRA HERRAMIENTA: insertar símbolo genérico del catálogo
         // 🛡️ EXCLUSIÓN: No crear símbolos para herramientas que tienen su propia lógica (aberturas y cotas)
         const excludedTools: Tool[] = ['select', 'wall', 'pipe', 'aux_line', 'calibrate', 'text', 'table', 'door', 'window', 'passage', 'dimension'];
@@ -330,6 +356,12 @@ export const useDrawingTools = (
         // Actualizar preview de cota
         if (tool === 'dimension' && dimensionFirstPoint) {
             setDimensionPreview([dimensionFirstPoint.x, dimensionFirstPoint.y, pos.x, pos.y]);
+        }
+
+        // Siempre actualizar mousePos para modo fantasma si hay una herramienta geométrica activa
+        const geoms = ['rect', 'circle', 'triangle', 'line', 'arrow'];
+        if (geoms.includes(tool)) {
+            setMousePos({ x: pos.x, y: pos.y });
         }
     }, [
         tool,
@@ -449,6 +481,7 @@ export const useDrawingTools = (
         pipeStartPoint,
         dimensionFirstPoint,
         dimensionPreview,
+        mousePos, // 🆕 Exponer posición para renderizado fantasma
 
         // Utilidades
         cancelDrawing,

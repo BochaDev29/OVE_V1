@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Stage, Layer, Line, Transformer, Rect, Circle, Group, Text, Path, Image as KonvaImage } from 'react-konva';
+import { Stage, Layer, Line, Transformer, Rect, Circle, Group, Text, Path, Image as KonvaImage, Arrow } from 'react-konva';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save, Calculator, Download, X } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -146,7 +146,7 @@ export default function PlannerCanvas() {
   const [backgroundBase64, setBackgroundBase64] = useState<string | null>(null);
   const [backgroundProps, setBackgroundProps] = useState({ x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 });
   const [isBackgroundLocked, setIsBackgroundLocked] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<'architecture' | 'electricity'>('architecture'); // 🆕 Especialidad activa
+  const [activeCategory, setActiveCategory] = useState<'architecture' | 'electricity' | 'geometry'>('architecture'); // 🆕 Especialidad activa
   const [isHubCollapsed, setIsHubCollapsed] = useState(false); // 🆕 Estado del dock inferior
   const [pendingRoom, setPendingRoom] = useState<{ name: string; width: number; length: number; area: number } | null>(null); // 🆕 Tap-to-place room
 
@@ -232,6 +232,16 @@ export default function PlannerCanvas() {
     );
   }, [calculationData]);
 
+  // 🆕 HELPER: Actualizar propiedades de un símbolo (usado por el Hub)
+  const handleUpdateSymbol = useCallback((id: string, updates: Partial<SymbolItem>) => {
+    setSymbols((prev: any) => prev.map((s: any) => s.id === id ? { ...s, ...updates } : s));
+  }, [setSymbols]);
+
+  const selectedSymbol = useMemo(() => {
+    if (!selectedId) return null;
+    return symbols.find(s => s.id === selectedId) || null;
+  }, [selectedId, symbols]);
+
   // 🎨 CONSTANTES: Visualización de nature y method
   const NATURE_OPACITY = {
     proyectado: 1.0,
@@ -288,7 +298,8 @@ export default function PlannerCanvas() {
     dimensionPreview,
     getCursorStyle,
     cancelDrawing,
-    getPointerPosition
+    getPointerPosition,
+    mousePos // 🆕 Posición para modo fantasma
   } = drawingTools;
 
   // ✅ HOOK: Persistencia
@@ -575,7 +586,10 @@ export default function PlannerCanvas() {
   useEffect(() => {
     if (selectedId && transformerRef.current) {
       const node = stageRef.current.findOne('#' + selectedId);
-      const isLine = walls.find(w => w.id === selectedId) || auxLines.find(a => a.id === selectedId);
+      const selectedSym = symbols.find(s => s.id === selectedId);
+      const isLine = walls.find(w => w.id === selectedId) ||
+        auxLines.find(a => a.id === selectedId) ||
+        (selectedSym && ['line', 'arrow'].includes(selectedSym.type));
 
       // Permitir transformación de IMAGEN DE FONDO
       if (selectedId === 'blueprint-bg') {
@@ -597,7 +611,7 @@ export default function PlannerCanvas() {
     } else {
       transformerRef.current?.nodes([]);
     }
-  }, [selectedId, walls, auxLines, isBackgroundLocked]);
+  }, [selectedId, walls, auxLines, symbols, isBackgroundLocked]);
 
   useEffect(() => {
     if (selectedId && currentCircuitColor) {
@@ -986,12 +1000,33 @@ export default function PlannerCanvas() {
   const handleSymbolDragEnd = (id: string, e: any) => {
     const x = e.target.x();
     const y = e.target.y();
-    setSymbols(prev => prev.map(s => s.id === id ? { ...s, x, y } : s));
+
+    setSymbols(prev => prev.map(s => {
+      if (s.id !== id) return s;
+
+      // Si el símbolo tiene puntos (línea/flecha), horneamos el desplazamiento en ellos
+      if (s.points) {
+        const newPoints = [
+          s.points[0] + x,
+          s.points[1] + y,
+          s.points[2] + x,
+          s.points[3] + y
+        ];
+
+        // Resetear la posición local del nodo de Konva para evitar saltos
+        e.target.x(0);
+        e.target.y(0);
+
+        return { ...s, points: newPoints, x: 0, y: 0 };
+      }
+
+      return { ...s, x, y };
+    }));
   };
 
   // --- CLICS ---
 
-  const updateLinePoint = (id: string, type: 'wall' | 'aux' | 'pipe', pointIndex: 0 | 1 | 2, newX: number, newY: number) => {
+  const updateLinePoint = (id: string, type: 'wall' | 'aux' | 'pipe' | 'geom', pointIndex: 0 | 1 | 2, newX: number, newY: number) => {
     if (type === 'wall') {
       setWalls(prev => prev.map(w => w.id !== id ? w : { ...w, points: pointIndex === 0 ? [newX, newY, w.points[2], w.points[3]] : [w.points[0], w.points[1], newX, newY] }));
     } else if (type === 'aux') {
@@ -1009,6 +1044,20 @@ export default function PlannerCanvas() {
             : [p.points[0], p.points[1], newX, newY];
           return { ...p, points: newPoints };
         }
+      }));
+    } else if (type === 'geom') {
+      setSymbols(prev => prev.map(s => {
+        if (s.id !== id || !s.points) return s;
+        const newPoints = [...s.points];
+        // El punto guardado es relativo a la posición (x,y) del símbolo
+        if (pointIndex === 0) {
+          newPoints[0] = newX - (s.x || 0);
+          newPoints[1] = newY - (s.y || 0);
+        } else {
+          newPoints[2] = newX - (s.x || 0);
+          newPoints[3] = newY - (s.y || 0);
+        }
+        return { ...s, points: newPoints };
       }));
     }
   };
@@ -1089,6 +1138,7 @@ export default function PlannerCanvas() {
     const selectedWall = walls.find(w => w.id === selectedId);
     const selectedAux = auxLines.find(a => a.id === selectedId);
     const selectedPipe = pipes.find(p => p.id === selectedId);
+    const selectedGeom = symbols.find(s => s.id === selectedId && (s.type === 'line' || s.type === 'arrow'));
 
     if (selectedWall) {
       return (
@@ -1119,6 +1169,32 @@ export default function PlannerCanvas() {
             <Circle x={cp.x} y={cp.y} radius={5} fill="#f59e0b" stroke="white" strokeWidth={2} draggable onDragMove={(e) => { const pos = e.target.position(); updateLinePoint(selectedPipe.id, 'pipe', 1, pos.x, pos.y); }} />
           )}
           <Circle x={selectedPipe.points[2]} y={selectedPipe.points[3]} radius={5} fill="#ef4444" stroke="white" strokeWidth={2} draggable onDragMove={(e) => { const pos = e.target.position(); updateLinePoint(selectedPipe.id, 'pipe', 2, pos.x, pos.y); }} />
+        </>
+      );
+    }
+    if (selectedGeom && selectedGeom.points) {
+      return (
+        <>
+          <Circle
+            x={(selectedGeom.x || 0) + selectedGeom.points[0]}
+            y={(selectedGeom.y || 0) + selectedGeom.points[1]}
+            radius={6} fill="#3b82f6" stroke="white" strokeWidth={2}
+            draggable
+            onDragMove={(e) => {
+              const pos = e.target.position();
+              updateLinePoint(selectedGeom.id, 'geom', 0, pos.x, pos.y);
+            }}
+          />
+          <Circle
+            x={(selectedGeom.x || 0) + selectedGeom.points[2]}
+            y={(selectedGeom.y || 0) + selectedGeom.points[3]}
+            radius={6} fill="#3b82f6" stroke="white" strokeWidth={2}
+            draggable
+            onDragMove={(e) => {
+              const pos = e.target.position();
+              updateLinePoint(selectedGeom.id, 'geom', 2, pos.x, pos.y);
+            }}
+          />
         </>
       );
     }
@@ -1175,6 +1251,78 @@ export default function PlannerCanvas() {
           <Line points={[0, 60, 200, 60]} stroke="black" strokeWidth={1} />
           <Line points={[0, 90, 200, 90]} stroke="black" strokeWidth={1} />
           <Line points={[0, 120, 200, 120]} stroke="black" strokeWidth={1} />
+        </Group>
+      );
+    }
+
+    // ✅ RENDERIZADO DE GEOMETRÍA BÁSICA (DOCK GEOM)
+    if (['rect', 'circle', 'triangle', 'line', 'arrow'].includes(sym.type)) {
+      const color = sym.color || currentCircuitColor;
+      const lineType = sym.lineType || 'solid';
+      const isSolid = sym.isSolid || false;
+      const opacity = sym.nature === 'relevado' ? NATURE_OPACITY.relevado : NATURE_OPACITY.proyectado;
+
+      const strokeDash = lineType === 'dashed' ? [10, 5] :
+        lineType === 'dotted' ? [2, 4] :
+          lineType === 'symmetry' ? [20, 5, 5, 5] : [];
+
+      return (
+        <Group
+          key={sym.id}
+          id={sym.id}
+          x={sym.x}
+          y={sym.y}
+          rotation={sym.rotation || 0}
+          scaleX={sym.scaleX || 1}
+          scaleY={sym.scaleY || 1}
+          draggable={tool === 'select' && !isLocked}
+          onDragEnd={(e) => handleSymbolDragEnd(sym.id, e)}
+          onClick={(e) => { e.cancelBubble = true; if (tool === 'select') selectShape(sym.id); }}
+          onTap={(e) => { e.cancelBubble = true; if (tool === 'select') selectShape(sym.id); }}
+          opacity={opacity}
+        >
+          {sym.type === 'rect' && (
+            <Rect
+              x={-25} y={-25} width={50} height={50}
+              stroke={color} strokeWidth={2}
+              fill={isSolid ? color : 'transparent'}
+              dash={strokeDash}
+            />
+          )}
+          {sym.type === 'circle' && (
+            <Circle
+              radius={25}
+              stroke={color} strokeWidth={2}
+              fill={isSolid ? color : 'transparent'}
+              dash={strokeDash}
+            />
+          )}
+          {sym.type === 'triangle' && (
+            <Line
+              points={[0, -25, 25, 25, -25, 25]}
+              closed
+              stroke={color} strokeWidth={2}
+              fill={isSolid ? color : 'transparent'}
+              dash={strokeDash}
+            />
+          )}
+          {sym.type === 'line' && (
+            <Line
+              points={sym.points || [-50, 0, 50, 0]}
+              stroke={color} strokeWidth={2}
+              dash={strokeDash}
+            />
+          )}
+          {sym.type === 'arrow' && (
+            <Arrow
+              points={sym.points || [-50, 0, 50, 0]}
+              stroke={color} strokeWidth={2}
+              fill={color}
+              dash={strokeDash}
+              pointerLength={10}
+              pointerWidth={10}
+            />
+          )}
         </Group>
       );
     }
@@ -1624,8 +1772,17 @@ export default function PlannerCanvas() {
                         rotation: node.rotation()
                       });
                     }}
-                    onTap={() => {
-                      if (!isBackgroundLocked && tool === 'select') selectShape('blueprint-bg');
+                    onClick={(e) => {
+                      e.cancelBubble = true;
+                      if (!isBackgroundLocked && tool === 'select') {
+                        selectShape('blueprint-bg');
+                      }
+                    }}
+                    onTap={(e) => {
+                      e.cancelBubble = true;
+                      if (!isBackgroundLocked && tool === 'select') {
+                        selectShape('blueprint-bg');
+                      }
                     }}
                     listening={!isBackgroundLocked} // CRÍTICO: Si está bloqueado, clics pasan a través
                   />
@@ -1934,7 +2091,6 @@ export default function PlannerCanvas() {
                   )}
 
                   {/* Transformer */}
-                  <Transformer ref={transformerRef} />
 
                   {/* PAREDES INDIVIDUALES - ORDEN Z: SEGUNDO (DESPUÉS DE MUROS) */}
                   {walls
@@ -2112,6 +2268,47 @@ export default function PlannerCanvas() {
                     }}
                   />
                 </Group>
+                {/* MODO FANTASMA (GHOST) PARA GEOMETRÍA */}
+                {['rect', 'circle', 'triangle', 'line', 'arrow'].includes(tool) && (
+                  <Group x={mousePos.x} y={mousePos.y} opacity={0.4} listening={false}>
+                    {tool === 'rect' && (
+                      <Rect
+                        x={-25} y={-25} width={50} height={50}
+                        stroke={currentCircuitColor} strokeWidth={2}
+                        dash={[5, 5]}
+                      />
+                    )}
+                    {tool === 'circle' && (
+                      <Circle
+                        radius={25}
+                        stroke={currentCircuitColor} strokeWidth={2}
+                        dash={[5, 5]}
+                      />
+                    )}
+                    {tool === 'triangle' && (
+                      <Line
+                        points={[0, -25, 25, 25, -25, 25]}
+                        closed
+                        stroke={currentCircuitColor} strokeWidth={2}
+                        dash={[5, 5]}
+                      />
+                    )}
+                    {tool === 'line' && (
+                      <Line
+                        points={[-50, 0, 50, 0]}
+                        stroke={currentCircuitColor} strokeWidth={2}
+                        dash={[5, 5]}
+                      />
+                    )}
+                    {tool === 'arrow' && (
+                      <Path
+                        data="M -50,0 L 50,0 M 20,-15 L 50,0 L 20,15"
+                        stroke={currentCircuitColor} strokeWidth={2}
+                        dash={[5, 5]}
+                      />
+                    )}
+                  </Group>
+                )}
               </Layer>
             </Stage>
           </div>
@@ -2144,6 +2341,8 @@ export default function PlannerCanvas() {
           isCollapsed={isHubCollapsed}
           setIsCollapsed={setIsHubCollapsed}
           onOpeningTool={handleOpeningTool}
+          selectedSymbol={selectedSymbol}
+          onUpdateSymbol={handleUpdateSymbol}
         />
       </div>
 
