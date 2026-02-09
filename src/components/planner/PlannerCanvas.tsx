@@ -1254,7 +1254,7 @@ export default function PlannerCanvas() {
     if (!sym) return null;
 
     // Validar bloqueo de capa
-    const layer = getCurrentFloor()?.layers.find(l => l.id === (sym as any).layerId);
+    const layer = getCurrentFloor()?.layers.find(l => l.id === sym.layer);
     const isLocked = layer?.locked || false;
 
     // Casos especiales que no están en el catálogo
@@ -2290,7 +2290,7 @@ export default function PlannerCanvas() {
                   {symbols
                     .filter(sym => {
                       // Filtrar por visibilidad de capa
-                      const layer = getCurrentFloor()?.layers.find(l => l.id === (sym as any).layerId);
+                      const layer = getCurrentFloor()?.layers.find(l => l.id === sym.layer);
                       return layer?.visible !== false;
                     })
                     .map(renderSymbol)}
