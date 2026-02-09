@@ -239,19 +239,27 @@ export default function PlannerCanvas() {
       console.log('🔧 Auto-generando diagrama unifilar...');
 
       try {
-        // Generar símbolos desde la configuración del Wizard
-        const generatedSymbols = generateUnifilarDiagram(calculationData.config, {
+        // Generar símbolos y conexiones desde la configuración del Wizard
+        const { symbols: generatedSymbols, pipes: generatedPipes } = generateUnifilarDiagram(calculationData.config, {
           startX: 400,  // Más centrado en el viewport
           startY: 200,  // Más visible desde arriba
           verticalSpacing: 80,
           horizontalSpacing: 300
         });
 
-        console.log(`✅ Diagrama generado: ${generatedSymbols.length} símbolos`, generatedSymbols);
+        console.log(`✅ Diagrama generado: ${generatedSymbols.length} símbolos, ${generatedPipes.length} conexiones`, {
+          symbols: generatedSymbols,
+          pipes: generatedPipes
+        });
 
         // Agregar símbolos al canvas
         if (generatedSymbols.length > 0) {
           setSymbols(generatedSymbols);
+        }
+
+        // Agregar conexiones (pipes) al canvas
+        if (generatedPipes.length > 0) {
+          setPipes(generatedPipes);
         }
 
         // Marcar como inicializado
