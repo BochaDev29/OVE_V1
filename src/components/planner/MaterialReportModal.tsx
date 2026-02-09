@@ -7,7 +7,7 @@ import { BudgetService } from '../../services/budget.service';
 import { BudgetEditorModal } from '../budget/BudgetEditorModal';
 import { convertMaterialReportToComputeItems, generateBudgetFromComputo } from '../../lib/budget/budgetGenerator';
 import type { BudgetLineItem } from '../../types/budget';
-import { CircuitInventoryItemForCAD } from '../../lib/electrical-rules';
+import { CircuitInventoryItemForCAD, calculateUserPATSection } from '../../lib/electrical-rules';
 
 interface MaterialReportModalProps {
   isOpen: boolean;
@@ -97,17 +97,20 @@ export default function MaterialReportModal({
     // 4. Puesta a Tierra (PAT)
     const panelWithPAT = panels.find(p => p.grounding?.hasPAT);
     if (panelWithPAT) {
-      // 🆕 Cálculo dinámico para asegurar consistencia (SSoT: Wizard LP Section)
+      // 🆕 Usar función centralizada de cálculo de PAT
       const lpSectionForPAT = tp?.incomingLine?.section || config.acometida?.seccion || 4;
-      const speSuggested = lpSectionForPAT <= 16 ? lpSectionForPAT : (lpSectionForPAT / 2);
-      const speFinal = Math.max(speSuggested, 2.5);
+      const patSection = calculateUserPATSection(
+        lpSectionForPAT,
+        config.voltage,
+        config.pilar?.tipo
+      );
 
       const patInfo = panelWithPAT.grounding?.materials?.cablePAT;
       circuitGroups['PAT'] = {
         id: 'PAT',
         info: { designation: 'PAT', description: 'Red de Puesta a Tierra' },
         counts: {}, proyectadoCounts: {}, relevadoCounts: {}, pipeMeters: 0, cableMeters: 0,
-        cableSection: Math.max(patInfo?.section || 0, speFinal),
+        cableSection: Math.max(patInfo?.section || 0, patSection),
 
 
 

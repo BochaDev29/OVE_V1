@@ -5,6 +5,29 @@ export type Tool = 'select' | 'wall' | 'pipe' | 'outlet' | 'light' | 'wall_light
   'feed_point' | 'meter' | 'main_breaker' | 'tm_1p' | 'tm_2p' | 'tm_4p' | 'diff_switch' | 'dist_block' | 'load_arrow' | 'door' | 'window' | 'passage' | 'dimension' | 'double_outlet' | 'bell_button' |
   'rect' | 'circle' | 'triangle' | 'line' | 'arrow';
 
+// 🆕 Herramientas específicas por modo
+export const FLOOR_PLAN_TOOLS: Tool[] = [
+  'select', 'wall', 'pipe', 'aux_line', 'text', 'calibrate', 'dimension',
+  // Símbolos de planta
+  'light', 'wall_light', 'outlet', 'double_outlet',
+  'switch', 'board', 'tpu', 'ground', 'ac', 'fan', 'cp', 'bell_button',
+  // Aberturas
+  'door', 'window', 'passage',
+  // Geometrías
+  'rect', 'circle', 'line', 'arrow'
+];
+
+export const SINGLE_LINE_TOOLS: Tool[] = [
+  'select', 'pipe', 'aux_line', 'text', 'table',
+  // Símbolos unifilares
+  'feed_point', 'meter', 'main_breaker',
+  'tm_1p', 'tm_2p', 'tm_4p', 'diff_switch',
+  'dist_block', 'load_arrow', 'board', 'ground',
+  // Geometrías (para tableros y anotaciones)
+  'rect', 'circle', 'line', 'arrow'
+];
+
+
 interface PlannerToolbarProps {
   tool: Tool;
   setTool: (tool: Tool) => void;

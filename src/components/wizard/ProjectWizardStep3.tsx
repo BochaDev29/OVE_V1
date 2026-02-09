@@ -357,7 +357,8 @@ function PanelEditor({
     onUnassignCircuit,
     onAssignCircuit,
     isCollapsed,
-    onToggleCollapse
+    onToggleCollapse,
+    onChange
 }: {
     panel: Panel;
     config: ProjectConfig;
@@ -371,6 +372,7 @@ function PanelEditor({
     onAssignCircuit: (circuitId: string, panelId: string) => void;
     isCollapsed: boolean;
     onToggleCollapse: () => void;
+    onChange: (config: ProjectConfig) => void;
 }) {
     // Calcular diagnóstico en tiempo real
     const diagnostics = useMemo(
@@ -617,6 +619,7 @@ function PanelEditor({
                         assignedCircuits={assignedCircuits}
                         diagnostics={diagnostics}
                         onUpdate={onUpdate}
+                        onConfigChange={onChange}
                         isExpanded={expandedSections.contenido}
                         onToggle={() => toggleSection('contenido')}
                     />
@@ -1664,6 +1667,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
                         onAssignCircuit={assignCircuitToPanel}
                         isCollapsed={!!collapsedPanels[panel.id]}
                         onToggleCollapse={() => togglePanelCollapse(panel.id)}
+                        onChange={onChange}
                     />
                 ))}
 

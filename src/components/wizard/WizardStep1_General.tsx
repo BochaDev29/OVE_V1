@@ -480,6 +480,47 @@ export default function WizardStep1_General({ config, onChange, onNext, onResetE
                                                 {getAcometidaTypes().find(t => t.codigo === config.acometida?.tipo)?.observaciones}
                                             </p>
                                         )}
+
+                                        {/* 🆕 NUEVO: Indicador de PAT de Servicio según Clase */}
+                                        {(() => {
+                                            const selectedAcometida = getAcometidaTypes().find(t => t.codigo === config.acometida?.tipo);
+                                            const requiresServicePAT = selectedAcometida?.clase === 'I';
+
+                                            if (requiresServicePAT) {
+                                                return (
+                                                    <div className="mt-3 p-2 bg-amber-50 border-l-4 border-amber-500 rounded-r">
+                                                        <div className="flex items-start gap-2">
+                                                            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                                                            <div>
+                                                                <p className="font-bold text-amber-800 text-xs">
+                                                                    ⚠️ Clase I: Requiere PAT de Servicio
+                                                                </p>
+                                                                <p className="text-[10px] text-amber-700 mt-1">
+                                                                    Esta acometida antigua con gabinete metálico requiere una jabalina
+                                                                    independiente para el medidor, además de la PAT del usuario.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            } else {
+                                                return (
+                                                    <div className="mt-3 p-2 bg-green-50 border-l-4 border-green-500 rounded-r">
+                                                        <div className="flex items-start gap-2">
+                                                            <ShieldCheck className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                                                            <div>
+                                                                <p className="font-bold text-green-800 text-xs">
+                                                                    ✓ Clase II: Doble Aislación
+                                                                </p>
+                                                                <p className="text-[10px] text-green-700 mt-1">
+                                                                    Instalación moderna sin PAT de Servicio. Solo requiere PAT de usuario en tableros.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                        })()}
                                     </div>
                                 </div>
                             </div>

@@ -98,6 +98,8 @@ export interface Panel {
     hasPAT: boolean;           // ¿Este tablero tiene conexión a jabalina?
     patType?: 'PAT_SIMPLE' | 'PAT_REFORZADO' | 'PAT_EDIFICIO';  // Tipo de PAT
     patResistance?: number;    // Resistencia de PAT medida (Ohms)
+    conduitDiameter?: string;  // Diámetro de cañería para PAT (ej: "Ø 19mm")
+    method?: string;           // Método de instalación (B1, B2, D1, etc.)
 
     // 🆕 Materiales Normativos (para documentación técnica)
     materials?: {
@@ -258,6 +260,29 @@ export interface ProjectConfig {
     material?: 'Cu' | 'Al';
     observaciones?: string;
     nature?: ComponentNature;  // 🆕 Naturaleza: relevado o proyectado
+
+    // 🆕 PAT de Servicio (solo para Clase I - acometidas antiguas metálicas)
+    servicePAT?: {
+      required: boolean;           // true si la acometida es Clase I
+      section?: number;             // Sección del cable PAT de servicio (mm²)
+      resistance?: number;          // Resistencia medida (Ω)
+      hasJabalina?: boolean;        // true si tiene jabalina instalada
+      materials?: {
+        cablePAT?: {
+          section: number;
+          standard: string;
+          color: string;
+        };
+        jabalina?: {
+          hasCompliantRod: boolean;
+          standard: string;
+        };
+        tomacable?: {
+          hasCompliantClamp: boolean;
+          standard: string;
+        };
+      };
+    };
   };
 
   pilar?: {
@@ -3293,6 +3318,72 @@ export function getAvailablePilares(isTrifasico: boolean): PilarTypeData[] {
 
   const tension = isTrifasico ? '380V' : '220V';
   return pilares.filter(p => p.tension === tension || p.tension === '380V'); // 380V puede servir ambos
+}
+
+/**
+ * Calcula la sección del cable PAT de USUARIO según normativa AEA 770
+ * Esta PAT se instala desde un solo tablero (el que el usuario elija: TP, TS, o TSG)
+ * @param lpSection - Sección de la línea principal (fase) en mm²
+ * @param voltage - Tensión del sistema (220V o 380V)
+ * @param pillarType - Tipo de pilar (opcional, para casos específicos)
+ * @returns Sección del cable PAT en mm²
+ */
+export function calculateUserPATSection(
+  lpSection: number,
+  voltage: '220V' | '380V',
+  pillarType?: string
+): number {
+  // Regla general: SPE = S si S <= 16mm², sino S/2, con mínimo 2.5mm²
+  const spe = lpSection <= 16 ? lpSection : (lpSection / 2);
+  const speMin = Math.max(spe, 2.5);
+
+  // Verificar contra especificaciones de pilares si se proporciona
+  if (pillarType) {
+    const pillarSpec = getPilarTypeSpec(pillarType);
+    if (pillarSpec?.seccion_pat_mm2) {
+      return Math.max(speMin, pillarSpec.seccion_pat_mm2);
+    }
+  }
+
+  // Mínimos según tensión (según CSV de pilares)
+  if (voltage === '220V') {
+    return Math.max(speMin, 4.0); // Mínimo 4mm² para 220V
+  } else {
+    // 380V: depende del tipo de instalación
+    // Edificios/Comercial suelen requerir 10mm², residencial simple 6mm²
+    return Math.max(speMin, 6.0); // Trifásico: mínimo 6mm²
+  }
+}
+
+/**
+ * Calcula la sección del cable PAT de SERVICIO según normativa AEA 770
+ * Esta PAT solo se usa en acometidas Clase I (antiguas, metálicas)
+ * Ubicación fija: siempre en la acometida (gabinete del medidor)
+ * @param acometidaTipo - Código del tipo de acometida
+ * @param pillarTipo - Código del tipo de pilar (si aplica)
+ * @returns Sección del cable PAT de servicio en mm² o undefined si no aplica
+ */
+export function calculateServicePATSection(
+  acometidaTipo?: string,
+  pillarTipo?: string
+): number | undefined {
+  // Verificar si la acometida es Clase I
+  const acometidaSpec = getAcometidaTypeSpec(acometidaTipo || '');
+  if (!acometidaSpec || acometidaSpec.clase !== 'I') {
+    return undefined; // No requiere PAT de Servicio
+  }
+
+  // Si hay pilar, usar la sección del CSV de pilares
+  if (pillarTipo) {
+    const pillarSpec = getPilarTypeSpec(pillarTipo);
+    if (pillarSpec?.seccion_pat_mm2) {
+      return pillarSpec.seccion_pat_mm2;
+    }
+  }
+
+  // Fallback: usar sección mínima según tensión
+  const isTri = acometidaTipo?.includes('TRI');
+  return isTri ? 6.0 : 4.0;
 }
 
 /**

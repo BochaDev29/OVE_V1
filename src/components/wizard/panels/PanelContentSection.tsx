@@ -1,6 +1,6 @@
-import { Shield, ShieldCheck, Activity, Box, Package, ChevronDown, ChevronUp, MessageSquare, MessageSquareText, Trash2, Plus } from 'lucide-react';
+import { Shield, ShieldCheck, Activity, Box, Package, ChevronDown, ChevronUp, MessageSquare, MessageSquareText, Trash2, Plus, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
-import { Panel, ProjectConfig, CircuitInventoryItem, ProtectionHeader, calculatePanelDPMS, calculatePanelIb } from '../../../lib/electrical-rules';
+import { Panel, ProjectConfig, CircuitInventoryItem, ProtectionHeader, calculatePanelDPMS, calculatePanelIb, calculateUserPATSection, calculateServicePATSection, getAcometidaTypeSpec } from '../../../lib/electrical-rules';
 import { ProtectionHeadersManager } from './ProtectionHeadersManager';
 
 interface PanelContentSectionProps {
@@ -9,6 +9,7 @@ interface PanelContentSectionProps {
     assignedCircuits: CircuitInventoryItem[];
     diagnostics: any;
     onUpdate: (updates: Partial<Panel>) => void;
+    onConfigChange?: (config: ProjectConfig) => void;  // 🆕 Para actualizar config desde PAT de Servicio
     isExpanded: boolean;
     onToggle: () => void;
 }
@@ -19,6 +20,7 @@ export function PanelContentSection({
     assignedCircuits,
     diagnostics,
     onUpdate,
+    onConfigChange,
     isExpanded,
     onToggle
 }: PanelContentSectionProps) {
@@ -294,7 +296,7 @@ export function PanelContentSection({
                                         })}
                                         className="rounded border-slate-300 w-3 h-3 text-green-600 focus:ring-green-500"
                                     />
-                                    <label className="text-[10px] font-bold text-green-700 select-none">PAT (Jabalina)</label>
+                                    <label className="text-[10px] font-bold text-green-700 select-none">PAT (Jabalina) - Línea parte desde este tablero</label>
                                 </div>
 
                                 {/* Campo de Medición de Resistencia PAT */}
@@ -344,6 +346,54 @@ export function PanelContentSection({
                                         )}
                                         <div className="text-[9px] text-slate-500 italic">
                                             Medición con telurómetro. Normativa: ≤ 40Ω (AEA 770)
+                                        </div>
+
+                                        {/* Cañería y Método para PAT */}
+                                        <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-green-200">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-green-700 block mb-1">
+                                                    Cañería
+                                                </label>
+                                                <select
+                                                    value={panel.grounding?.conduitDiameter || ''}
+                                                    onChange={(e) => onUpdate({
+                                                        grounding: {
+                                                            ...panel.grounding,
+                                                            hasPAT: true,
+                                                            conduitDiameter: e.target.value
+                                                        }
+                                                    })}
+                                                    className="w-full text-xs border border-green-300 rounded-md p-1.5 bg-white focus:ring-green-500 focus:border-green-500"
+                                                >
+                                                    <option value="">Seleccionar...</option>
+                                                    <option value="Ø 13mm">Ø 13mm</option>
+                                                    <option value="Ø 19mm">Ø 19mm</option>
+                                                    <option value="Ø 25mm">Ø 25mm</option>
+                                                    <option value="Sin caño">Sin caño</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-green-700 block mb-1">
+                                                    Método
+                                                </label>
+                                                <select
+                                                    value={panel.grounding?.method || ''}
+                                                    onChange={(e) => onUpdate({
+                                                        grounding: {
+                                                            ...panel.grounding,
+                                                            hasPAT: true,
+                                                            method: e.target.value
+                                                        }
+                                                    })}
+                                                    className="w-full text-xs border border-green-300 rounded-md p-1.5 bg-white focus:ring-green-500 focus:border-green-500"
+                                                >
+                                                    <option value="">Seleccionar...</option>
+                                                    <option value="B1">B1 - Embutido</option>
+                                                    <option value="B2">B2 - Sobre pared</option>
+                                                    <option value="D1">D1 - Enterrado</option>
+                                                    <option value="D2">D2 - Directamente enterrado</option>
+                                                </select>
+                                            </div>
                                         </div>
 
                                         {/* Checklist de Materiales Normativos */}
@@ -466,6 +516,115 @@ export function PanelContentSection({
                                         </div>
                                     </div>
                                 )}
+
+                                {/* 🆕 NUEVO: PAT de Servicio (solo para TP con acometida Clase I) */}
+                                {panel.type === 'TP' && (() => {
+                                    const acometidaSpec = getAcometidaTypeSpec(config.acometida?.tipo || '');
+                                    const requiresServicePAT = acometidaSpec?.clase === 'I';
+
+                                    if (!requiresServicePAT) return null;
+
+                                    const servicePATSection = calculateServicePATSection(
+                                        config.acometida?.tipo,
+                                        config.pilar?.tipo
+                                    );
+
+                                    return (
+                                        <div className="mt-4 p-3 bg-amber-50 border-2 border-amber-300 rounded-lg">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                                                <label className="text-[10px] font-bold text-amber-800 uppercase">
+                                                    PAT de Servicio (Clase I)
+                                                </label>
+                                            </div>
+                                            <p className="text-[9px] text-amber-700 mb-3 italic">
+                                                Acometida antigua con gabinete metálico. Requiere jabalina independiente para el medidor.
+                                            </p>
+
+                                            {/* Checkbox para habilitar PAT de Servicio */}
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={config.acometida?.servicePAT?.hasJabalina ?? false}
+                                                    onChange={(e) => {
+                                                        if (onConfigChange) {
+                                                            onConfigChange({
+                                                                ...config,
+                                                                acometida: {
+                                                                    ...config.acometida!,
+                                                                    servicePAT: {
+                                                                        required: true,
+                                                                        hasJabalina: e.target.checked,
+                                                                        section: servicePATSection
+                                                                    }
+                                                                }
+                                                            });
+                                                        }
+                                                    }}
+                                                    className="rounded border-amber-400 w-3 h-3 text-amber-600 focus:ring-amber-500"
+                                                />
+                                                <label className="text-[9px] font-bold text-amber-700">
+                                                    Cable PAT Servicio <strong>{servicePATSection}mm²</strong> (verde-amarillo)
+                                                </label>
+                                            </div>
+
+                                            {/* Campo de resistencia medida */}
+                                            {config.acometida?.servicePAT?.hasJabalina && (
+                                                <div className="mt-2 space-y-1">
+                                                    <label className="text-[9px] font-bold text-amber-700 block">
+                                                        Resistencia Medida (Ω) <span className="text-red-600">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        value={config.acometida?.servicePAT?.resistance ?? ''}
+                                                        onChange={(e) => {
+                                                            const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                                                            if (onConfigChange) {
+                                                                onConfigChange({
+                                                                    ...config,
+                                                                    acometida: {
+                                                                        ...config.acometida!,
+                                                                        servicePAT: {
+                                                                            ...config.acometida!.servicePAT!,
+                                                                            resistance: value
+                                                                        }
+                                                                    }
+                                                                });
+                                                            }
+                                                        }}
+                                                        placeholder="Ej: 15"
+                                                        min="0"
+                                                        step="0.1"
+                                                        className={`w-full text-xs border rounded-md p-1.5 font-mono ${config.acometida?.servicePAT?.resistance === undefined
+                                                            ? 'border-red-500 bg-red-50'
+                                                            : config.acometida.servicePAT.resistance > 40
+                                                                ? 'border-amber-500 bg-amber-50'
+                                                                : 'border-green-300 bg-white'
+                                                            }`}
+                                                    />
+                                                    {config.acometida?.servicePAT?.resistance === undefined && (
+                                                        <p className="text-[8px] text-red-600 font-medium">
+                                                            ⚠️ Medición obligatoria para seguridad
+                                                        </p>
+                                                    )}
+                                                    {config.acometida?.servicePAT?.resistance !== undefined &&
+                                                        config.acometida.servicePAT.resistance > 40 && (
+                                                            <p className="text-[8px] text-amber-600 font-medium">
+                                                                ⚠️ Excede 40Ω (AEA 770) - Requiere mejora
+                                                            </p>
+                                                        )}
+                                                    {config.acometida?.servicePAT?.resistance !== undefined &&
+                                                        config.acometida.servicePAT.resistance <= 40 && (
+                                                            <p className="text-[8px] text-green-600 font-medium">
+                                                                ✓ Cumple normativa (≤ 40Ω)
+                                                            </p>
+                                                        )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
 
                                 {config.projectType === 'existente' && (
                                     <div className="text-[9px] text-slate-400 italic">

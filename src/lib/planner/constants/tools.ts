@@ -49,16 +49,23 @@ export const ELEC_TOOLS: ToolDef[] = [
 
 export const UNIFILAR_TOOLS: ToolDef[] = [
     { id: 'pipe', icon: PenTool, label: 'Conexión' },
+    { id: 'aux_line', icon: Minus, label: 'Auxiliar' },
     { id: 'feed_point', icon: ArrowDownToLine, label: 'Red' },
     { id: 'meter', icon: Box, label: 'Medidor' },
     { id: 'main_breaker', icon: ToggleLeft, label: 'Disy.Gral' },
     { id: 'tm_2p', icon: Square, label: 'TM 2P' },
-    { id: 'diff_switch', icon: StopCircle, label: 'Dif/ID' },
-    { id: 'tm_1p', icon: Square, label: 'TM 1P' },
     { id: 'tm_4p', icon: LayoutTemplate, label: 'TM 4P' },
+    { id: 'diff_switch', icon: StopCircle, label: 'Dif/ID' },
     { id: 'dist_block', icon: Table, label: 'Bornes' },
     { id: 'load_arrow', icon: ArrowDownToLine, label: 'Salida' },
     { id: 'ground', icon: ArrowDownToLine, label: 'PAT' },
+    // Geometrías para tableros y anotaciones
+    { id: 'rect', icon: Square, label: 'Rectáng.' },
+    { id: 'circle', icon: Circle, label: 'Círculo' },
+    { id: 'line', icon: Minus, label: 'Línea' },
+    { id: 'arrow', icon: ArrowUpRight, label: 'Flecha' },
+    { id: 'text', icon: FileText, label: 'Texto' },
+    { id: 'table', icon: Table, label: 'Tabla' },
 ];
 
 export const GEOM_TOOLS: ToolDef[] = [

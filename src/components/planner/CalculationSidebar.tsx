@@ -1,4 +1,5 @@
 import React from 'react';
+import { ProjectConfig, Panel, calculateUserPATSection } from '../../lib/electrical-rules';
 import {
     Calculator,
     Shield,
@@ -45,15 +46,16 @@ export const CalculationSidebar: React.FC<CalculationSidebarProps> = ({
     // 2. Datos de PAT (Puesta a Tierra)
     const tp = panels.find((p: any) => p.type === 'TP' || p.parentId === 'medidor');
 
-    // 🆕 Cálculo dinámico para asegurar consistencia (SSoT: Wizard LP Section)
+    // 🆕 Usar función centralizada de cálculo de PAT
     const lpSection = tp?.incomingLine?.section || config.acometida?.seccion || 4;
-    const speSuggested = lpSection <= 16 ? lpSection : (lpSection / 2);
-    const speFinal = Math.max(speSuggested, 2.5);
+    const patSection = calculateUserPATSection(
+        lpSection,
+        config.voltage,
+        config.pilar?.tipo
+    );
 
-    const patSection = Math.max(tp?.grounding?.materials?.cablePAT?.section || 0, speFinal);
 
-
-    const patCable = `${patSection}mm²`;
+    const patCable = `${patSection} mm²`;
 
 
     // 3. Agrupar circuitos únicos por tipo (para el plan de canalización)
@@ -111,7 +113,7 @@ export const CalculationSidebar: React.FC<CalculationSidebarProps> = ({
                                     key={p.id}
                                     label={p.name}
                                     type={p.type}
-                                    height={p.physicalData?.height !== undefined ? `${p.physicalData.height}m` : '---'}
+                                    height={p.physicalData?.height !== undefined ? `${p.physicalData.height} m` : '---'}
                                     active={p.type === 'TP' ? auditSymbols.hasTP : auditSymbols.hasTSG}
                                 />
                             ))}
@@ -136,17 +138,14 @@ export const CalculationSidebar: React.FC<CalculationSidebarProps> = ({
                 </div>
 
                 {/* SECCIÓN 2: PLAN UNIFICADO DE CANALIZACIONES */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-16 h-16 pointer-events-none opacity-[0.03]">
-                        <Pipette className="w-full h-full text-blue-600" />
+                <div className="bg-slate-900 text-white rounded-xl shadow-lg border-b-4 border-blue-500 overflow-hidden">
+                    <div className="p-3 bg-slate-800/50 flex items-center gap-2 border-b border-slate-700">
+                        <Pipette className="w-4 h-4 text-blue-400" />
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-300">Plan de Canalización</h4>
                     </div>
 
-                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <Pipette className="w-4 h-4 text-blue-500" /> Plan de Canalización
-                    </h4>
-
-                    <div className="space-y-2">
-                        <div className="grid grid-cols-4 text-[9px] font-black text-slate-400 uppercase px-2 mb-1">
+                    <div className="p-3">
+                        <div className="grid grid-cols-4 text-[10px] font-black text-slate-500 uppercase px-2 mb-2">
                             <span className="col-span-1">LÍNEA</span>
                             <span className="col-span-1 text-center">CABLE</span>
                             <span className="col-span-1 text-center">CAÑO</span>
@@ -157,7 +156,7 @@ export const CalculationSidebar: React.FC<CalculationSidebarProps> = ({
                         {config.includesPillar && (
                             <ChannelRow
                                 label="LP (Medidor-TP)"
-                                cable={tp?.incomingLine?.section ? `${tp.incomingLine.section}mm² + PE` : '---'}
+                                cable={tp?.incomingLine?.section ? `${tp.incomingLine.section} mm² + PE` : '---'}
                                 conduit={getRealValue(tp?.incomingLine?.conduitDiameter)}
                                 method={getRealValue(tp?.incomingLine?.method)}
                                 isMain={true}
@@ -168,8 +167,8 @@ export const CalculationSidebar: React.FC<CalculationSidebarProps> = ({
                         {panels.filter((p: any) => p.type !== 'TP').map((p: any) => (
                             <ChannelRow
                                 key={p.id}
-                                label={`CS (${p.name})`}
-                                cable={p.incomingLine?.section ? `${p.incomingLine.section}mm² + PE` : '---'}
+                                label={`CS(${p.name})`}
+                                cable={p.incomingLine?.section ? `${p.incomingLine.section} mm² + PE` : '---'}
                                 conduit={getRealValue(p.incomingLine?.conduitDiameter)}
                                 method={getRealValue(p.incomingLine?.method)}
                                 highlight={true}
@@ -180,8 +179,8 @@ export const CalculationSidebar: React.FC<CalculationSidebarProps> = ({
                         <ChannelRow
                             label="PAT"
                             cable={patCable}
-                            conduit="---"
-                            method="---"
+                            conduit={getRealValue(tp?.grounding?.conduitDiameter) || '---'}
+                            method={getRealValue(tp?.grounding?.method) || '---'}
                         />
 
                         {/* 4. CIRCUITOS TERMINALES (CT) - 🆕 Actualizado para circuitInventoryForCAD */}
@@ -197,7 +196,7 @@ export const CalculationSidebar: React.FC<CalculationSidebarProps> = ({
                                 <ChannelRow
                                     key={c.id}
                                     label={c.type}
-                                    cable={`${cableSection}mm² + PE`}
+                                    cable={`${cableSection} mm² + PE`}
                                     conduit={getRealValue(conduitSize)}
                                     method={getRealValue(conduitMethod)}
                                 />
@@ -232,14 +231,14 @@ const EquipmentRow = ({ label, type, height, active }: { label: string, type: st
 
 // Componente helper para filas de Canalización
 const ChannelRow = ({ label, cable, conduit, method, highlight = false, isMain = false }: { label: string, cable: string, conduit: string, method: string, highlight?: boolean, isMain?: boolean }) => (
-    <div className={`grid grid-cols-4 items-center p-2 rounded-lg border text-[10px] transition-all ${isMain ? 'bg-blue-600 text-white ring-1 ring-blue-400 border-transparent shadow-sm' :
-        highlight ? 'bg-blue-50 border-blue-100 text-blue-900 font-medium' :
-            'bg-slate-50 border-slate-100 text-slate-700'
+    <div className={`grid grid-cols-4 items-center p-2 rounded-lg border text-[11px] transition-all ${isMain ? 'bg-blue-600 text-white ring-1 ring-blue-400 border-transparent shadow-sm' :
+        highlight ? 'bg-blue-500/10 border-blue-500/20 text-blue-300 font-medium' :
+            'bg-slate-800/30 border-slate-700/50 text-slate-300'
         }`}>
         <span className={`font-bold truncate ${isMain ? 'text-white' : ''}`}>{label}</span>
-        <span className={`text-center font-mono font-bold ${isMain ? 'text-white' : 'text-blue-600'}`}>{cable}</span>
-        <span className={`text-center font-mono ${isMain ? 'text-blue-100' : 'text-slate-600'}`}>{conduit}</span>
-        <span className={`text-right text-[9px] uppercase ${isMain ? 'text-blue-200' : 'text-slate-400 font-black'}`}>{method}</span>
+        <span className={`text-center font-mono font-bold ${isMain ? 'text-white' : 'text-blue-400'}`}>{cable}</span>
+        <span className={`text-center font-mono ${isMain ? 'text-blue-100' : 'text-slate-400'}`}>{conduit}</span>
+        <span className={`text-right text-[9px] uppercase ${isMain ? 'text-blue-200' : 'text-slate-500 font-black'}`}>{method}</span>
     </div>
 );
 

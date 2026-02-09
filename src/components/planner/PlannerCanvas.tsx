@@ -7,6 +7,10 @@ import jsPDF from 'jspdf';
 // Componentes hijos
 import PlannerToolbar, { type Tool } from './PlannerToolbar';
 import PlannerSidebar from './PlannerSidebar';
+import UnifilarSidebar from './UnifilarSidebar'; // 🆕 Sidebar para modo unifilar
+
+// Utilidades
+import { generateUnifilarDiagram } from '../../lib/planner/utils/unifilarAutoMapper'; // 🆕 Generador automático
 import MaterialReportModal from './MaterialReportModal';
 import ProjectInfoModal, { type ProjectData } from './ProjectInfoModal';
 import CalculationSidebar from './CalculationSidebar';
@@ -78,12 +82,13 @@ export default function PlannerCanvas() {
 
   // --- DUAL MODE STATE ---
   const [activeMode, setActiveMode] = useState<'floorPlan' | 'singleLine'>('floorPlan');
+  const [unifilarInitialized, setUnifilarInitialized] = useState(false); // 🆕 Flag para auto-generación
   const modeStore = useRef<{
-    floorPlan: { symbols: any[]; walls: any[]; pipes: any[]; auxLines: any[]; pixelsPerMeter: number };
-    singleLine: { symbols: any[]; walls: any[]; pipes: any[]; auxLines: any[]; pixelsPerMeter: number };
+    floorPlan: { floors: any[]; pixelsPerMeter: number };
+    singleLine: { floors: any[]; pixelsPerMeter: number };
   }>({
-    floorPlan: { symbols: [], walls: [], pipes: [], auxLines: [], pixelsPerMeter: 50 },
-    singleLine: { symbols: [], walls: [], pipes: [], auxLines: [], pixelsPerMeter: 50 }
+    floorPlan: { floors: [], pixelsPerMeter: 50 },
+    singleLine: { floors: [], pixelsPerMeter: 50 }
   });
 
   // ✅ HOOK: Estado del Canvas (NUEVA ESTRUCTURA CON FLOORS Y LAYERS)
@@ -220,6 +225,42 @@ export default function PlannerCanvas() {
       }
     }
   }, [circuitLayers, floors, currentLayerId, canvasState, setCurrentLayerId]);
+
+  // 🆕 AUTO-GENERACIÓN: Generar diagrama unifilar al entrar al modo por primera vez
+  useEffect(() => {
+    console.log('🔍 Auto-gen check:', {
+      activeMode,
+      unifilarInitialized,
+      hasConfig: !!calculationData?.config,
+      hasPanels: calculationData?.config?.panels?.length || 0
+    });
+
+    if (activeMode === 'singleLine' && !unifilarInitialized && calculationData?.config) {
+      console.log('🔧 Auto-generando diagrama unifilar...');
+
+      try {
+        // Generar símbolos desde la configuración del Wizard
+        const generatedSymbols = generateUnifilarDiagram(calculationData.config, {
+          startX: 400,  // Más centrado en el viewport
+          startY: 200,  // Más visible desde arriba
+          verticalSpacing: 80,
+          horizontalSpacing: 300
+        });
+
+        console.log(`✅ Diagrama generado: ${generatedSymbols.length} símbolos`, generatedSymbols);
+
+        // Agregar símbolos al canvas
+        if (generatedSymbols.length > 0) {
+          setSymbols(generatedSymbols);
+        }
+
+        // Marcar como inicializado
+        setUnifilarInitialized(true);
+      } catch (error) {
+        console.error('❌ Error generando diagrama unifilar:', error);
+      }
+    }
+  }, [activeMode, unifilarInitialized, calculationData, setSymbols]);
 
   // 🆕 HELPER: Obtener datos del circuito desde calculationData
   const getCircuitData = useCallback((circuitId?: string) => {
@@ -1620,7 +1661,7 @@ export default function PlannerCanvas() {
         tool={tool}
         setTool={setTool}
         activeMode={activeMode}
-        setActiveMode={setActiveMode}
+        setActiveMode={handleSwitchMode} // 🆕 Usar handleSwitchMode para guardar/restaurar estado
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
         onOpenReport={() => setShowMaterialModal(true)}
@@ -2315,23 +2356,33 @@ export default function PlannerCanvas() {
         </div>
 
         {/* EL CEREBRO (VISOR LATERAL UNIFICADO - 35%) */}
-        <PlannerVisionPanel
-          calculationData={calculationData}
-          symbols={symbols}
-          activeMode={activeMode}
-          layers={getCurrentFloor()?.layers || []}
-          currentLayerId={currentLayerId}
-          onLayerChange={setCurrentLayerId}
-          onToggleVisibility={toggleLayerVisibility}
-          onToggleLock={toggleLayerLock}
-          onColorChange={updateLayerColor}
-          onRoomDragStart={handleRoomDragStart}
-          onRoomSelect={handleRoomSelect}
-          isCollapsed={isVisionPanelCollapsed}
-          onToggleCollapse={() => setIsVisionPanelCollapsed(!isVisionPanelCollapsed)}
-          activeTab={visionActiveTab}
-          onTabChange={setVisionActiveTab}
-        />
+        {/* 🆕 Renderizado condicional según modo */}
+        {activeMode === 'floorPlan' && (
+          <PlannerVisionPanel
+            calculationData={calculationData}
+            symbols={symbols}
+            activeMode={activeMode}
+            layers={getCurrentFloor()?.layers || []}
+            currentLayerId={currentLayerId}
+            onLayerChange={setCurrentLayerId}
+            onToggleVisibility={toggleLayerVisibility}
+            onToggleLock={toggleLayerLock}
+            onColorChange={updateLayerColor}
+            onRoomDragStart={handleRoomDragStart}
+            onRoomSelect={handleRoomSelect}
+            isCollapsed={isVisionPanelCollapsed}
+            onToggleCollapse={() => setIsVisionPanelCollapsed(!isVisionPanelCollapsed)}
+            activeTab={visionActiveTab}
+            onTabChange={setVisionActiveTab}
+          />
+        )}
+
+        {activeMode === 'singleLine' && calculationData?.config && (
+          <UnifilarSidebar
+            config={calculationData.config}
+          />
+        )}
+
 
         <PlannerBottomHub
           tool={tool}
