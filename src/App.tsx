@@ -12,6 +12,7 @@ import PlannerCanvas from './components/planner/PlannerCanvas';
 import Profile from './pages/Profile';
 import ProjectDocumentation from './pages/ProjectDocumentation';
 import { BudgetEditorModal } from './components/budget/BudgetEditorModal';
+import SymbolEditor from './components/admin/SymbolEditor'; // 🆕 Editor de Símbolos (Admin-Only)
 
 function App() {
   const { user, isLoading, logout } = useAuth();
@@ -244,6 +245,12 @@ function App() {
           element={
             user ? <Profile /> : <Navigate to="/" replace />
           }
+        />
+
+        {/* 🎨 ADMIN-ONLY: Symbol Editor */}
+        <Route
+          path="/admin/editor-simbolos"
+          element={<SymbolEditor />}
         />
       </Routes>
 
