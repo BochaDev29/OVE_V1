@@ -7,7 +7,6 @@ import jsPDF from 'jspdf';
 // Componentes hijos
 import PlannerToolbar, { type Tool } from './PlannerToolbar';
 import PlannerSidebar from './PlannerSidebar';
-import UnifilarSidebar from './UnifilarSidebar'; // 🆕 Sidebar para modo unifilar
 
 // Utilidades
 import { generateUnifilarDiagram } from '../../lib/planner/utils/unifilarAutoMapper'; // 🆕 Generador automático
@@ -46,7 +45,8 @@ import { NewFloorModal } from './NewFloorModal';
 import { EditFloorModal } from './EditFloorModal';
 import { OpeningConfigModal, type DoorConfig, type WindowConfig, type PassageConfig } from './OpeningConfigModal';
 import { PlannerBottomHub } from './PlannerBottomHub';
-import type { PaperFormat } from '../../types/floors';
+import type { PaperFormat, Floor } from '../../types/floors';
+import { createFloor } from '../../types/floors';
 import type { Opening } from '../../types/openings';
 import { createDoor, createWindow, createPassage } from '../../types/openings';
 import { findNearestWall } from '../../lib/planner/utils/openingGeometry';
@@ -87,8 +87,14 @@ export default function PlannerCanvas() {
     floorPlan: { floors: any[]; pixelsPerMeter: number };
     singleLine: { floors: any[]; pixelsPerMeter: number };
   }>({
-    floorPlan: { floors: [], pixelsPerMeter: 50 },
-    singleLine: { floors: [], pixelsPerMeter: 50 }
+    floorPlan: {
+      floors: [createFloor('Planta Baja', 'A4-landscape')],
+      pixelsPerMeter: 50
+    },
+    singleLine: {
+      floors: [createFloor('Diagrama Unifilar', 'A4-landscape')],
+      pixelsPerMeter: 50
+    }
   });
 
   // ✅ HOOK: Estado del Canvas (NUEVA ESTRUCTURA CON FLOORS Y LAYERS)
@@ -239,10 +245,22 @@ export default function PlannerCanvas() {
       console.log('🔧 Auto-generando diagrama unifilar...');
 
       try {
+        // 🆕 LIMPIAR símbolos del modo planta ANTES de generar unifilar
+        console.log('🧹 Limpiando símbolos del modo planta...');
+        setSymbols([]);  // Vaciar array de símbolos
+        setPipes([]);    // Vaciar array de pipes
+
+        // Obtener formato de hoja actual
+        const currentFloor = floors.find(f => f.id === currentFloorId);
+        const sheetFormat = currentFloor?.format;
+
+        console.log('📐 Formato de hoja:', sheetFormat);
+
         // Generar símbolos y conexiones desde la configuración del Wizard
         const { symbols: generatedSymbols, pipes: generatedPipes } = generateUnifilarDiagram(calculationData.config, {
-          startX: 400,  // Más centrado en el viewport
-          startY: 200,  // Más visible desde arriba
+          sheetFormat,  // 🆕 Pasar formato de hoja para sistema de grilla
+          startX: 400,  // Fallback para modo legacy
+          startY: 200,
           verticalSpacing: 80,
           horizontalSpacing: 300
         });
@@ -252,23 +270,31 @@ export default function PlannerCanvas() {
           pipes: generatedPipes
         });
 
-        // Agregar símbolos al canvas
+        // 🆕 LIMPIAR símbolos del modo planta antes de agregar símbolos del unifilar
+        // Los símbolos del modo planta (outlets, switches) NO deben aparecer en modo unifilar
+        console.log('🧹 Limpiando símbolos del modo planta...');
+
+        // Agregar símbolos del unifilar (REEMPLAZAR, no agregar)
         if (generatedSymbols.length > 0) {
-          setSymbols(generatedSymbols);
+          console.log('🔍 Antes de setSymbols, currentFloorId:', currentFloorId);
+          console.log('🔍 Símbolos generados tienen layer:', generatedSymbols[0]?.layer);
+          setSymbols(generatedSymbols);  // Reemplaza TODOS los símbolos
         }
 
-        // Agregar conexiones (pipes) al canvas
+        // Agregar conexiones (pipes) del unifilar (REEMPLAZAR, no agregar)
         if (generatedPipes.length > 0) {
-          setPipes(generatedPipes);
+          setPipes(generatedPipes);  // Reemplaza TODOS los pipes
         }
 
-        // Marcar como inicializado
+        // Marcar como inicializado INMEDIATAMENTE para evitar re-ejecución
         setUnifilarInitialized(true);
+
+        console.log('✅ Auto-generación completada');
       } catch (error) {
         console.error('❌ Error generando diagrama unifilar:', error);
       }
     }
-  }, [activeMode, unifilarInitialized, calculationData, setSymbols]);
+  }, [activeMode, unifilarInitialized, calculationData?.config]);
 
   // 🆕 HELPER: Obtener datos del circuito desde calculationData
   const getCircuitData = useCallback((circuitId?: string) => {
@@ -711,7 +737,6 @@ export default function PlannerCanvas() {
     const currentFloorsState = canvasState.floors;
 
     // 1. Guardar estado actual en el store antes de persistir
-    // Importante: Guardamos el array de floors completo en el slot del modo activo
     modeStore.current[activeMode] = {
       floors: currentFloorsState,
       pixelsPerMeter
@@ -984,22 +1009,38 @@ export default function PlannerCanvas() {
   const handleSwitchMode = (newMode: 'floorPlan' | 'singleLine') => {
     if (newMode === activeMode) return;
 
+    console.log(`🔄 Cambiando de ${activeMode} a ${newMode}`);
+
     // 1. Guardar estado actual (array de floors completo) en store
     modeStore.current[activeMode] = {
       floors: canvasState.floors,
       pixelsPerMeter
     };
+    console.log(`💾 Guardado estado de ${activeMode}:`, {
+      floorsCount: canvasState.floors.length,
+      symbolsCount: canvasState.floors[0]?.elements?.symbols?.length || 0
+    });
 
     // 2. Cambiar modo
     setActiveMode(newMode);
 
-    // 3. Cargar estado del nuevo modo
-    const nextData = modeStore.current[newMode];
+    // 🆕 Si entramos a modo unifilar y estamos en arquitectura, cambiar a electricidad
+    if (newMode === 'singleLine' && activeCategory === 'architecture') {
+      setActiveCategory('electricity');
+      console.log('📐 Auto-cambiando categoría a Electricidad (arquitectura no disponible en unifilar)');
+    }
 
-    // Si hay datos previos para ese modo (o son los iniciales vacíos)
-    if (nextData && nextData.floors) {
+    // 3. Cargar estado del nuevo modo
+    let nextData = modeStore.current[newMode];
+    console.log(`📂 Cargando estado de ${newMode}:`, {
+      floorsCount: nextData?.floors?.length || 0,
+      symbolsCount: nextData?.floors?.[0]?.elements?.symbols?.length || 0
+    });
+
+    // Si hay datos previos para ese modo
+    if (nextData && nextData.floors && nextData.floors.length > 0) {
       canvasState.setFloors(nextData.floors);
-      // Resetear IDs de planta y capa actuales si es necesario (asumimos que la primera planta es la de trabajo)
+      // Resetear IDs de planta y capa actuales si es necesario
       if (nextData.floors.length > 0) {
         canvasState.setCurrentFloorId(nextData.floors[0].id);
         canvasState.setCurrentLayerId('layer-0');
@@ -1010,7 +1051,7 @@ export default function PlannerCanvas() {
     selectShape(null);
     setSelectedOpeningId(null);
     setSelectedGroupId(null);
-    console.log(`🔄 Modo cambiado a: ${newMode}`);
+    console.log(`✅ Modo cambiado a: ${newMode}`);
   };
 
 
@@ -1449,11 +1490,13 @@ export default function PlannerCanvas() {
         {sym.label && (
           <Text
             text={sym.label}
-            fontSize={10}
-            x={10}
-            y={10}
+            fontSize={sym.type === 'meter' ? 18 : 10}
+            x={sym.type === 'meter' ? -35 : 10}
+            y={sym.type === 'meter' ? 12 : 10}
+            width={sym.type === 'meter' ? 70 : undefined}
+            align={sym.type === 'meter' ? 'center' : 'left'}
             rotation={-1 * (sym.rotation || 0)}
-            fill="#64748b"
+            fill={sym.type === 'meter' ? '#000000' : '#64748b'}
           />
         )}
       </Group>
@@ -2364,32 +2407,24 @@ export default function PlannerCanvas() {
         </div>
 
         {/* EL CEREBRO (VISOR LATERAL UNIFICADO - 35%) */}
-        {/* 🆕 Renderizado condicional según modo */}
-        {activeMode === 'floorPlan' && (
-          <PlannerVisionPanel
-            calculationData={calculationData}
-            symbols={symbols}
-            activeMode={activeMode}
-            layers={getCurrentFloor()?.layers || []}
-            currentLayerId={currentLayerId}
-            onLayerChange={setCurrentLayerId}
-            onToggleVisibility={toggleLayerVisibility}
-            onToggleLock={toggleLayerLock}
-            onColorChange={updateLayerColor}
-            onRoomDragStart={handleRoomDragStart}
-            onRoomSelect={handleRoomSelect}
-            isCollapsed={isVisionPanelCollapsed}
-            onToggleCollapse={() => setIsVisionPanelCollapsed(!isVisionPanelCollapsed)}
-            activeTab={visionActiveTab}
-            onTabChange={setVisionActiveTab}
-          />
-        )}
-
-        {activeMode === 'singleLine' && calculationData?.config && (
-          <UnifilarSidebar
-            config={calculationData.config}
-          />
-        )}
+        {/* 🆕 Mismo panel para ambos modos, solo cambian las capas disponibles */}
+        <PlannerVisionPanel
+          calculationData={calculationData}
+          symbols={symbols}
+          activeMode={activeMode}
+          layers={getCurrentFloor()?.layers || []}
+          currentLayerId={currentLayerId}
+          onLayerChange={setCurrentLayerId}
+          onToggleVisibility={toggleLayerVisibility}
+          onToggleLock={toggleLayerLock}
+          onColorChange={updateLayerColor}
+          onRoomDragStart={handleRoomDragStart}
+          onRoomSelect={handleRoomSelect}
+          isCollapsed={isVisionPanelCollapsed}
+          onToggleCollapse={() => setIsVisionPanelCollapsed(!isVisionPanelCollapsed)}
+          activeTab={visionActiveTab}
+          onTabChange={setVisionActiveTab}
+        />
 
 
         <PlannerBottomHub

@@ -67,7 +67,7 @@ export const usePlannerPersistence = (config: PersistenceConfig) => {
             const drawingData = await PlanService.loadPlan(projectId);
 
             if (drawingData && Object.keys(drawingData).length > 0) {
-                // Validar estructura solo si hay datos
+                // Validar estructura dual-mode
                 if (drawingData.floorPlan && drawingData.singleLine) {
                     // Guardar en modeStore
                     modeStore.current.floorPlan = drawingData.floorPlan;
@@ -78,7 +78,6 @@ export const usePlannerPersistence = (config: PersistenceConfig) => {
                     if (initialData.floors) {
                         canvasState.setFloors(initialData.floors);
                     } else {
-                        // Compatibilidad con formato viejo (si existiera, aunque el hook dice que no)
                         console.warn('⚠️ No se encontraron floors en floorPlan, usando fallback');
                     }
                     canvasState.setPixelsPerMeter(initialData.pixelsPerMeter || 50);
@@ -171,7 +170,7 @@ export const usePlannerPersistence = (config: PersistenceConfig) => {
             // 1. Actualizar modeStore con estado actual
             modeStore.current[activeMode] = canvasState.getState();
 
-            // 2. Preparar datos de dibujo
+            // 2. Preparar datos de dibujo (dual-mode)
             const drawingData: DrawingData = {
                 floorPlan: modeStore.current.floorPlan,
                 singleLine: modeStore.current.singleLine,

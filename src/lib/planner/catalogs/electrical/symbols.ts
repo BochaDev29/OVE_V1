@@ -275,7 +275,7 @@ export const electricalSymbols: SymbolDefinition[] = [
         id: 'meter',
         name: 'Medidor de Energía',
         category: 'electrical',
-        svgPath: 'M-10,-15 h20 v30 h-20 z M-7,-10 h14 v20 h-14 z',
+        svgPath: 'M-35,-45 h70 v90 h-70 Z M-35,-28 h70',
         strokeColor: '#000000',
         fillColor: '#ffffff',
         metadata: {

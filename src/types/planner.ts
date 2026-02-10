@@ -1,5 +1,6 @@
 // Tipos centralizados para el Taller CAD
 import { CircuitInventoryItemForCAD } from '../lib/electrical-rules';
+import type { Floor } from './floors';
 
 export type SymbolType =
     // Símbolos de Planta
@@ -113,19 +114,26 @@ export interface ProjectData {
 }
 
 export interface DrawingData {
-    floorPlan: {
-        symbols: SymbolItem[];
-        walls: Wall[];
-        pipes: Pipe[];
-        auxLines: AuxLine[];
-        pixelsPerMeter: number;
+    // Formato nuevo (unificado) - ambos modos comparten el mismo canvas
+    floors?: Floor[];
+    pixelsPerMeter?: number;
+
+    // Formato antiguo (dual-mode) - para compatibilidad con proyectos existentes
+    floorPlan?: {
+        symbols?: SymbolItem[];
+        walls?: Wall[];
+        pipes?: Pipe[];
+        auxLines?: AuxLine[];
+        pixelsPerMeter?: number;
+        floors?: Floor[];
     };
-    singleLine: {
-        symbols: SymbolItem[];
-        walls: Wall[];
-        pipes: Pipe[];
-        auxLines: AuxLine[];
-        pixelsPerMeter: number;
+    singleLine?: {
+        symbols?: SymbolItem[];
+        walls?: Wall[];
+        pipes?: Pipe[];
+        auxLines?: AuxLine[];
+        pixelsPerMeter?: number;
+        floors?: Floor[];
     };
     backgroundBase64?: string | null;
     backgroundProps?: {

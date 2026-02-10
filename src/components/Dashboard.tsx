@@ -14,7 +14,8 @@ import {
   Users,
   Calculator,
   Settings,
-  Menu
+  Menu,
+  Palette // 🆕 Para botón de Editor de Símbolos
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -191,6 +192,20 @@ export default function Dashboard({
 
           <nav className="space-y-1">
             <SidebarItem id="projects" icon={LayoutDashboard} label="Mis Proyectos" />
+
+
+            {/* 🎨 ADMIN-ONLY: Botón de acceso rápido al Editor de Símbolos */}
+            {user && (
+              <button
+                onClick={() => navigate('/admin/editor-simbolos')}
+                className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg font-medium transition-colors bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200"
+              >
+                <Palette className="w-5 h-5" />
+                <span>Editor de Símbolos</span>
+              </button>
+            )}
+
+
             {/* Pestañas no funcionales ocultadas para esta versión */}
             {/* <SidebarItem id="certificates" icon={FileText} label="Certificados" /> */}
             {/* <SidebarItem id="clients" icon={Users} label="Clientes" /> */}

@@ -84,22 +84,25 @@ export default function PlannerSidebar({
         </button>
       </div>
 
-      {/* SELECTOR DE ESPECIALIDAD (ARQUI / ELEC) */}
+      {/* SELECTOR DE ESPECIALIDAD (ARQUI / ELEC / GEOM) */}
       <div className="flex bg-slate-900 p-1 rounded-xl shadow-lg ring-1 ring-white/10 mx-2">
-        <button
-          onClick={() => setActiveCategory('architecture')}
-          className={`relative p-1.5 md:px-4 md:py-1.5 rounded-lg transition-all active:scale-95 flex items-center gap-2 ${activeCategory === 'architecture'
-            ? 'bg-white/15 text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]'
-            : 'text-white/40 hover:text-white/60'
-            }`}
-          title="Modo Arquitectura"
-        >
-          <LayoutGrid className="w-4 h-4" />
-          <span className="hidden md:inline text-[10px] font-bold tracking-widest uppercase">Arqui</span>
-          {activeCategory === 'architecture' && (
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
-          )}
-        </button>
+        {/* 🏗️ Arquitectura - Solo en modo PLANTA */}
+        {activeMode === 'floorPlan' && (
+          <button
+            onClick={() => setActiveCategory('architecture')}
+            className={`relative p-1.5 md:px-4 md:py-1.5 rounded-lg transition-all active:scale-95 flex items-center gap-2 ${activeCategory === 'architecture'
+              ? 'bg-white/15 text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]'
+              : 'text-white/40 hover:text-white/60'
+              }`}
+            title="Modo Arquitectura"
+          >
+            <LayoutGrid className="w-4 h-4" />
+            <span className="hidden md:inline text-[10px] font-bold tracking-widest uppercase">Arqui</span>
+            {activeCategory === 'architecture' && (
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
+            )}
+          </button>
+        )}
         <button
           onClick={() => setActiveCategory('electricity')}
           className={`relative p-1.5 md:px-4 md:py-1.5 rounded-lg transition-all active:scale-95 flex items-center gap-2 ${activeCategory === 'electricity'

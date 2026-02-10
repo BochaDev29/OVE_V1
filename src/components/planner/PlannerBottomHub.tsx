@@ -29,10 +29,10 @@ export const PlannerBottomHub: React.FC<PlannerBottomHubProps> = ({
 }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Determinar qué herramientas mostrar
+    // Determinar qué herramientas mostrar según modo y categoría
     const tools: ToolDef[] = activeMode === 'singleLine'
-        ? UNIFILAR_TOOLS
-        : (activeCategory === 'architecture' ? ARCHI_TOOLS : (activeCategory === 'electricity' ? ELEC_TOOLS : GEOM_TOOLS));
+        ? (activeCategory === 'electricity' ? UNIFILAR_TOOLS : GEOM_TOOLS) // 🆕 En unifilar: UNIFILAR_TOOLS, no ELEC_TOOLS
+        : (activeCategory === 'architecture' ? ARCHI_TOOLS : (activeCategory === 'electricity' ? ELEC_TOOLS : GEOM_TOOLS)); // En planta: todas
 
     const scroll = (direction: 'left' | 'right') => {
         if (scrollRef.current) {
