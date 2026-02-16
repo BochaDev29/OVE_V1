@@ -1,5 +1,5 @@
 
-export type ShapeType = 'rect' | 'circle' | 'line' | 'text' | 'select';
+export type ShapeType = 'rect' | 'circle' | 'line' | 'arrow' | 'curve' | 'text' | 'select';
 
 export interface BaseShape {
   id: string;
@@ -7,6 +7,7 @@ export interface BaseShape {
   stroke: string;
   strokeWidth: number;
   fill: string;
+  rotation?: number;
 }
 
 export interface RectShape extends BaseShape {
@@ -17,17 +18,36 @@ export interface RectShape extends BaseShape {
   height: number;
 }
 
-export interface CircleShape extends BaseShape {
+export interface EllipseShape extends BaseShape {
   type: 'circle';
   cx: number;
   cy: number;
-  r: number;
+  rx: number;
+  ry: number;
 }
 
 export interface LineShape extends BaseShape {
   type: 'line';
   x1: number;
   y1: number;
+  x2: number;
+  y2: number;
+}
+
+export interface ArrowShape extends BaseShape {
+  type: 'arrow';
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export interface BezierCurveShape extends BaseShape {
+  type: 'curve';
+  x1: number;
+  y1: number;
+  qx: number;
+  qy: number;
   x2: number;
   y2: number;
 }
@@ -40,7 +60,7 @@ export interface TextShape extends BaseShape {
   fontSize: number;
 }
 
-export type Shape = RectShape | CircleShape | LineShape | TextShape;
+export type Shape = RectShape | EllipseShape | LineShape | ArrowShape | BezierCurveShape | TextShape;
 
 export interface Point {
   x: number;

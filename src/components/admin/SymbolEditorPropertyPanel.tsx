@@ -66,6 +66,15 @@ const SymbolEditorPropertyPanel: React.FC<PropertyPanelProps> = ({ selectedShape
                         />
                     </div>
                     <div className={styles.section}>
+                        <label className={styles.label}>Rotación (°)</label>
+                        <input
+                            type="number"
+                            value={selectedShape.rotation || 0}
+                            onChange={(e) => onUpdateShape({ rotation: parseInt(e.target.value) })}
+                            className={styles.numberInput}
+                        />
+                    </div>
+                    <div className={styles.section}>
                         <label className={styles.label}>Relleno</label>
                         <input
                             type="color"
@@ -86,12 +95,31 @@ const SymbolEditorPropertyPanel: React.FC<PropertyPanelProps> = ({ selectedShape
             {selectedShape.type === 'circle' && (
                 <>
                     <div className={styles.section}>
-                        <label className={styles.label}>Radio</label>
+                        <label className={styles.label}>Radio X</label>
                         <input
                             type="number"
                             min="1"
-                            value={Math.round(selectedShape.r)}
-                            onChange={(e) => onUpdateShape({ r: parseInt(e.target.value) })}
+                            value={Math.round((selectedShape as any).rx || (selectedShape as any).r || 0)}
+                            onChange={(e) => onUpdateShape({ rx: parseInt(e.target.value) } as any)}
+                            className={styles.numberInput}
+                        />
+                    </div>
+                    <div className={styles.section}>
+                        <label className={styles.label}>Radio Y</label>
+                        <input
+                            type="number"
+                            min="1"
+                            value={Math.round((selectedShape as any).ry || (selectedShape as any).r || 0)}
+                            onChange={(e) => onUpdateShape({ ry: parseInt(e.target.value) } as any)}
+                            className={styles.numberInput}
+                        />
+                    </div>
+                    <div className={styles.section}>
+                        <label className={styles.label}>Rotación (°)</label>
+                        <input
+                            type="number"
+                            value={selectedShape.rotation || 0}
+                            onChange={(e) => onUpdateShape({ rotation: parseInt(e.target.value) })}
                             className={styles.numberInput}
                         />
                     </div>

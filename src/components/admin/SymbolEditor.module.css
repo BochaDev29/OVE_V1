@@ -21,7 +21,27 @@
 
 .headerPropertyPanel {
     flex: 1;
-    max-width: 600px;
+    max-width: 500px;
+}
+
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.headerZoom {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.zoomLabel {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.5px;
 }
 
 .editorTitle {
@@ -253,4 +273,81 @@
 
 .tipText b {
     font-weight: 700;
+}
+
+.zoomControls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f1f5f9;
+    padding: 8px;
+    border-radius: 8px;
+}
+
+.zoomButton {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.zoomButton:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+}
+
+.zoomValue {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.zoomReset {
+    padding: 4px 8px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.zoomReset:hover {
+    background: #2563eb;
+}
+
+.actionButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.actionButton:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+    color: #1e293b;
+    transform: translateY(-1px);
 }

@@ -327,11 +327,11 @@ export const electricalSymbols: SymbolDefinition[] = [
         id: 'tm_2p',
         name: 'Térmica Bipolar',
         category: 'electrical',
-        svgPath: 'M-8,-8 h16 v16 h-16 z M0,-8 L0,8',
+        svgPath: 'M 0,31 L 0,75 M 4,25 A 4,4 0 1,0 -4,25 A 4,4 0 1,0 4,25 M 3,20 L 23,-11 M 0,-10 L 0,-50 M -10,-10 L 10,-10 M -10,-19 L 10,-29 M -10,-29 L 10,-19 M 17,-2 L 26,4 M 24,4 L 29,-2 M 28,-1 L 36,4 M 35,3 L 32,8 M 32,7 L 40,13 M 12,6 L 36,21 M 26,20 L 36,21 L 31,12',
         strokeColor: '#2563eb',
         fillColor: '#ffffff',
         metadata: {
-            description: 'Llave termomagnética 2 polos',
+            description: 'Llave termomagnética 2 polos (Diseño Personalizado)',
             normative: 'AEA 90364-5-53',
             defaultLabel: 'TM-2P'
         }

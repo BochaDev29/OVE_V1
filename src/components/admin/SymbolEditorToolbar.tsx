@@ -1,5 +1,5 @@
 import React from 'react';
-import { MousePointer2, Square, Circle, Minus, Type, Trash2, Undo } from 'lucide-react';
+import { MousePointer2, Square, Circle, Minus, Type, Trash2, Undo, Spline, MoveUpRight } from 'lucide-react';
 import { ShapeType } from '../symbolEditorTypes';
 import styles from './SymbolEditorToolbar.module.css';
 
@@ -23,6 +23,8 @@ const SymbolEditorToolbar: React.FC<ToolbarProps> = ({
         { id: 'rect' as ShapeType, icon: Square, label: 'Rectángulo (R)', key: 'R' },
         { id: 'circle' as ShapeType, icon: Circle, label: 'Círculo (C)', key: 'C' },
         { id: 'line' as ShapeType, icon: Minus, label: 'Línea (L)', key: 'L' },
+        { id: 'curve' as ShapeType, icon: Spline, label: 'Curva (A)', key: 'A' },
+        { id: 'arrow' as ShapeType, icon: MoveUpRight, label: 'Flecha (F)', key: 'F' },
         { id: 'text' as ShapeType, icon: Type, label: 'Texto (T)', key: 'T' },
     ];
 
