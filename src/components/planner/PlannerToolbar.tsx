@@ -2,7 +2,11 @@ import React, { useRef } from 'react';
 import { Minus, Activity, Trash2, XCircle, Ruler, Image as ImageIcon, Lock, Unlock, MoreHorizontal, Palette, MousePointer2 } from 'lucide-react';
 
 export type Tool = 'select' | 'wall' | 'pipe' | 'outlet' | 'light' | 'wall_light' | 'switch' | 'board' | 'fan' | 'ac' | 'tpu' | 'ground' | 'text' | 'table' | 'aux_line' | 'cp' | 'calibrate' |
-  'feed_point' | 'meter' | 'main_breaker' | 'tm_1p' | 'tm_2p' | 'tm_4p' | 'diff_switch' | 'dist_block' | 'load_arrow' | 'door' | 'window' | 'passage' | 'dimension' | 'double_outlet' | 'bell_button' |
+  'meter' | 'diff_switch' | 'dist_block' | 'load_arrow' | 'door' | 'window' | 'passage' | 'dimension' | 'double_outlet' | 'bell_button' |
+  'lp_220' | 'lp_380' | 'cs_220' | 'cs_380' | 'ct_220' | 'ct_380' |
+  'dist_block_2' | 'dist_block_3' | 'dist_block_4' | 'dist_block_5' | 'dist_block_6' | 'dist_block_7' | 'dist_block_8' | 'dist_block_9' | 'dist_block_10' |
+  'pia_1p' | 'pia_3p' | 'id_3p' |
+  'gm_thermo' | 'gm_mag' | 'contactor' | 'thermal_relay' |
   'rect' | 'circle' | 'triangle' | 'line' | 'arrow';
 
 // 🆕 Herramientas específicas por modo
@@ -19,10 +23,20 @@ export const FLOOR_PLAN_TOOLS: Tool[] = [
 
 export const SINGLE_LINE_TOOLS: Tool[] = [
   'select', 'pipe', 'aux_line', 'text', 'table',
-  // Símbolos unifilares
-  'feed_point', 'meter', 'main_breaker',
-  'tm_1p', 'tm_2p', 'tm_4p', 'diff_switch',
-  'dist_block', 'load_arrow', 'board', 'ground',
+  // Alimentación
+  'meter',
+  // Líneas y Circuitos
+  'lp_220', 'lp_380', 'cs_220', 'cs_380', 'ct_220', 'ct_380',
+  // Borneras
+  'dist_block_2', 'dist_block_3', 'dist_block_4', 'dist_block_5',
+  'dist_block_6', 'dist_block_7', 'dist_block_8', 'dist_block_9', 'dist_block_10',
+  // Protecciones
+  'pia_1p', 'pia_3p',
+  'diff_switch', 'id_3p',
+  // Motores y arranque
+  'gm_thermo', 'gm_mag', 'contactor', 'thermal_relay',
+  // Otros
+  'board', 'ground',
   // Geometrías (para tableros y anotaciones)
   'rect', 'circle', 'line', 'arrow'
 ];

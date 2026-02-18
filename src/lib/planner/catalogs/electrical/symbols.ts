@@ -188,7 +188,7 @@ export const electricalSymbols: SymbolDefinition[] = [
         id: 'ground',
         name: 'Puesta a Tierra (PAT)',
         category: 'electrical',
-        svgPath: 'M0,-5 L0,5 M-8,5 L8,5 M-5,9 L5,9 M-2,13 L2,13',
+        svgPath: 'M -6 43 L 6 43 M -10 34 L 10 34 M -20 24 L 20 24 M -30 14 L 30 14 M 0 14 L 0 -27 M -7 -43 h 15 v 15 h -15 z M -1,-36 a 1,1 0 1,0 2,0 a 1,1 0 1,0 -2,0',
         strokeColor: '#15803d',
         metadata: {
             description: 'Jabalina de puesta a tierra',
@@ -258,19 +258,8 @@ export const electricalSymbols: SymbolDefinition[] = [
     },
 
     // ========== SÍMBOLOS UNIFILARES ==========
-    {
-        id: 'feed_point',
-        name: 'Punto de Alimentación',
-        category: 'electrical',
-        svgPath: 'M-10,0 A10,10 0 1,0 10,0 A10,10 0 1,0 -10,0',
-        strokeColor: '#000000',
-        fillColor: '#000000',
-        metadata: {
-            description: 'Punto de alimentación de red',
-            normative: 'AEA 90364-4-41',
-            defaultLabel: 'RED'
-        }
-    },
+
+
     {
         id: 'meter',
         name: 'Medidor de Energía',
@@ -278,100 +267,321 @@ export const electricalSymbols: SymbolDefinition[] = [
         svgPath: 'M-35,-45 h70 v90 h-70 Z M-35,-28 h70',
         strokeColor: '#000000',
         fillColor: '#ffffff',
+        textElements: [
+            { text: 'kWh', x: -35, y: 12, width: 70, fontSize: 18, fontStyle: 'bold', align: 'center', fill: '#000000' }
+        ],
         metadata: {
             description: 'Medidor de energía eléctrica',
             normative: 'AEA 90364-4-41',
             defaultLabel: 'kWh'
         }
     },
+
+    // --- Líneas, Conectores y Circuitos ---
     {
-        id: 'main_breaker',
-        name: 'Disyuntor General',
+        id: 'lp_220',
+        name: 'Línea Principal 220V',
         category: 'electrical',
-        svgPath: 'M-10,-10 h20 v20 h-20 z',
-        strokeColor: '#dc2626',
-        fillColor: '#ffffff',
+        svgPath: 'M -1 -40 L -1 40 M -11 0 L 9 -20 M -1 0 L 9 -10 M 8,-10 a 1,1 0 1,0 2,0 a 1,1 0 1,0 -2,0',
+        strokeColor: '#000000',
         metadata: {
-            description: 'Disyuntor o llave general',
-            normative: 'AEA 90364-5-53',
-            defaultLabel: 'DG'
+            description: 'Línea principal monofásica 220V',
+            normative: 'AEA 90364',
+            defaultLabel: 'LP 220V'
         }
     },
     {
-        id: 'diff_switch',
-        name: 'Interruptor Diferencial',
+        id: 'lp_380',
+        name: 'Línea Principal 380V',
         category: 'electrical',
-        svgPath: 'M-10,-10 h20 v20 h-20 z M-10,0 L10,0',
-        strokeColor: '#7c3aed',
-        fillColor: '#ffffff',
+        svgPath: 'M -1 -40 L -1 40 M -11 10 L 9 -10 M -11 0 L 9 -20 M -11 -10 L 9 -30 M -1 10 L 9 0 M 8,0 a 1,1 0 1,0 2,0 a 1,1 0 1,0 -2,0',
+        strokeColor: '#000000',
         metadata: {
-            description: 'Interruptor diferencial (ID)',
-            normative: 'AEA 90364-5-53',
-            defaultLabel: 'ID'
+            description: 'Línea principal trifásica 380V',
+            normative: 'AEA 90364',
+            defaultLabel: 'LP 380V'
         }
     },
     {
-        id: 'tm_1p',
-        name: 'Térmica Monopolar',
+        id: 'cs_220',
+        name: 'Circuito Seccional 220V',
         category: 'electrical',
-        svgPath: 'M-8,-8 h16 v16 h-16 z',
-        strokeColor: '#2563eb',
-        fillColor: '#ffffff',
+        svgPath: 'M -1 -40 L -1 40 M -11 0 L 9 -20 M -1 0 L 9 -10 M 8,-10 a 1,1 0 1,0 2,0 a 1,1 0 1,0 -2,0',
+        strokeColor: '#000000',
         metadata: {
-            description: 'Llave termomagnética 1 polo',
-            normative: 'AEA 90364-5-53',
-            defaultLabel: 'TM-1P'
+            description: 'Circuito seccional monofásico 220V',
+            normative: 'AEA 90364',
+            defaultLabel: 'CS 220V'
         }
     },
     {
-        id: 'tm_2p',
-        name: 'Térmica Bipolar',
+        id: 'cs_380',
+        name: 'Circuito Seccional 380V',
         category: 'electrical',
-        svgPath: 'M 0,31 L 0,75 M 4,25 A 4,4 0 1,0 -4,25 A 4,4 0 1,0 4,25 M 3,20 L 23,-11 M 0,-10 L 0,-50 M -10,-10 L 10,-10 M -10,-19 L 10,-29 M -10,-29 L 10,-19 M 17,-2 L 26,4 M 24,4 L 29,-2 M 28,-1 L 36,4 M 35,3 L 32,8 M 32,7 L 40,13 M 12,6 L 36,21 M 26,20 L 36,21 L 31,12',
-        strokeColor: '#2563eb',
-        fillColor: '#ffffff',
+        svgPath: 'M -1 -40 L -1 40 M -11 10 L 9 -10 M -11 0 L 9 -20 M -11 -10 L 9 -30 M -1 10 L 9 0 M 8,0 a 1,1 0 1,0 2,0 a 1,1 0 1,0 -2,0',
+        strokeColor: '#000000',
         metadata: {
-            description: 'Llave termomagnética 2 polos (Diseño Personalizado)',
-            normative: 'AEA 90364-5-53',
-            defaultLabel: 'TM-2P'
+            description: 'Circuito seccional trifásico 380V',
+            normative: 'AEA 90364',
+            defaultLabel: 'CS 380V'
         }
     },
     {
-        id: 'tm_4p',
-        name: 'Térmica Tetrapolar',
+        id: 'ct_220',
+        name: 'Circuito Terminal 220V',
         category: 'electrical',
-        svgPath: 'M-10,-10 h20 v20 h-20 z M-5,-10 L-5,10 M0,-10 L0,10 M5,-10 L5,10',
-        strokeColor: '#2563eb',
-        fillColor: '#ffffff',
+        svgPath: 'M -1 -35 L -1 35 M -6 26 L -1 35 L 4 26 M 4 -9 L -6 1 M 5 -2 L -1 4 M 4,-1 a 1,1 0 1,0 2,0 a 1,1 0 1,0 -2,0',
+        strokeColor: '#000000',
         metadata: {
-            description: 'Llave termomagnética 4 polos',
-            normative: 'AEA 90364-5-53',
-            defaultLabel: 'TM-4P'
+            description: 'Circuito terminal monofásico 220V',
+            normative: 'AEA 90364',
+            defaultLabel: 'CT 220V'
         }
     },
     {
-        id: 'dist_block',
-        name: 'Bornera de Distribución',
+        id: 'ct_380',
+        name: 'Circuito Terminal 380V',
         category: 'electrical',
-        svgPath: 'M-30,-5 h60 v10 h-60 z M-20,-5 L-20,5 M-10,-5 L-10,5 M0,-5 L0,5 M10,-5 L10,5 M20,-5 L20,5',
+        svgPath: 'M -1 -35 L -1 35 M -6 26 L -1 35 L 4 26 M 4 -21 L -6 -11 M 4 -16 L -6 -6 M 4 -9 L -6 1 M 5 -2 L -1 4 M 4,-1 a 1,1 0 1,0 2,0 a 1,1 0 1,0 -2,0',
+        strokeColor: '#000000',
+        metadata: {
+            description: 'Circuito terminal trifásico 380V',
+            normative: 'AEA 90364',
+            defaultLabel: 'CT 380V'
+        }
+    },
+
+    // --- Borneras de distribución (PAT + N bornes CT) ---
+    {
+        id: 'dist_block_2',
+        name: 'Bornera (PAT + 2 bornes)',
+        category: 'electrical',
+        svgPath: 'M -2,-10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,0 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -8 -20 h 15 v 40 h -15 z M -2,10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0',
         strokeColor: '#64748b',
         fillColor: '#e2e8f0',
         metadata: {
-            description: 'Bornera de distribución',
+            description: 'Bornera de distribución: 1 borne PAT + 2 bornes CT',
             normative: 'AEA 90364-5-52',
             defaultLabel: 'BORNES'
         }
     },
     {
-        id: 'load_arrow',
-        name: 'Salida de Carga',
+        id: 'dist_block_3',
+        name: 'Bornera (PAT + 3 bornes)',
         category: 'electrical',
-        svgPath: 'M0,0 L0,20 M-5,15 L0,20 L5,15',
-        strokeColor: '#000000',
+        svgPath: 'M -2,-10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,0 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -8 -20 h 15 v 50 h -15 z M -2,10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0',
+        strokeColor: '#64748b',
+        fillColor: '#e2e8f0',
         metadata: {
-            description: 'Flecha de salida a circuito',
+            description: 'Bornera de distribución: 1 borne PAT + 3 bornes CT',
             normative: 'AEA 90364-5-52',
-            defaultLabel: 'CIRCUITO'
+            defaultLabel: 'BORNES'
+        }
+    },
+    {
+        id: 'dist_block_4',
+        name: 'Bornera (PAT + 4 bornes)',
+        category: 'electrical',
+        svgPath: 'M -2,-10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,0 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -8 -30 h 15 v 60 h -15 z M -2,10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0',
+        strokeColor: '#64748b',
+        fillColor: '#e2e8f0',
+        metadata: {
+            description: 'Bornera de distribución: 1 borne PAT + 4 bornes CT',
+            normative: 'AEA 90364-5-52',
+            defaultLabel: 'BORNES'
+        }
+    },
+    {
+        id: 'dist_block_5',
+        name: 'Bornera (PAT + 5 bornes)',
+        category: 'electrical',
+        svgPath: 'M -2,-10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,0 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -8 -40 h 15 v 70 h -15 z M -2,-31 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0',
+        strokeColor: '#64748b',
+        fillColor: '#e2e8f0',
+        metadata: {
+            description: 'Bornera de distribución: 1 borne PAT + 5 bornes CT',
+            normative: 'AEA 90364-5-52',
+            defaultLabel: 'BORNES'
+        }
+    },
+    {
+        id: 'dist_block_6',
+        name: 'Bornera (PAT + 6 bornes)',
+        category: 'electrical',
+        svgPath: 'M -2,-10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,0 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -8 -40 h 15 v 80 h -15 z M -2,-31 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,30 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0',
+        strokeColor: '#64748b',
+        fillColor: '#e2e8f0',
+        metadata: {
+            description: 'Bornera de distribución: 1 borne PAT + 6 bornes CT',
+            normative: 'AEA 90364-5-52',
+            defaultLabel: 'BORNES'
+        }
+    },
+    {
+        id: 'dist_block_7',
+        name: 'Bornera (PAT + 7 bornes)',
+        category: 'electrical',
+        svgPath: 'M -2,-10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,0 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -8 -40 h 15 v 90 h -15 z M -2,-31 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,30 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,40 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0',
+        strokeColor: '#64748b',
+        fillColor: '#e2e8f0',
+        metadata: {
+            description: 'Bornera de distribución: 1 borne PAT + 7 bornes CT',
+            normative: 'AEA 90364-5-52',
+            defaultLabel: 'BORNES'
+        }
+    },
+    {
+        id: 'dist_block_8',
+        name: 'Bornera (PAT + 8 bornes)',
+        category: 'electrical',
+        svgPath: 'M -2,-10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,0 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -8 -50 h 15 v 100 h -15 z M -2,-31 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,30 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-40 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,40 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0',
+        strokeColor: '#64748b',
+        fillColor: '#e2e8f0',
+        metadata: {
+            description: 'Bornera de distribución: 1 borne PAT + 8 bornes CT',
+            normative: 'AEA 90364-5-52',
+            defaultLabel: 'BORNES'
+        }
+    },
+    {
+        id: 'dist_block_9',
+        name: 'Bornera (PAT + 9 bornes)',
+        category: 'electrical',
+        svgPath: 'M -2,-10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,0 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -8 -60 h 15 v 110 h -15 z M -2,-31 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-50 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,30 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-40 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,40 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0',
+        strokeColor: '#64748b',
+        fillColor: '#e2e8f0',
+        metadata: {
+            description: 'Bornera de distribución: 1 borne PAT + 9 bornes CT',
+            normative: 'AEA 90364-5-52',
+            defaultLabel: 'BORNES'
+        }
+    },
+    {
+        id: 'dist_block_10',
+        name: 'Bornera (PAT + 10 bornes)',
+        category: 'electrical',
+        svgPath: 'M -2,-10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,0 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -8 -60 h 15 v 120 h -15 z M -2,-31 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-20 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-50 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,30 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,-40 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,40 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -2,50 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0',
+        strokeColor: '#64748b',
+        fillColor: '#e2e8f0',
+        metadata: {
+            description: 'Bornera de distribución: 1 borne PAT + 10 bornes CT',
+            normative: 'AEA 90364-5-52',
+            defaultLabel: 'BORNES'
+        }
+    },
+
+
+    {
+        id: 'pia_1p',
+        name: 'PIA Monofásica',
+        category: 'electrical',
+        svgPath: 'M -12 13 L -12 50 M 5 -19 L -10 6 M -17 -20 L -7 -20 M -17 -26 L -7 -36 M -17 -36 L -7 -26 M -12 -21 L -12 -51 M -16,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M 0 -10 L 5 -7 M -4 -3 L 12 8 M 2 7 L 12 8 L 8 -1 M 4 -6 L 8 -11 M 7 -11 L 14 -6 M 11 -2 L 14 -7 M 10 -3 L 17 1',
+        strokeColor: '#2563eb',
+        fillColor: '#ffffff',
+        metadata: {
+            description: 'Protección integral automática monofásica',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'PIA-1P'
+        }
+    },
+    {
+        id: 'pia_3p',
+        name: 'PIA Trifásica',
+        category: 'electrical',
+        svgPath: 'M -12 13 L -12 50 M 5 -19 L -10 6 M -17 -20 L -7 -20 M -17 -26 L -7 -36 M -17 -36 L -7 -26 M -12 -21 L -12 -51 M -16,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M 0 -10 L 5 -7 M -4 -3 L 12 8 M 2 7 L 12 8 L 8 -1 M 4 -6 L 8 -11 M 7 -11 L 14 -6 M 11 -2 L 14 -7 M 10 -3 L 17 1',
+        strokeColor: '#2563eb',
+        fillColor: '#ffffff',
+        metadata: {
+            description: 'Protección integral automática trifásica',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'PIA-3P'
+        }
+    },
+
+    {
+        id: 'diff_switch',
+        name: 'Interruptor Diferencial Monofásico',
+        category: 'electrical',
+        svgPath: 'M -16,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M -12 50 L -12 13 M -18 -21 L -6 -21 M -12 -21 L -12 -51 M -19 -28 L -5 -36 M -20 -36 L -5 -28 M -10 5 L 5 -19 M 8 -7 h 12 v 8 h -12 z M -5 -3 L 7 -3 M 14 2 L 14 30 M -21,29 a 9,3 0 1,0 18,0 a 9,3 0 1,0 -18,0 M -3 29 L 14 29',
+        strokeColor: '#7c3aed',
+        fillColor: '#ffffff',
+        metadata: {
+            description: 'Interruptor diferencial monofásico (ID)',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'ID-1P'
+        }
+    },
+    {
+        id: 'id_3p',
+        name: 'Interruptor Diferencial Trifásico',
+        category: 'electrical',
+        svgPath: 'M -16,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M -12 50 L -12 13 M -18 -21 L -6 -21 M -12 -21 L -12 -51 M -19 -28 L -5 -36 M -20 -36 L -5 -28 M -10 5 L 5 -19 M 8 -7 h 12 v 8 h -12 z M -5 -3 L 7 -3 M 14 2 L 14 30 M -21,29 a 9,3 0 1,0 18,0 a 9,3 0 1,0 -18,0 M -3 29 L 14 29',
+        strokeColor: '#7c3aed',
+        fillColor: '#ffffff',
+        metadata: {
+            description: 'Interruptor diferencial trifásico (ID)',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'ID-3P'
+        }
+    },
+
+    // --- Motores y arranque ---
+    {
+        id: 'gm_thermo',
+        name: 'Guarda Motor Magnetotérmico',
+        category: 'electrical',
+        svgPath: 'M -7 0 h 15 v 40 h -15 z M 0 -50 L 0 -30 M -5 -30 L 5 -30 M -8 20 L 8 20 M 0 5 L 5 5 M -1 14 L 5 14 M 4 5 L 4 15 M 0 14 L 0 20 M 0 -10 L 0 6 M 0 40 L 0 50 M -40 -26 h 10 v 10 h -10 z M -48 -21 L -11 -21 M -35 -26 L -35 30 M -35 10 L -7 10 M -35 30 L -8 30 M -15 -25 L 0 -10 M -48 -26 L -48 -16',
+        strokeColor: '#000000',
+        fillColor: '#ffffff',
+        textElements: [
+            { text: 'Ɪ>', x: -7, y: 27, width: 15, fontSize: 8, fontStyle: 'bold', align: 'center', fill: '#000000' }
+        ],
+        metadata: {
+            description: 'Guarda motor magnetotérmico',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'GM-MT'
+        }
+    },
+    {
+        id: 'gm_mag',
+        name: 'Guarda Motor Magnético',
+        category: 'electrical',
+        svgPath: 'M -7 0 h 15 v 18 h -15 z M 0 -50 L 0 -30 M -5 -30 L 5 -30 M 0 -11 L 0 1 M 0 19 L 0 29 M -40 -26 h 10 v 10 h -10 z M -48 -21 L -11 -21 M -35 -26 L -35 11 M -35 10 L -7 10 M -15 -25 L 0 -10 M -48 -26 L -48 -16',
+        strokeColor: '#000000',
+        fillColor: '#ffffff',
+        textElements: [
+            { text: 'Ɪ>', x: -7, y: 6, width: 15, fontSize: 8, fontStyle: 'bold', align: 'center', fill: '#000000' }
+        ],
+        metadata: {
+            description: 'Guarda motor magnético',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'GM-M'
+        }
+    },
+    {
+        id: 'contactor',
+        name: 'Contactor',
+        category: 'electrical',
+        svgPath: 'M 20 -10 h 15 v 7 h -15 z M 28 -10 L 28 -20 M 28 -2 L 28 8 M 25,-22 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M 26,10 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0 M -6 -6 L 20 -6 M 0 0 L 0 20 M 0 0 L -10 -10 M 0 -10 L 0 -30',
+        strokeColor: '#000000',
+        fillColor: '#ffffff',
+        metadata: {
+            description: 'Contactor',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'KM'
+        }
+    },
+    {
+        id: 'thermal_relay',
+        name: 'Relé Térmico',
+        category: 'electrical',
+        svgPath: 'M 0 -4 L 12 -4 M 0 3 L 11 3 M 12 -5 L 12 4 M 0 -23 L 0 -3 M 0 3 L 0 23 M -22 -9 h 45 v 18 h -45 z',
+        strokeColor: '#000000',
+        fillColor: '#ffffff',
+        metadata: {
+            description: 'Relé térmico de sobrecarga',
+            normative: 'AEA 90364-5-53',
+            defaultLabel: 'F'
         }
     }
 ];

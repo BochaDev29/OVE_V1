@@ -1487,16 +1487,32 @@ export default function PlannerCanvas() {
           lineJoin="round"
           opacity={sym.nature === 'relevado' ? NATURE_OPACITY.relevado : NATURE_OPACITY.proyectado}
         />
+        {/* Renderizado de Textos Embebidos (parte del diseño del símbolo) */}
+        {symbolDef.textElements?.map((te, idx) => (
+          <Text
+            key={`te-${idx}`}
+            text={te.text}
+            x={te.x}
+            y={te.y}
+            width={te.width} // 🆕 Soporte para ancho
+            align={te.align || 'center'} // 🆕 Soporte para alineación
+            fontSize={te.fontSize}
+            fontStyle={te.fontStyle}
+            fill={te.fill || symbolDef.strokeColor}
+            rotation={-1 * (sym.rotation || 0)} // Mantener texto horizontal respecto al papel
+            verticalAlign="middle"
+          />
+        ))}
+
+        {/* Etiqueta de Usuario (Nombre del circuito, etc.) */}
         {sym.label && (
           <Text
             text={sym.label}
-            fontSize={sym.type === 'meter' ? 18 : 10}
-            x={sym.type === 'meter' ? -35 : 10}
-            y={sym.type === 'meter' ? 12 : 10}
-            width={sym.type === 'meter' ? 70 : undefined}
-            align={sym.type === 'meter' ? 'center' : 'left'}
+            fontSize={10}
+            x={15}
+            y={15}
             rotation={-1 * (sym.rotation || 0)}
-            fill={sym.type === 'meter' ? '#000000' : '#64748b'}
+            fill="#64748b"
           />
         )}
       </Group>

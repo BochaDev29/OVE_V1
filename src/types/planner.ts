@@ -9,10 +9,20 @@ export type SymbolType =
     | 'motion_sensor' | 'photo_cell' | 'riser'
     | 'cp' | 'ac' | 'fan' | 'motor_1p' | 'motor_3p'
     | 'board' | 'tpu' | 'ground'
-    // Símbolos Unifilares
-    | 'feed_point' | 'meter' | 'main_breaker'
-    | 'tm_1p' | 'tm_2p' | 'tm_4p' | 'diff_switch'
-    | 'dist_block' | 'load_arrow'
+    // Símbolos Unifilares — Alimentación
+    | 'meter'
+    // Símbolos Unifilares — Líneas y Circuitos
+    | 'lp_220' | 'lp_380' | 'cs_220' | 'cs_380' | 'ct_220' | 'ct_380'
+    // Símbolos Unifilares — Borneras
+    | 'dist_block' | 'dist_block_2' | 'dist_block_3' | 'dist_block_4' | 'dist_block_5'
+    | 'dist_block_6' | 'dist_block_7' | 'dist_block_8' | 'dist_block_9' | 'dist_block_10'
+    // Símbolos Unifilares — Protecciones
+    | 'pia_1p' | 'pia_3p'
+    | 'diff_switch' | 'id_3p'
+    // Símbolos Unifilares — Motores y arranque
+    | 'gm_thermo' | 'gm_mag' | 'contactor' | 'thermal_relay'
+    // Símbolos Unifilares — Legacy (compatibilidad)
+    | 'load_arrow'
     // Especiales
     | 'text' | 'table' | 'rect' | 'circle' | 'triangle' | 'line' | 'arrow';
 
@@ -28,6 +38,18 @@ export interface SymbolDefinition {
     svgPath: string;
     strokeColor: string;
     fillColor?: string;
+    // Embedded text elements that are part of the symbol's graphic
+    // (e.g. 'kWh' inside meter, 'Ɪ>' inside guarda motor)
+    textElements?: Array<{
+        text: string;
+        x: number;
+        y: number;
+        fontSize: number;
+        width?: number; // Para centrado automático
+        align?: 'left' | 'center' | 'right';
+        fill?: string;
+        fontStyle?: string; // 'bold' | 'italic' etc.
+    }>;
     metadata: {
         description: string;
         normative?: string; // Ej: "AEA 90364-7-771"

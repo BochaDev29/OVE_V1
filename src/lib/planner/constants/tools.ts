@@ -50,14 +50,36 @@ export const ELEC_TOOLS: ToolDef[] = [
 export const UNIFILAR_TOOLS: ToolDef[] = [
     { id: 'pipe', icon: PenTool, label: 'Conexión' },
     { id: 'aux_line', icon: Minus, label: 'Auxiliar' },
-    { id: 'feed_point', icon: ArrowDownToLine, label: 'Red' },
+    // Alimentación
     { id: 'meter', icon: Box, label: 'Medidor' },
-    { id: 'main_breaker', icon: ToggleLeft, label: 'Disy.Gral' },
-    { id: 'tm_2p', icon: Square, label: 'TM 2P' },
-    { id: 'tm_4p', icon: LayoutTemplate, label: 'TM 4P' },
-    { id: 'diff_switch', icon: StopCircle, label: 'Dif/ID' },
-    { id: 'dist_block', icon: Table, label: 'Bornes' },
-    { id: 'load_arrow', icon: ArrowDownToLine, label: 'Salida' },
+    // Líneas y Circuitos
+    { id: 'lp_220', icon: Zap, label: 'LP 220V' },
+    { id: 'lp_380', icon: Zap, label: 'LP 380V' },
+    { id: 'cs_220', icon: Zap, label: 'CS 220V' },
+    { id: 'cs_380', icon: Zap, label: 'CS 380V' },
+    { id: 'ct_220', icon: Zap, label: 'CT 220V' },
+    { id: 'ct_380', icon: Zap, label: 'CT 380V' },
+    // Borneras
+    { id: 'dist_block_2', icon: Table, label: '2 Bornes' },
+    { id: 'dist_block_3', icon: Table, label: '3 Bornes' },
+    { id: 'dist_block_4', icon: Table, label: '4 Bornes' },
+    { id: 'dist_block_5', icon: Table, label: '5 Bornes' },
+    { id: 'dist_block_6', icon: Table, label: '6 Bornes' },
+    { id: 'dist_block_7', icon: Table, label: '7 Bornes' },
+    { id: 'dist_block_8', icon: Table, label: '8 Bornes' },
+    { id: 'dist_block_9', icon: Table, label: '9 Bornes' },
+    { id: 'dist_block_10', icon: Table, label: '10 Bornes' },
+    // Protecciones
+    { id: 'pia_1p', icon: ToggleRight, label: 'PIA 1P' },
+    { id: 'pia_3p', icon: ToggleRight, label: 'PIA 3P' },
+    { id: 'diff_switch', icon: StopCircle, label: 'ID Mono' },
+    { id: 'id_3p', icon: StopCircle, label: 'ID Trif.' },
+    // Motores y arranque
+    { id: 'gm_thermo', icon: Cpu, label: 'GM Therm' },
+    { id: 'gm_mag', icon: Cpu, label: 'GM Mag' },
+    { id: 'contactor', icon: ToggleLeft, label: 'Contactor' },
+    { id: 'thermal_relay', icon: Cpu, label: 'R.Térmico' },
+    // Otros
     { id: 'ground', icon: ArrowDownToLine, label: 'PAT' },
     // Geometrías para tableros y anotaciones
     { id: 'rect', icon: Square, label: 'Rectáng.' },

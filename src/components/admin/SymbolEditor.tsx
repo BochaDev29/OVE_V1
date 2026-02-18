@@ -26,6 +26,9 @@ const SymbolEditor: React.FC = () => {
     const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
     const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
+    // Reference path for import/overlay
+    const [referencePath, setReferencePath] = useState<string>('');
+
     // Canvas Settings
     const [showGrid, setShowGrid] = useState(true);
     const [snapToGrid, setSnapToGrid] = useState(true);
@@ -514,6 +517,19 @@ const SymbolEditor: React.FC = () => {
                                 opacity="0.8"
                             />
 
+                            {/* Reference path overlay */}
+                            {referencePath && (
+                                <path
+                                    d={referencePath}
+                                    stroke="#3b82f6"
+                                    strokeWidth={1.5 / zoom}
+                                    fill="none"
+                                    opacity="0.35"
+                                    strokeDasharray={`${4 / zoom} ${3 / zoom}`}
+                                    pointerEvents="none"
+                                />
+                            )}
+
                             {shapes.map((s) => (
                                 <React.Fragment key={s.id}>
                                     {s.type === 'rect' && (
@@ -871,6 +887,43 @@ const SymbolEditor: React.FC = () => {
                             </button>
                             <p className={styles.tipText} style={{ fontSize: '10px' }}>
                                 Mueve todo tu dibujo para que el centro sea el (0,0).
+                            </p>
+                        </div>
+
+                        {/* Import Reference Path */}
+                        <div className={styles.settingsPanel}>
+                            <h3 className={styles.settingsTitle}>Importar Referencia</h3>
+                            <textarea
+                                value={referencePath}
+                                onChange={(e) => setReferencePath(e.target.value)}
+                                placeholder='Pegá un pathdata aquí (ej: M -10 0 L 10 0...)'
+                                style={{
+                                    width: '100%',
+                                    minHeight: '60px',
+                                    maxHeight: '100px',
+                                    padding: '8px',
+                                    fontSize: '10px',
+                                    fontFamily: 'Consolas, Monaco, monospace',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '6px',
+                                    resize: 'vertical',
+                                    background: referencePath ? '#eff6ff' : '#f8fafc',
+                                    color: '#334155',
+                                    outline: 'none',
+                                    boxSizing: 'border-box',
+                                }}
+                            />
+                            {referencePath && (
+                                <button
+                                    onClick={() => setReferencePath('')}
+                                    className={styles.actionButton}
+                                    style={{ width: '100%', marginTop: '6px', fontSize: '11px' }}
+                                >
+                                    Limpiar referencia
+                                </button>
+                            )}
+                            <p className={styles.tipText} style={{ fontSize: '10px', marginTop: '6px' }}>
+                                El path se muestra como línea azul punteada en el canvas para que dibujes encima.
                             </p>
                         </div>
 
