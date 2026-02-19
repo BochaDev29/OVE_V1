@@ -475,7 +475,7 @@ export const electricalSymbols: SymbolDefinition[] = [
         id: 'pia_1p',
         name: 'PIA Monofásica',
         category: 'electrical',
-        svgPath: 'M -12 13 L -12 50 M 5 -19 L -10 6 M -17 -20 L -7 -20 M -17 -26 L -7 -36 M -17 -36 L -7 -26 M -12 -21 L -12 -51 M -16,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M 0 -10 L 5 -7 M -4 -3 L 12 8 M 2 7 L 12 8 L 8 -1 M 4 -6 L 8 -11 M 7 -11 L 14 -6 M 11 -2 L 14 -7 M 10 -3 L 17 1',
+        svgPath: 'M 0 12 L 0 49 M 17 -20 L 2 5 M -5 -21 L 5 -21 M -5 -27 L 5 -37 M -5 -37 L 5 -27 M 0 -22 L 0 -52 M -4,8 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M -4,8 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M 12 -11 L 17 -8 M 8 -4 L 24 7 M 14 6 L 24 7 M 24 7 L 20 -2 M 16 -7 L 20 -12 M 19 -12 L 26 -7 M 23 -3 L 26 -8 M 22 -4 L 29 0',
         strokeColor: '#2563eb',
         fillColor: '#ffffff',
         metadata: {
@@ -488,7 +488,7 @@ export const electricalSymbols: SymbolDefinition[] = [
         id: 'pia_3p',
         name: 'PIA Trifásica',
         category: 'electrical',
-        svgPath: 'M -12 13 L -12 50 M 5 -19 L -10 6 M -17 -20 L -7 -20 M -17 -26 L -7 -36 M -17 -36 L -7 -26 M -12 -21 L -12 -51 M -16,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M 0 -10 L 5 -7 M -4 -3 L 12 8 M 2 7 L 12 8 L 8 -1 M 4 -6 L 8 -11 M 7 -11 L 14 -6 M 11 -2 L 14 -7 M 10 -3 L 17 1',
+        svgPath: 'M 0 12 L 0 49 M 17 -20 L 2 5 M -5 -21 L 5 -21 M -5 -27 L 5 -37 M -5 -37 L 5 -27 M 0 -22 L 0 -52 M -4,8 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M -4,8 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M 12 -11 L 17 -8 M 8 -4 L 24 7 M 14 6 L 24 7 M 24 7 L 20 -2 M 16 -7 L 20 -12 M 19 -12 L 26 -7 M 23 -3 L 26 -8 M 22 -4 L 29 0',
         strokeColor: '#2563eb',
         fillColor: '#ffffff',
         metadata: {
@@ -502,7 +502,7 @@ export const electricalSymbols: SymbolDefinition[] = [
         id: 'diff_switch',
         name: 'Interruptor Diferencial Monofásico',
         category: 'electrical',
-        svgPath: 'M -16,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M -12 50 L -12 13 M -18 -21 L -6 -21 M -12 -21 L -12 -51 M -19 -28 L -5 -36 M -20 -36 L -5 -28 M -10 5 L 5 -19 M 8 -7 h 12 v 8 h -12 z M -5 -3 L 7 -3 M 14 2 L 14 30 M -21,29 a 9,3 0 1,0 18,0 a 9,3 0 1,0 -18,0 M -3 29 L 14 29',
+        svgPath: 'M -4,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M -4,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M 0 50 L 0 13 M -6 -21 L 6 -21 M 0 -21 L 0 -51 M -7 -28 L 7 -36 M -8 -36 L 7 -28 M 2 5 L 17 -19 M 20 -7 L 32 -7 M 32 -7 L 32 1 M 32 1 L 20 1 M 20 1 L 20 -7 M 7 -3 L 19 -3 M 26 2 L 26 30 M -9,29 a 9,3 0 1,0 18,0 a 9,3 0 1,0 -18,0 M -9,29 a 9,3 0 1,0 18,0 a 9,3 0 1,0 -18,0 M 9 29 L 26 29',
         strokeColor: '#7c3aed',
         fillColor: '#ffffff',
         metadata: {
@@ -515,7 +515,7 @@ export const electricalSymbols: SymbolDefinition[] = [
         id: 'id_3p',
         name: 'Interruptor Diferencial Trifásico',
         category: 'electrical',
-        svgPath: 'M -16,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M -12 50 L -12 13 M -18 -21 L -6 -21 M -12 -21 L -12 -51 M -19 -28 L -5 -36 M -20 -36 L -5 -28 M -10 5 L 5 -19 M 8 -7 h 12 v 8 h -12 z M -5 -3 L 7 -3 M 14 2 L 14 30 M -21,29 a 9,3 0 1,0 18,0 a 9,3 0 1,0 -18,0 M -3 29 L 14 29',
+        svgPath: 'M -4,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M -4,9 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0 M 0 50 L 0 13 M -6 -21 L 6 -21 M 0 -21 L 0 -51 M -7 -28 L 7 -36 M -8 -36 L 7 -28 M 2 5 L 17 -19 M 20 -7 L 32 -7 M 32 -7 L 32 1 M 32 1 L 20 1 M 20 1 L 20 -7 M 7 -3 L 19 -3 M 26 2 L 26 30 M -9,29 a 9,3 0 1,0 18,0 a 9,3 0 1,0 -18,0 M -9,29 a 9,3 0 1,0 18,0 a 9,3 0 1,0 -18,0 M 9 29 L 26 29',
         strokeColor: '#7c3aed',
         fillColor: '#ffffff',
         metadata: {

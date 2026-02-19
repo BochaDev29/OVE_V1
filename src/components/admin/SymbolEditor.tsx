@@ -4,7 +4,7 @@ import { EditorShape, ShapeType, Point, RectShape, CircleShape, LineShape, TextS
 import SymbolEditorToolbar from './SymbolEditorToolbar';
 import SymbolEditorExport from './SymbolEditorExport';
 import SymbolEditorPropertyPanel from './SymbolEditorPropertyPanel';
-import { saveToLocalStorage, loadFromLocalStorage } from '../../lib/planner/utils/svgHelper';
+import { saveToLocalStorage, loadFromLocalStorage, parsePathToShapes } from '../../lib/planner/utils/svgHelper';
 import { v4 as uuidv4 } from 'uuid';
 import styles from './SymbolEditor.module.css';
 import { useNavigate } from 'react-router-dom';
@@ -18,7 +18,7 @@ const SymbolEditor: React.FC = () => {
     const [shapes, setShapes] = useState<EditorShape[]>([]);
     const [history, setHistory] = useState<EditorShape[][]>([]);
     const [activeTool, setActiveTool] = useState<ShapeType>('select');
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isDrawing, setIsDrawing] = useState(false);
     const [startPoint, setStartPoint] = useState<Point | null>(null);
     const [currentShape, setCurrentShape] = useState<EditorShape | null>(null);
@@ -174,12 +174,19 @@ const SymbolEditor: React.FC = () => {
             const id = target.getAttribute('data-id');
 
             if (id) {
-                setSelectedId(id);
+                const isShift = e.shiftKey;
+                if (isShift) {
+                    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+                } else if (!selectedIds.includes(id)) {
+                    setSelectedIds([id]);
+                }
+
                 setIsDragging(true);
                 const shape = shapes.find(s => s.id === id);
                 if (shape) {
                     const handle = target.getAttribute('data-handle');
                     if (handle) {
+                        // Resize handles currently only work on single selection for simplicity
                         setDraggingResizeNode({ id, handle });
                         setIsDragging(false);
                         setHistory(prev => [...prev, [...shapes]]);
@@ -194,7 +201,7 @@ const SymbolEditor: React.FC = () => {
                     setDragOffset({ x: ox, y: oy });
                 }
             } else {
-                setSelectedId(null);
+                setSelectedIds([]);
             }
             return;
         }
@@ -263,9 +270,9 @@ const SymbolEditor: React.FC = () => {
             return;
         }
 
-        if (draggingResizeNode && selectedId) {
+        if (draggingResizeNode && selectedIds.length === 1) {
             setShapes(prev => prev.map(s => {
-                if (s.id !== selectedId) return s;
+                if (s.id !== selectedIds[0]) return s;
                 const updated = { ...s } as any;
                 const handle = draggingResizeNode.handle;
 
@@ -298,22 +305,54 @@ const SymbolEditor: React.FC = () => {
             return;
         }
 
-        if (isDragging && selectedId) {
+        if (isDragging && selectedIds.length > 0) {
+            // El desplazamiento lo basamos en el primer elemento seleccionado (el que iniciamos el drag)
+            const referenceShape = shapes.find(s => selectedIds.includes(s.id));
+            if (!referenceShape) return;
+
             setShapes(prev => prev.map(s => {
-                if (s.id !== selectedId) return s;
+                if (!selectedIds.includes(s.id)) return s;
+
+                // Calculamos dx/dy basándonos en cómo SE MOVÍA antes el principal
+                // pero ahora lo hacemos relativo para todos
+                let dx = 0, dy = 0;
+
+                // Si es el que estamos arrastrando directamente (el que originó dragOffset)
+                // podemos calcular el movimiento absoluto y deducir el delta
                 const targetX = point.x - dragOffset.x;
                 const targetY = point.y - dragOffset.y;
 
-                if (s.type === 'rect') return { ...s, x: targetX, y: targetY };
-                if (s.type === 'circle') return { ...s, cx: targetX, cy: targetY };
-                if (s.type === 'text') return { ...s, x: targetX, y: targetY };
+                if (s.type === 'rect' || s.type === 'text') {
+                    // Para rects/text, s.x/y es el punto de control
+                    // Pero en realidad queremos mover TODOS con el mismo delta.
+                    // Vamos a calcular el delta desde el ratón.
+                }
+
+                // Mejor enfoque: calcular delta del ratón respecto al inicio o al paso anterior
+                // Pero como ya tenemos dragOffset (posición inicial relativa), usémosla para el principal.
+                // El principal es el que tiene el data-id que clickeamos. 
+                // Para simplificar, asumiremos que el delta es (point.x - startingPoint.x)
+                // Implementación robusta de movimiento grupal:
+                const mainId = referenceShape.id;
+                const mainShape = shapes.find(m => m.id === mainId)! as any;
+                const mainX = mainShape.x !== undefined ? mainShape.x : (mainShape.cx !== undefined ? mainShape.cx : mainShape.x1);
+                const mainY = mainShape.y !== undefined ? mainShape.y : (mainShape.cy !== undefined ? mainShape.cy : mainShape.y1);
+
+                const deltaX = targetX - mainX;
+                const deltaY = targetY - mainY;
+
+                if (s.type === 'rect') return { ...s, x: s.x + deltaX, y: s.y + deltaY };
+                if (s.type === 'circle') return { ...s, cx: s.cx + deltaX, cy: s.cy + deltaY };
+                if (s.type === 'text') return { ...s, x: s.x + deltaX, y: s.y + deltaY };
                 if (s.type === 'line' || s.type === 'arrow' || s.type === 'curve') {
-                    const dx = targetX - s.x1;
-                    const dy = targetY - s.y1;
-                    const res = { ...s, x1: s.x1 + dx, y1: s.y1 + dy, x2: s.x2 + dx, y2: s.y2 + dy } as any;
+                    const res = {
+                        ...s,
+                        x1: s.x1 + deltaX, y1: s.y1 + deltaY,
+                        x2: s.x2 + deltaX, y2: s.y2 + deltaY
+                    } as any;
                     if (s.type === 'curve') {
-                        res.qx = s.qx + dx;
-                        res.qy = s.qy + dy;
+                        res.qx = s.qx + deltaX;
+                        res.qy = s.qy + deltaY;
                     }
                     return res;
                 }
@@ -350,7 +389,7 @@ const SymbolEditor: React.FC = () => {
     const handleMouseUp = () => {
         if (isDrawing && currentShape) {
             setShapes(prev => [...prev, currentShape]);
-            setSelectedId(currentShape.id);
+            setSelectedIds([currentShape.id]);
         }
         setIsDrawing(false);
         setIsDragging(false);
@@ -364,7 +403,7 @@ const SymbolEditor: React.FC = () => {
         if (confirm('¿Limpiar todo el dibujo?')) {
             setHistory(prev => [...prev, [...shapes]]);
             setShapes([]);
-            setSelectedId(null);
+            setSelectedIds([]);
             saveToLocalStorage([], origin);
         }
     };
@@ -374,26 +413,30 @@ const SymbolEditor: React.FC = () => {
             const prev = history[history.length - 1];
             setShapes(prev);
             setHistory(history.slice(0, -1));
-            setSelectedId(null);
+            setSelectedIds([]);
         }
     }, [history]);
 
     const handleUpdateShape = useCallback((updates: Partial<EditorShape>) => {
-        if (!selectedId) return;
+        if (selectedIds.length !== 1) return;
         setHistory(prev => [...prev, [...shapes]]);
         setShapes(prev => prev.map(s =>
-            s.id === selectedId ? { ...s, ...updates } as EditorShape : s
+            s.id === selectedIds[0] ? { ...s, ...updates } as EditorShape : s
         ));
-    }, [selectedId, shapes]);
+    }, [selectedIds, shapes]);
 
     const handleDelete = useCallback((e: KeyboardEvent) => {
-        if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+        if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
             const activeEl = document.activeElement;
             if (activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA') return;
 
             setHistory(prev => [...prev, [...shapes]]);
-            setShapes(prev => prev.filter(s => s.id !== selectedId));
-            setSelectedId(null);
+            setShapes(prev => prev.filter(s => !selectedIds.includes(s.id)));
+            setSelectedIds([]);
+        }
+        if (e.key === 'a' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            setSelectedIds(shapes.map(s => s.id));
         }
         if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
             handleUndo();
@@ -409,7 +452,7 @@ const SymbolEditor: React.FC = () => {
             if (e.key === 'g') setShowGrid(prev => !prev);
             if (e.key === 's') setSnapToGrid(prev => !prev);
         }
-    }, [selectedId, shapes, handleUndo]);
+    }, [selectedIds, shapes, handleUndo]);
 
     useEffect(() => {
         window.addEventListener('keydown', handleDelete);
@@ -448,7 +491,7 @@ const SymbolEditor: React.FC = () => {
                     {/* Property Panel in Header */}
                     <div className={styles.headerPropertyPanel}>
                         <SymbolEditorPropertyPanel
-                            selectedShape={shapes.find(s => s.id === selectedId) || null}
+                            selectedShape={selectedIds.length === 1 ? shapes.find(s => s.id === selectedIds[0]) || null : null}
                             onUpdateShape={handleUpdateShape}
                         />
                     </div>
@@ -543,10 +586,10 @@ const SymbolEditor: React.FC = () => {
                                                 stroke={s.stroke}
                                                 strokeWidth={s.strokeWidth}
                                                 fill={s.fill}
-                                                className={`${styles.shape} ${selectedId === s.id ? styles.shapeSelected : ''}`}
+                                                className={`${styles.shape} ${selectedIds.includes(s.id) ? styles.shapeSelected : ''}`}
                                                 transform={`rotate(${s.rotation || 0} ${s.type === 'rect' ? s.x + s.width / 2 : s.cx} ${s.type === 'rect' ? s.y + s.height / 2 : s.cy})`}
                                             />
-                                            {selectedId === s.id && (
+                                            {selectedIds.length === 1 && selectedIds[0] === s.id && (
                                                 <g transform={`rotate(${s.rotation || 0} ${s.type === 'rect' ? s.x + s.width / 2 : s.cx} ${s.type === 'rect' ? s.y + s.height / 2 : s.cy})`}>
                                                     {/* Rotation handle */}
                                                     <line
@@ -606,10 +649,10 @@ const SymbolEditor: React.FC = () => {
                                                 stroke={s.stroke}
                                                 strokeWidth={s.strokeWidth}
                                                 fill={s.fill}
-                                                className={`${styles.shape} ${selectedId === s.id ? styles.shapeSelected : ''}`}
+                                                className={`${styles.shape} ${selectedIds.includes(s.id) ? styles.shapeSelected : ''}`}
                                                 transform={`rotate(${s.rotation || 0} ${s.cx} ${s.cy})`}
                                             />
-                                            {selectedId === s.id && (
+                                            {selectedIds.length === 1 && selectedIds[0] === s.id && (
                                                 <g transform={`rotate(${s.rotation || 0} ${s.cx} ${s.cy})`}>
                                                     {/* Rotation handle */}
                                                     <line
@@ -658,7 +701,7 @@ const SymbolEditor: React.FC = () => {
                                                 x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}
                                                 stroke={s.stroke}
                                                 strokeWidth={s.strokeWidth}
-                                                className={`${styles.shape} ${selectedId === s.id ? styles.shapeSelected : ''}`}
+                                                className={`${styles.shape} ${selectedIds.includes(s.id) ? styles.shapeSelected : ''}`}
                                             />
                                             {s.type === 'arrow' && (
                                                 <polygon
@@ -674,7 +717,7 @@ const SymbolEditor: React.FC = () => {
                                                     fill={s.stroke} stroke={s.stroke} strokeWidth={s.strokeWidth / 2}
                                                 />
                                             )}
-                                            {selectedId === s.id && (
+                                            {selectedIds.length === 1 && selectedIds[0] === s.id && (
                                                 <>
                                                     <circle
                                                         cx={s.x1}
@@ -712,9 +755,9 @@ const SymbolEditor: React.FC = () => {
                                                 stroke={s.stroke}
                                                 strokeWidth={s.strokeWidth}
                                                 fill="none"
-                                                className={`${styles.shape} ${selectedId === s.id ? styles.shapeSelected : ''}`}
+                                                className={`${styles.shape} ${selectedIds.includes(s.id) ? styles.shapeSelected : ''}`}
                                             />
-                                            {selectedId === s.id && (
+                                            {selectedIds.length === 1 && selectedIds[0] === s.id && (
                                                 <>
                                                     <circle
                                                         cx={s.x1}
@@ -764,7 +807,7 @@ const SymbolEditor: React.FC = () => {
                                             fill={s.stroke}
                                             fontSize={s.fontSize}
                                             fontFamily="Arial"
-                                            className={`${styles.shapeText} ${selectedId === s.id ? styles.shapeTextSelected : ''}`}
+                                            className={`${styles.shapeText} ${selectedIds.includes(s.id) ? styles.shapeTextSelected : ''}`}
                                         >
                                             {s.text}
                                         </text>
@@ -914,16 +957,33 @@ const SymbolEditor: React.FC = () => {
                                 }}
                             />
                             {referencePath && (
-                                <button
-                                    onClick={() => setReferencePath('')}
-                                    className={styles.actionButton}
-                                    style={{ width: '100%', marginTop: '6px', fontSize: '11px' }}
-                                >
-                                    Limpiar referencia
-                                </button>
+                                <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                                    <button
+                                        onClick={() => {
+                                            const importedShapes = parsePathToShapes(referencePath);
+                                            if (importedShapes.length > 0) {
+                                                setHistory(prev => [...prev, [...shapes]]);
+                                                setShapes(prev => [...prev, ...importedShapes]);
+                                                // Opcional: limpiar la referencia para que no se superponga
+                                                // setReferencePath(''); 
+                                            }
+                                        }}
+                                        className={styles.actionButton}
+                                        style={{ flex: 1, fontSize: '11px', background: '#3b82f6', color: 'white' }}
+                                    >
+                                        Cargar p/ Editar
+                                    </button>
+                                    <button
+                                        onClick={() => setReferencePath('')}
+                                        className={styles.actionButton}
+                                        style={{ flex: 1, fontSize: '11px' }}
+                                    >
+                                        Limpiar
+                                    </button>
+                                </div>
                             )}
                             <p className={styles.tipText} style={{ fontSize: '10px', marginTop: '6px' }}>
-                                El path se muestra como línea azul punteada en el canvas para que dibujes encima.
+                                El path se muestra como línea azul punteada para calcar. "Cargar p/ Editar" lo convierte en formas manipulables.
                             </p>
                         </div>
 

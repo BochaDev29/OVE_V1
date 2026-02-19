@@ -1,4 +1,5 @@
-import { EditorShape } from '../../../components/admin/symbolEditorTypes';
+import { EditorShape, Point, LineShape, RectShape, CircleShape, BezierCurveShape, ArrowShape } from '../../../components/admin/symbolEditorTypes';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Genera el código SVG completo a partir de las formas dibujadas
@@ -239,4 +240,148 @@ export function loadFromLocalStorage(): { shapes: EditorShape[]; origin: { x: nu
         console.error('Error loading from localStorage:', error);
     }
     return { shapes: [], origin: null };
+}
+/**
+ * Parser de Path SVG a objetos EditorShape
+ * Implementación robusta para comandos básicos (M, L, H, V, Q, Z, A)
+ */
+export function parsePathToShapes(pathData: string): EditorShape[] {
+    const shapes: EditorShape[] = [];
+    if (!pathData) return shapes;
+
+    // Normalizar: Espacios entre comandos y números
+    const normalized = pathData.replace(/([A-Za-z])|(-?\d*\.?\d+(?:[eE][-+]?\d+)?)/g, ' $1$2 ').trim();
+    const tokens = normalized.split(/\s+|,/).filter(t => t.length > 0);
+
+    let currentX = 0;
+    let currentY = 0;
+    let startX = 0;
+    let startY = 0;
+    let i = 0;
+
+    const base = () => ({
+        id: uuidv4(),
+        stroke: '#000000',
+        strokeWidth: 2,
+        fill: 'none',
+    });
+
+    while (i < tokens.length) {
+        const cmd = tokens[i++];
+        const isRelative = cmd === cmd.toLowerCase();
+        const type = cmd.toUpperCase();
+
+        switch (type) {
+            case 'M': {
+                const x = parseFloat(tokens[i++]);
+                const y = parseFloat(tokens[i++]);
+                currentX = isRelative ? currentX + x : x;
+                currentY = isRelative ? currentY + y : y;
+                startX = currentX;
+                startY = currentY;
+                // MoveTo solo suele ser el inicio, no genera forma por sí mismo
+                break;
+            }
+            case 'L': {
+                const x = parseFloat(tokens[i++]);
+                const y = parseFloat(tokens[i++]);
+                const targetX = isRelative ? currentX + x : x;
+                const targetY = isRelative ? currentY + y : y;
+                shapes.push({
+                    ...base(),
+                    type: 'line',
+                    x1: currentX, y1: currentY,
+                    x2: targetX, y2: targetY
+                } as LineShape);
+                currentX = targetX;
+                currentY = targetY;
+                break;
+            }
+            case 'H': {
+                const x = parseFloat(tokens[i++]);
+                const targetX = isRelative ? currentX + x : x;
+                shapes.push({
+                    ...base(),
+                    type: 'line',
+                    x1: currentX, y1: currentY,
+                    x2: targetX, y2: currentY
+                } as LineShape);
+                currentX = targetX;
+                break;
+            }
+            case 'V': {
+                const y = parseFloat(tokens[i++]);
+                const targetY = isRelative ? currentY + y : y;
+                shapes.push({
+                    ...base(),
+                    type: 'line',
+                    x1: currentX, y1: currentY,
+                    x2: currentX, y2: targetY
+                } as LineShape);
+                currentY = targetY;
+                break;
+            }
+            case 'Q': {
+                const qx = parseFloat(tokens[i++]);
+                const qy = parseFloat(tokens[i++]);
+                const x = parseFloat(tokens[i++]);
+                const y = parseFloat(tokens[i++]);
+                const targetQX = isRelative ? currentX + qx : qx;
+                const targetQY = isRelative ? currentY + qy : qy;
+                const targetX = isRelative ? currentX + x : x;
+                const targetY = isRelative ? currentY + y : y;
+                shapes.push({
+                    ...base(),
+                    type: 'curve',
+                    x1: currentX, y1: currentY,
+                    qx: targetQX, qy: targetQY,
+                    x2: targetX, y2: targetY
+                } as BezierCurveShape);
+                currentX = targetX;
+                currentY = targetY;
+                break;
+            }
+            case 'A': {
+                const rx = parseFloat(tokens[i++]);
+                const ry = parseFloat(tokens[i++]);
+                const xAxisRotation = parseFloat(tokens[i++]);
+                const largeArcFlag = parseFloat(tokens[i++]);
+                const sweepFlag = parseFloat(tokens[i++]);
+                const x = parseFloat(tokens[i++]);
+                const y = parseFloat(tokens[i++]);
+                const targetX = isRelative ? currentX + x : x;
+                const targetY = isRelative ? currentY + y : y;
+
+                // Simplificación: Los símbolos eléctricos usan arcos para círculos.
+                // Si movemos a (cx-rx, cy) y hacemos arco, detectamos el centro.
+                const cx = (currentX + targetX) / 2;
+                const cy = (currentY + targetY) / 2;
+
+                shapes.push({
+                    ...base(),
+                    type: 'circle',
+                    cx, cy,
+                    rx, ry
+                } as CircleShape);
+                currentX = targetX;
+                currentY = targetY;
+                break;
+            }
+            case 'Z': {
+                if (currentX !== startX || currentY !== startY) {
+                    shapes.push({
+                        ...base(),
+                        type: 'line',
+                        x1: currentX, y1: currentY,
+                        x2: startX, y2: startY
+                    } as LineShape);
+                }
+                currentX = startX;
+                currentY = startY;
+                break;
+            }
+        }
+    }
+
+    return shapes;
 }
