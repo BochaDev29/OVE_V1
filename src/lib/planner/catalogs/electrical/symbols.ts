@@ -268,7 +268,7 @@ export const electricalSymbols: SymbolDefinition[] = [
         strokeColor: '#000000',
         fillColor: '#ffffff',
         textElements: [
-            { text: 'kWh', x: -35, y: 12, width: 70, fontSize: 18, fontStyle: 'bold', align: 'center', fill: '#000000' }
+            { text: 'kWh', x: -35, y: 12, width: 70, fontSize: 24, fontStyle: 'bold', align: 'center', fill: '#000000' }
         ],
         metadata: {
             description: 'Medidor de energía eléctrica',
@@ -534,7 +534,7 @@ export const electricalSymbols: SymbolDefinition[] = [
         strokeColor: '#000000',
         fillColor: '#ffffff',
         textElements: [
-            { text: 'Ɪ>', x: -7, y: 27, width: 15, fontSize: 8, fontStyle: 'bold', align: 'center', fill: '#000000' }
+            { text: 'Ɪ>', x: -7, y: 27, width: 15, fontSize: 10, fontStyle: 'bold', align: 'center', fill: '#000000' }
         ],
         metadata: {
             description: 'Guarda motor magnetotérmico',
@@ -550,7 +550,7 @@ export const electricalSymbols: SymbolDefinition[] = [
         strokeColor: '#000000',
         fillColor: '#ffffff',
         textElements: [
-            { text: 'Ɪ>', x: -7, y: 6, width: 15, fontSize: 8, fontStyle: 'bold', align: 'center', fill: '#000000' }
+            { text: 'Ɪ>', x: -7, y: 6, width: 15, fontSize: 10, fontStyle: 'bold', align: 'center', fill: '#000000' }
         ],
         metadata: {
             description: 'Guarda motor magnético',

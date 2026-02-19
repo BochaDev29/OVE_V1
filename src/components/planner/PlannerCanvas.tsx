@@ -1463,6 +1463,9 @@ export default function PlannerCanvas() {
       );
     }
 
+    // Modificador de escala selectivo para Modo Unifilar (Achicar 40% -> Escala 0.6)
+    const unifilarScale = activeMode === 'singleLine' ? 0.6 : 1;
+
     // Renderizar símbolo usando definición del catálogo
     return (
       <Group
@@ -1471,8 +1474,8 @@ export default function PlannerCanvas() {
         x={sym.x}
         y={sym.y}
         rotation={sym.rotation || 0}
-        scaleX={sym.scaleX || 1}
-        scaleY={sym.scaleY || 1}
+        scaleX={(sym.scaleX || 1) * unifilarScale}
+        scaleY={(sym.scaleY || 1) * unifilarScale}
         draggable={tool === 'select'}
         onDragEnd={(e) => handleSymbolDragEnd(sym.id, e)}
         onClick={() => tool === 'select' && selectShape(sym.id)}
