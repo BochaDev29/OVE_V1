@@ -28,6 +28,8 @@ interface PersistenceConfig {
         setPixelsPerMeter: (ppm: number) => void;
         setFloors: (floors: any[]) => void;
         getState: () => any;
+        setCurrentFloorId?: (id: string) => void;
+        setCurrentLayerId?: (id: string) => void;
     };
     backgroundState?: {
         setBackgroundImage?: (img: HTMLImageElement | null) => void;
@@ -75,8 +77,15 @@ export const usePlannerPersistence = (config: PersistenceConfig) => {
 
                     // Cargar en canvas (modo floorPlan por defecto)
                     const initialData = drawingData.floorPlan;
-                    if (initialData.floors) {
+                    if (initialData.floors && initialData.floors.length > 0) {
                         canvasState.setFloors(initialData.floors);
+                        // 🆕 Setear piso actual para que las capas iniciales se visualicen y actúen en el Panel Derecho
+                        if (canvasState.setCurrentFloorId) {
+                            canvasState.setCurrentFloorId(initialData.floors[0].id);
+                        }
+                        if (canvasState.setCurrentLayerId) {
+                            canvasState.setCurrentLayerId('layer-0');
+                        }
                     } else {
                         console.warn('⚠️ No se encontraron floors en floorPlan, usando fallback');
                     }

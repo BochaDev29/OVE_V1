@@ -242,6 +242,16 @@ export default function PlannerCanvas() {
     });
 
     if (activeMode === 'singleLine' && !unifilarInitialized && calculationData?.config) {
+
+      // ✅ VERIFICACIÓN PREVENTIVA (ETAPA 4): Si el Unifilar ya tiene símbolos en el store, NO sobreescribir.
+      // Esto pasa cuando el usuario modificó manualmente el CAD y luego volvió del Wizard.
+      const storedSingleLineSymbols = modeStore.current.singleLine?.floors?.[0]?.elements?.symbols;
+      if (storedSingleLineSymbols && storedSingleLineSymbols.length > 0) {
+        console.log('🛡️ Evitando auto-generación: El diagrama unifilar ya contenía dibujos manuales. (Golden Template Preservado)');
+        setUnifilarInitialized(true);
+        return; // Salir temprano
+      }
+
       console.log('🔧 Auto-generando diagrama unifilar...');
 
       try {
@@ -294,7 +304,7 @@ export default function PlannerCanvas() {
         console.error('❌ Error generando diagrama unifilar:', error);
       }
     }
-  }, [activeMode, unifilarInitialized, calculationData?.config]);
+  }, [activeMode, unifilarInitialized, calculationData?.config, modeStore, floors, currentFloorId]);
 
   // 🆕 HELPER: Obtener datos del circuito desde calculationData
   const getCircuitData = useCallback((circuitId?: string) => {
@@ -1724,6 +1734,50 @@ export default function PlannerCanvas() {
   const handleUploadImage = (file: File) => handleImageUpload(file);
   const calibrationMeters = 100 / pixelsPerMeter; // Assuming 100px is the reference for scaleText
 
+  // 🆕 ETAPA 4: Función para regenerar el diagrama unifilar manualmente
+  const handleRegenerateUnifilar = () => {
+    if (!calculationData?.config) {
+      alert("No hay datos del Wizard para generar el diagrama.");
+      return;
+    }
+
+    const confirm = window.confirm(
+      "¿Deseas borrar tu diagrama unifilar actual y regenerarlo automáticamente desde el origen?\n\n⚠️ ¡Perderás cualquier reorganización o dibujo manual que hayas hecho en el layout!"
+    );
+
+    if (confirm) {
+      console.log('⚡ Regenerando diagrama unifilar a petición del usuario...');
+
+      // Obtener formato de hoja actual
+      const currentFloor = floors.find(f => f.id === currentFloorId);
+      const sheetFormat = currentFloor?.format;
+
+      try {
+        // Generar símbolos y conexiones desde la configuración del Wizard
+        const { symbols: generatedSymbols, pipes: generatedPipes } = generateUnifilarDiagram(calculationData.config, {
+          sheetFormat,
+          startX: 400,
+          startY: 200,
+          verticalSpacing: 80,
+          horizontalSpacing: 300
+        });
+
+        // Limpiar completamente la "planta" / "vista" actual (que es el SingleLine de memoria)
+        setSymbols([]);
+        setPipes([]);
+
+        // Asignar los nuevos
+        if (generatedSymbols.length > 0) setSymbols(generatedSymbols);
+        if (generatedPipes.length > 0) setPipes(generatedPipes);
+
+        console.log('✅ Diagrama unifilar regenerado con éxito');
+      } catch (error) {
+        console.error('❌ Error regenerando diagrama unifilar:', error);
+        alert("Ocurrió un error al intentar regenerar el diagrama.");
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-100 font-sans">
       {/* BARRA SUPERIOR (LA MANO) */}
@@ -1737,7 +1791,8 @@ export default function PlannerCanvas() {
         onOpenReport={() => setShowMaterialModal(true)}
         onOpenProjectInfo={() => setShowProjectInfoModal(true)}
         onDownloadPDF={() => setShowExportModal(true)}
-        onSave={saveProject}
+        onSave={handleSaveProject} // 🛠️ CORRECCIÓN: Usar la función wrapper local envés de la desestructurada del hook directamente
+        onRegenerateUnifilar={handleRegenerateUnifilar} // 🆕 Pasar función de regeneración
         onBack={() => navigate('/dashboard')}
         onOpenWizard={() => {
           sessionStorage.setItem('openWizardOnDashboard', 'true');

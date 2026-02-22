@@ -246,16 +246,16 @@ const calculateSingleLineQuota = (
 
     // Elementos colocados
     const placed = {
-        feedPoint: symbols.filter(s => s.type === 'feed_point').length,
+        feedPoint: symbols.filter(s => s.type === 'feed_point' || s.type === 'meter').length, // Simplificado
         meter: symbols.filter(s => s.type === 'meter').length,
-        mainBreaker: symbols.filter(s => s.type === 'main_breaker').length,
+        mainBreaker: symbols.filter(s => s.type === 'main_breaker' || s.type === 'diff_switch' || s.type === 'id_3p').length, // Acepta el diferencial principal
         breakers: {
-            IUG: symbols.filter(s => s.type === 'tm_1p').length,
-            TUG: symbols.filter(s => s.type === 'tm_1p').length,
-            TUE: symbols.filter(s => s.type === 'tm_2p').length
+            IUG: symbols.filter(s => s.type === 'tm_1p' || s.type === 'pia_1p').length,
+            TUG: symbols.filter(s => s.type === 'tm_1p' || s.type === 'pia_1p').length,
+            TUE: symbols.filter(s => s.type === 'tm_2p' || s.type === 'pia_3p').length
         },
-        distBlocks: symbols.filter(s => s.type === 'dist_block').length,
-        loadArrows: symbols.filter(s => s.type === 'load_arrow').length
+        distBlocks: symbols.filter(s => s.type === 'dist_block' || s.type?.startsWith('dist_block_')).length,
+        loadArrows: symbols.filter(s => s.type === 'load_arrow' || s.type === 'ct_220' || s.type === 'ct_380').length
     };
 
     // Items faltantes

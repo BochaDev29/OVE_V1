@@ -1,5 +1,5 @@
 import {
-  Zap, Compass, Cpu, ArrowLeft, Save, Calculator, LayoutGrid, FileText, Download, LayoutTemplate
+  Zap, Compass, Cpu, ArrowLeft, Save, Calculator, LayoutGrid, FileText, Download, LayoutTemplate, RefreshCw
 } from 'lucide-react';
 import { Tool } from './PlannerToolbar';
 
@@ -16,6 +16,7 @@ interface PlannerSidebarProps {
   onSave: () => void;
   onBack: () => void;
   onOpenWizard: () => void;
+  onRegenerateUnifilar?: () => void; // 🆕 Etapa 4: Botón para Regenerar
   estadoObra?: string;
 }
 
@@ -29,6 +30,7 @@ export default function PlannerSidebar({
   onSave,
   onBack,
   onOpenWizard,
+  onRegenerateUnifilar,
   estadoObra = 'nueva'
 }: PlannerSidebarProps) {
 
@@ -135,6 +137,18 @@ export default function PlannerSidebar({
 
       {/* ACCIONES RÁPIDAS */}
       <div className="flex items-center gap-1 md:gap-3">
+        {/* 🆕 BOTÓN REGENERAR UNIFILAR (Solamente si activeMode es singleLine) */}
+        {activeMode === 'singleLine' && onRegenerateUnifilar && (
+          <button
+            onClick={onRegenerateUnifilar}
+            className="group relative flex flex-col md:flex-row items-center gap-1.5 px-2 md:px-3 py-1.5 md:py-2 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-xl transition-all text-amber-600 active:scale-95"
+            title="Borrar dibujo manual y Auto-Generar Unifilar desde el Wizard"
+          >
+            <RefreshCw className="w-4 h-4 md:w-4 md:h-4 group-hover:rotate-180 transition-transform duration-500" />
+            <span className="hidden sm:inline text-[9px] md:text-[10px] font-black uppercase tracking-tighter">Regenerar</span>
+          </button>
+        )}
+
         <button
           onClick={onOpenWizard}
           className="flex flex-col items-center gap-0.5 p-1.5 md:px-3 md:py-1 hover:bg-slate-50 rounded-lg transition-all text-slate-400 hover:text-blue-600 active:scale-95 group"
