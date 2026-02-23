@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
     Layers,
     Home,
     ClipboardCheck,
     Info,
     ChevronRight,
-    ChevronLeft
+    ChevronLeft,
+    SlidersHorizontal
 } from 'lucide-react';
 import { QuotaPanel } from './QuotaPanel';
 import { EnvironmentBlocks } from './EnvironmentBlocks';
 import CalculationSidebar from './CalculationSidebar';
 import { LayersPanel } from './LayersPanel';
+import { PropertiesPanel } from './PropertiesPanel';
 
 interface PlannerVisionPanelProps {
     calculationData: any;
@@ -28,9 +30,11 @@ interface PlannerVisionPanelProps {
     onToggleCollapse: () => void;
     activeTab: TabId;
     onTabChange: (tab: TabId) => void;
+    selectedId: string | null;
+    onUpdateProperty: (id: string, property: string, value: any) => void;
 }
 
-type TabId = 'layers' | 'environments' | 'control' | 'help';
+type TabId = 'layers' | 'environments' | 'properties' | 'control' | 'help';
 
 export const PlannerVisionPanel: React.FC<PlannerVisionPanelProps> = ({
     calculationData,
@@ -47,12 +51,16 @@ export const PlannerVisionPanel: React.FC<PlannerVisionPanelProps> = ({
     isCollapsed,
     onToggleCollapse,
     activeTab,
-    onTabChange
+    onTabChange,
+    selectedId,
+    onUpdateProperty
 }) => {
 
     const tabs: { id: TabId; icon: any; label: string }[] = [
         { id: 'layers', icon: Layers, label: 'CAPAS' },
-        { id: 'environments', icon: Home, label: 'AMBIENTES' },
+        ...(activeMode === 'singleLine'
+            ? [{ id: 'properties', icon: SlidersHorizontal, label: 'PROPIEDADES' } as { id: TabId; icon: any; label: string }]
+            : [{ id: 'environments', icon: Home, label: 'AMBIENTES' } as { id: TabId; icon: any; label: string }]),
         { id: 'control', icon: ClipboardCheck, label: 'CONTROL' },
         { id: 'help', icon: Info, label: 'TÉCNICO' }
     ];
@@ -109,12 +117,22 @@ export const PlannerVisionPanel: React.FC<PlannerVisionPanelProps> = ({
                             </div>
                         )}
 
-                        {activeTab === 'environments' && (
+                        {activeTab === 'environments' && activeMode !== 'singleLine' && (
                             <div className="p-4">
                                 <EnvironmentBlocks
                                     calculationData={calculationData}
                                     onDragStart={onRoomDragStart}
                                     onSelect={onRoomSelect}
+                                />
+                            </div>
+                        )}
+
+                        {activeTab === 'properties' && activeMode === 'singleLine' && (
+                            <div className="h-full">
+                                <PropertiesPanel
+                                    selectedId={selectedId}
+                                    symbols={symbols}
+                                    onUpdateProperty={onUpdateProperty}
                                 />
                             </div>
                         )}

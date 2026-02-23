@@ -142,7 +142,7 @@ export default function PlannerCanvas() {
   } = canvasState;
 
   const [isVisionPanelCollapsed, setIsVisionPanelCollapsed] = useState(false); // 🆕 Estado para Modo Foco
-  const [visionActiveTab, setVisionActiveTab] = useState<'layers' | 'environments' | 'control' | 'help'>('layers');
+  const [visionActiveTab, setVisionActiveTab] = useState<'layers' | 'environments' | 'properties' | 'control' | 'help'>('layers');
   const [showMaterialModal, setShowMaterialModal] = useState(false);
   const [showProjectInfoModal, setShowProjectInfoModal] = useState(false);
   const [showNewFloorModal, setShowNewFloorModal] = useState(false);
@@ -1011,8 +1011,19 @@ export default function PlannerCanvas() {
   };
 
   const handleUpdateLabel = (id: string, currentLabel?: string) => {
-    const newLabel = window.prompt("Editar etiqueta:", currentLabel || "");
-    if (newLabel !== null) setSymbols(symbols.map(s => s.id === id ? { ...s, label: newLabel } : s));
+    const newLabel = prompt("Ingresa el texto para esta etiqueta:", currentLabel || "");
+    if (newLabel !== null) {
+      handleUpdateSymbolProperty(id, 'label', newLabel);
+    }
+  };
+
+  const handleUpdateSymbolProperty = (id: string, property: string, value: any) => {
+    setSymbols(prev => prev.map(s => {
+      if (s.id === id) {
+        return { ...s, [property]: value };
+      }
+      return s;
+    }));
   };
 
   // --- CAMBIO DE MODO ---
@@ -1030,6 +1041,13 @@ export default function PlannerCanvas() {
       floorsCount: canvasState.floors.length,
       symbolsCount: canvasState.floors[0]?.elements?.symbols?.length || 0
     });
+
+    // Ajustar pestaña del panel derecho si es necesario (MV Properties)
+    if (newMode === 'singleLine' && visionActiveTab === 'environments') {
+      setVisionActiveTab('properties');
+    } else if (newMode === 'floorPlan' && visionActiveTab === 'properties') {
+      setVisionActiveTab('environments');
+    }
 
     // 2. Cambiar modo
     setActiveMode(newMode);
@@ -1385,40 +1403,52 @@ export default function PlannerCanvas() {
             <Rect
               x={-25} y={-25} width={50} height={50}
               stroke={color} strokeWidth={2}
-              fill={isSolid ? color : 'transparent'}
+              fill={isSolid ? color : undefined}
+              fillEnabled={isSolid}
               dash={strokeDash}
+              strokeScaleEnabled={false}
+              hitStrokeWidth={10}
             />
           )}
           {sym.type === 'circle' && (
             <Circle
               radius={25}
               stroke={color} strokeWidth={2}
-              fill={isSolid ? color : 'transparent'}
+              fill={isSolid ? color : undefined}
+              fillEnabled={isSolid}
               dash={strokeDash}
+              strokeScaleEnabled={false}
+              hitStrokeWidth={10}
             />
           )}
           {sym.type === 'triangle' && (
-            <Line
-              points={[0, -25, 25, 25, -25, 25]}
-              closed
+            <Path
+              data="M 0 -25 L 25 25 L -25 25 Z"
               stroke={color} strokeWidth={2}
-              fill={isSolid ? color : 'transparent'}
+              fill={isSolid ? color : undefined}
+              fillEnabled={isSolid}
               dash={strokeDash}
+              strokeScaleEnabled={false}
+              hitStrokeWidth={10}
             />
           )}
           {sym.type === 'line' && (
             <Line
-              points={sym.points || [-50, 0, 50, 0]}
+              points={sym.points || [-25, 0, 25, 0]}
               stroke={color} strokeWidth={2}
               dash={strokeDash}
+              strokeScaleEnabled={false}
+              hitStrokeWidth={10}
             />
           )}
           {sym.type === 'arrow' && (
             <Arrow
-              points={sym.points || [-50, 0, 50, 0]}
+              points={sym.points || [-25, 0, 25, 0]}
               stroke={color} strokeWidth={2}
               fill={color}
               dash={strokeDash}
+              strokeScaleEnabled={false}
+              hitStrokeWidth={10}
               pointerLength={10}
               pointerWidth={10}
             />
@@ -2498,6 +2528,8 @@ export default function PlannerCanvas() {
           onToggleCollapse={() => setIsVisionPanelCollapsed(!isVisionPanelCollapsed)}
           activeTab={visionActiveTab}
           onTabChange={setVisionActiveTab}
+          selectedId={selectedId}
+          onUpdateProperty={handleUpdateSymbolProperty}
         />
 
 
