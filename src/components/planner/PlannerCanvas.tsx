@@ -706,6 +706,10 @@ export default function PlannerCanvas() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignorar eventos de teclado si el usuario está escribiendo en un input o textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
       if ((e.key === 'Delete' || e.key === 'Backspace')) handleDeleteSelected();
     };
     window.addEventListener('keydown', handleKeyDown);

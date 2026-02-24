@@ -13,15 +13,58 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     onUpdateProperty
 }) => {
     const [selectedSymbol, setSelectedSymbol] = useState<any | null>(null);
+    const [localText, setLocalText] = useState<string>('');
+    const prevSelectedId = React.useRef<string | null>(null);
+    const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
         if (selectedId) {
             const sym = symbols.find(s => s.id === selectedId);
             setSelectedSymbol(sym || null);
+
+            // Sincronizar el texto local SOLO al cambiar de símbolo seleccionado
+            // Esto evita que actualizaciones ascendentes (re-renders del Canvas) roben el cursor en el textarea
+            if (selectedId !== prevSelectedId.current) {
+                setLocalText(sym?.label || '');
+                prevSelectedId.current = selectedId;
+            }
         } else {
             setSelectedSymbol(null);
+            setLocalText('');
+            prevSelectedId.current = null;
         }
     }, [selectedId, symbols]);
+
+    // Manejador central para cambiar textos sin perder foco
+    const handleTextChange = (newText: string) => {
+        setLocalText(newText);
+        // Pequeño debounce o propagación directa (si Konva aguanta)
+        if (selectedId) {
+            onUpdateProperty(selectedId, 'label', newText);
+        }
+    };
+
+    const handleInsertSymbol = (symbol: string) => {
+        if (textareaRef.current) {
+            const start = textareaRef.current.selectionStart;
+            const end = textareaRef.current.selectionEnd;
+            const textBefore = localText.substring(0, start);
+            const textAfter = localText.substring(end);
+
+            const newText = textBefore + symbol + textAfter;
+            handleTextChange(newText);
+
+            // Forzar el foco y la posición del cursor un milisegundo después
+            setTimeout(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.focus();
+                    textareaRef.current.setSelectionRange(start + symbol.length, start + symbol.length);
+                }
+            }, 10);
+        } else {
+            handleTextChange(localText + symbol);
+        }
+    };
 
     if (!selectedId || !selectedSymbol) {
         return (
@@ -52,13 +95,33 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             {isText && (
                 <div className="space-y-4">
                     <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                            <Type className="w-3 h-3" /> Texto (Multi-línea)
-                        </label>
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                                <Type className="w-3 h-3" /> Texto (Multi-línea)
+                            </label>
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={() => handleInsertSymbol('Ø')}
+                                    className="w-5 h-5 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold text-xs"
+                                    title="Insertar Diámetro"
+                                >Ø</button>
+                                <button
+                                    onClick={() => handleInsertSymbol('Ω')}
+                                    className="w-5 h-5 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold text-xs"
+                                    title="Insertar Ohm"
+                                >Ω</button>
+                                <button
+                                    onClick={() => handleInsertSymbol('²')}
+                                    className="w-5 h-5 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold text-xs"
+                                    title="Insertar Cuadrado"
+                                >²</button>
+                            </div>
+                        </div>
                         <textarea
+                            ref={textareaRef}
                             className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[80px]"
-                            value={selectedSymbol.label || ''}
-                            onChange={(e) => onUpdateProperty(selectedId, 'label', e.target.value)}
+                            value={localText}
+                            onChange={(e) => handleTextChange(e.target.value)}
                             placeholder="Escribe el texto aquí..."
                         />
                     </div>
