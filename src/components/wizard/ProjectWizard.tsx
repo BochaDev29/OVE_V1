@@ -170,8 +170,25 @@ export default function ProjectWizard({
   });
 
   // Estado para detectar cambios en environments
-  const [environmentsSnapshot, setEnvironmentsSnapshot] = useState<string>('');
+  // FIX: Si el proyecto ya tiene inventario guardado, inicializar el snapshot
+  // con el estado actual de environments para detectar cambios en sesiones futuras.
+  const [environmentsSnapshot, setEnvironmentsSnapshot] = useState<string>(() => {
+    if (initialData?.config?.circuitInventory && initialData?.environments?.length) {
+      return JSON.stringify(initialData.environments);
+    }
+    return '';
+  });
   const [hasEnvironmentsChanged, setHasEnvironmentsChanged] = useState(false);
+
+  // FIX: Capturar el snapshot cuando el usuario entra al Step 2 por primera vez
+  // en la sesión (cubre el caso de abrir un proyecto existente y navegar al Paso 2).
+  useEffect(() => {
+    if (step === 2 && config.circuitInventory && !environmentsSnapshot) {
+      const snapshot = JSON.stringify(environments);
+      setEnvironmentsSnapshot(snapshot);
+      console.log('📸 Snapshot inicial capturado al entrar al Paso 2');
+    }
+  }, [step]);
 
   // Detectar cambios en environments
   useEffect(() => {

@@ -41,7 +41,7 @@
  * ============================================================================
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Settings, Plus, Trash2, GitMerge, AlertCircle, Box, ChevronDown, ChevronUp, ChevronRight, Shield, ShieldCheck, AlertTriangle, Zap, Package, ArrowRight, Activity, TrendingDown, MessageSquare, MessageSquareText } from 'lucide-react';
 import {
     ProjectConfig,
@@ -651,11 +651,22 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
         }));
     };
 
+    // 🔧 FIX: Refs para evitar stale closures en useEffects que llaman onChange
+    // Siempre apuntan al valor más reciente de config y onChange
+    const configRef = useRef(config);
+    const onChangeRef = useRef(onChange);
+    useEffect(() => {
+        configRef.current = config;
+        onChangeRef.current = onChange;
+    });
+
     // 🆕 Auto-colapsar TP y crear TSG cuando includesPillar = false Y es departamento
     useEffect(() => {
         // Solo aplicar para departamentos en edificio (CAT III alcance limitado)
-        if (!config.includesPillar && config.destination === 'departamento') {
-            const tp = config.panels?.find(p => p.type === 'TP');
+        // Usar configRef para acceder siempre al config más reciente
+        const currentConfig = configRef.current;
+        if (!currentConfig.includesPillar && currentConfig.destination === 'departamento') {
+            const tp = currentConfig.panels?.find(p => p.type === 'TP');
             if (!tp) return;
 
             // 1. Colapsar TP automáticamente
@@ -665,7 +676,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
             }));
 
             // 2. Crear TSG si no existe
-            const hasTSG = config.panels?.some(p => p.type === 'TSG' || p.type === 'TS');
+            const hasTSG = currentConfig.panels?.some(p => p.type === 'TSG' || p.type === 'TS');
             if (!hasTSG) {
                 const newId = `TSG-${Math.floor(Math.random() * 1000)}`;
                 const newPanel: Panel = {
@@ -673,7 +684,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
                     name: 'TSG Interior',
                     type: 'TSG',
                     parentId: tp.id,
-                    voltage: config.voltage === '380V' ? '220V' : '220V',
+                    voltage: currentConfig.voltage === '380V' ? '220V' : '220V',
                     feederDistance: 15,
                     installationType: 'Embutido',
                     incomingLine: {
@@ -686,7 +697,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
                         conduitMaterial: 'PVC'
                     }
                 };
-                onChange({ ...config, panels: [...(config.panels || []), newPanel] });
+                onChangeRef.current({ ...currentConfig, panels: [...(currentConfig.panels || []), newPanel] });
             }
         }
     }, [config.includesPillar, config.destination]);
@@ -712,19 +723,23 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
 
     // 🆕 NUEVO: Auto-generar circuitInventoryForCAD cuando cambian los circuitos asignados
     useEffect(() => {
-        if (!config.circuitInventory?.circuits) return;
+        // 🔧 FIX: Usar configRef para leer el config más actualizado y evitar stale closure.
+        // Las dependencias del effect siguen siendo los valores de React para que se dispare
+        // correctamente, pero dentro usamos el ref para operar sobre datos frescos.
+        const currentConfig = configRef.current;
+        if (!currentConfig.circuitInventory?.circuits) return;
 
         // Generar inventario extendido para CAD
-        const cadInventory = generateCircuitInventoryForCAD(config);
+        const cadInventory = generateCircuitInventoryForCAD(currentConfig);
 
         // Solo actualizar si cambió (evitar loops infinitos)
-        const currentInventory = config.circuitInventoryForCAD || [];
+        const currentInventory = currentConfig.circuitInventoryForCAD || [];
         const hasChanged = JSON.stringify(cadInventory) !== JSON.stringify(currentInventory);
 
         if (hasChanged) {
             console.log('🎨 [CAD] Inventario actualizado:', cadInventory.length, 'circuitos');
-            onChange({
-                ...config,
+            onChangeRef.current({
+                ...currentConfig,
                 circuitInventoryForCAD: cadInventory
             });
         }

@@ -190,6 +190,14 @@ export default function PlannerCanvas() {
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
 
+  // --- COPY/PASTE STATE ---
+  const [clipboard, setClipboard] = useState<any | null>(null);
+
+  // --- REGLAS MAGNÉTICAS ---
+  interface Guideline { id: string; orientation: 'H' | 'V'; position: number; }
+  const [guidelines, setGuidelines] = useState<Guideline[]>([]);
+  const SNAP_THRESHOLD = 10; // px — distancia de atracción magnética
+
   // --- OPENING INTERACTIVITY STATE ---
   const [selectedOpeningId, setSelectedOpeningId] = useState<string | null>(null);
   const [editingOpening, setEditingOpening] = useState<Opening | null>(null);
@@ -710,11 +718,35 @@ export default function PlannerCanvas() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace')) handleDeleteSelected();
+      if ((e.key === 'Delete' || e.key === 'Backspace')) { handleDeleteSelected(); return; }
+
+      // ✂️ Ctrl+C: Copiar símbolo o texto seleccionado
+      if (e.ctrlKey && e.key === 'c') {
+        const sym = symbols.find(s => s.id === selectedId);
+        if (sym) {
+          setClipboard({ ...sym });
+          console.log('📋 Copiado:', sym.type, sym.id);
+        }
+        return;
+      }
+
+      // 📋 Ctrl+V: Pegar con offset de +20px
+      if (e.ctrlKey && e.key === 'v' && clipboard) {
+        const newSym = {
+          ...clipboard,
+          id: `sym-${Date.now()}`,
+          x: (clipboard.x || 0) + 20,
+          y: (clipboard.y || 0) + 20
+        };
+        setSymbols((prev: any[]) => [...prev, newSym]);
+        selectShape(newSym.id);
+        console.log('📋 Pegado:', newSym.type, newSym.id);
+        return;
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId]);
+  }, [selectedId, symbols, clipboard]);
 
 
   // Cargar Perfil del Matriculado (para PDF y Rótulo)
@@ -1119,6 +1151,20 @@ export default function PlannerCanvas() {
 
 
 
+  // 🧲 Snap magnético a reglas: se llama en onDragMove de símbolos
+  const snapToGuidelines = (node: any) => {
+    const nx = node.x();
+    const ny = node.y();
+    guidelines.forEach(g => {
+      if (g.orientation === 'V' && Math.abs(nx - g.position) < SNAP_THRESHOLD) {
+        node.x(g.position);
+      }
+      if (g.orientation === 'H' && Math.abs(ny - g.position) < SNAP_THRESHOLD) {
+        node.y(g.position);
+      }
+    });
+  };
+
   const handleSymbolDragEnd = (id: string, e: any) => {
     const x = e.target.x();
     const y = e.target.y();
@@ -1182,6 +1228,99 @@ export default function PlannerCanvas() {
         return { ...s, points: newPoints };
       }));
     }
+  };
+
+  // 📐 Renderizar reglas magnéticas graduadas (como Word/Illustrator)
+  const renderGuidelines = () => {
+    const floor = getCurrentFloor();
+    const { width: uWmm, height: uHmm } = getUsableDimensions(
+      floor?.format.widthMm || 297,
+      floor?.format.heightMm || 210
+    );
+    const sheetW = mmToPixels(uWmm);
+    const sheetH = mmToPixels(uHmm);
+    const RULER_W = 18; // Ancho de la regla en px
+    const TICK_COLOR = '#475569';
+    const RULER_BG = '#fef9c3'; // Amarillo claro (aspecto regla)
+    const RULER_BORDER = '#d97706';
+
+    return guidelines.map(g => {
+      const isH = g.orientation === 'H';
+      const pos = g.position;
+
+      // Ticks cada 10px, mayor cada 50px
+      const ticks: JSX.Element[] = [];
+      const span = isH ? sheetW : sheetH;
+      for (let t = 0; t <= span; t += 10) {
+        const isMajor = t % 50 === 0;
+        const tickLen = isMajor ? RULER_W * 0.55 : RULER_W * 0.28;
+        if (isH) {
+          ticks.push(
+            <Line key={`t${t}`} points={[t, 0, t, tickLen]} stroke={TICK_COLOR} strokeWidth={isMajor ? 1 : 0.5} listening={false} />
+          );
+          if (isMajor && t > 0) {
+            ticks.push(
+              <Text key={`l${t}`} x={t + 2} y={1} text={`${t}`} fontSize={6} fill={TICK_COLOR} listening={false} />
+            );
+          }
+        } else {
+          ticks.push(
+            <Line key={`t${t}`} points={[0, t, tickLen, t]} stroke={TICK_COLOR} strokeWidth={isMajor ? 1 : 0.5} listening={false} />
+          );
+          if (isMajor && t > 0) {
+            ticks.push(
+              <Text key={`l${t}`} x={1} y={t + 2} text={`${t}`} fontSize={6} fill={TICK_COLOR} listening={false} />
+            );
+          }
+        }
+      }
+
+      return (
+        <Group
+          key={g.id}
+          x={isH ? 0 : pos}
+          y={isH ? pos : 0}
+          draggable
+          onDragMove={(e) => {
+            const newPos = isH ? e.target.y() : e.target.x();
+            // Constrain drag axis
+            if (isH) { e.target.x(0); } else { e.target.y(0); }
+            setGuidelines(prev => prev.map(gl => gl.id === g.id ? { ...gl, position: newPos } : gl));
+          }}
+          onDblClick={() => setGuidelines(prev => prev.filter(gl => gl.id !== g.id))}
+          onDblTap={() => setGuidelines(prev => prev.filter(gl => gl.id !== g.id))}
+        >
+          {/* Línea de snap (delgada, a través de toda la hoja) */}
+          {isH
+            ? <Line points={[0, RULER_W / 2, sheetW, RULER_W / 2]} stroke={RULER_BORDER} strokeWidth={1} dash={[6, 3]} opacity={0.5} listening={false} />
+            : <Line points={[RULER_W / 2, 0, RULER_W / 2, sheetH]} stroke={RULER_BORDER} strokeWidth={1} dash={[6, 3]} opacity={0.5} listening={false} />
+          }
+          {/* Cuerpo de la regla */}
+          <Rect
+            x={0} y={0}
+            width={isH ? sheetW : RULER_W}
+            height={isH ? RULER_W : sheetH}
+            fill={RULER_BG}
+            stroke={RULER_BORDER}
+            strokeWidth={1}
+            opacity={0.88}
+            cornerRadius={0}
+          />
+          {/* Ticks y números */}
+          {ticks}
+          {/* Etiqueta de posición */}
+          <Text
+            x={isH ? sheetW - 35 : 1}
+            y={isH ? 6 : sheetH - 20}
+            text={`${Math.round(pos)}px`}
+            fontSize={7}
+            fontStyle="bold"
+            fill={RULER_BORDER}
+            listening={false}
+          />
+        </Group>
+      );
+    });
   };
 
   const renderGrid = () => {
@@ -1345,6 +1484,7 @@ export default function PlannerCanvas() {
           rotation={sym.rotation || 0}
           scaleX={sym.scaleX || 1}
           scaleY={sym.scaleY || 1}
+          onDragMove={(e) => snapToGuidelines(e.target)}
           onDragEnd={(e) => handleSymbolDragEnd(sym.id, e)}
           onClick={(e) => { e.cancelBubble = true; if (tool === 'select') selectShape(sym.id); }}
           onDblClick={(e) => { e.cancelBubble = true; handleUpdateLabel(sym.id, sym.label); }}
@@ -1661,7 +1801,7 @@ export default function PlannerCanvas() {
           doc.setFont("helvetica", "normal");
 
           const calc = calculationData.calculation;
-          const rows = calc.circuits.map((c: any) => [
+          const rows = (calc.circuits || []).map((c: any) => [
             c.id,
             c.type,
             c.description,
@@ -1887,7 +2027,43 @@ export default function PlannerCanvas() {
                 setIsVisionPanelCollapsed(false);
               }}
             />
-            <div className="flex gap-2 px-2">
+            <div className="flex gap-2 px-2 items-center">
+              {/* BOTONES REGLAS MAGNÉTICAS */}
+              <div className="flex gap-1" title="Reglas magnéticas · Arrastrar para mover · Doble-click para eliminar">
+                <button
+                  onClick={() => {
+                    const floor = getCurrentFloor();
+                    const { height: uHmm } = getUsableDimensions(floor?.format.widthMm || 297, floor?.format.heightMm || 210);
+                    const centerY = mmToPixels(uHmm) / 2;
+                    setGuidelines(prev => [...prev, { id: `g-${Date.now()}`, orientation: 'H', position: centerY }]);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-md transition-all"
+                  title="Agregar Regla Horizontal (magnética)"
+                >
+                  <span>━</span> Regla H
+                </button>
+                <button
+                  onClick={() => {
+                    const floor = getCurrentFloor();
+                    const { width: uWmm } = getUsableDimensions(floor?.format.widthMm || 297, floor?.format.heightMm || 210);
+                    const centerX = mmToPixels(uWmm) / 2;
+                    setGuidelines(prev => [...prev, { id: `g-${Date.now()}`, orientation: 'V', position: centerX }]);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-md transition-all"
+                  title="Agregar Regla Vertical (magnética)"
+                >
+                  <span>┃</span> Regla V
+                </button>
+                {guidelines.length > 0 && (
+                  <button
+                    onClick={() => setGuidelines([])}
+                    className="px-2 py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 border border-red-200 rounded-md transition-all"
+                    title="Eliminar todas las reglas"
+                  >
+                    ✕ Reglas
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => setIsVisionPanelCollapsed(!isVisionPanelCollapsed)}
                 className="p-1 text-slate-500 hover:bg-slate-100 rounded-md transition-all md:hidden"
@@ -1989,6 +2165,8 @@ export default function PlannerCanvas() {
                 )}
 
                 {renderGrid()}
+                {/* REGLAS MAGNÉTICAS GRADUADAS */}
+                {renderGuidelines()}
 
                 {/* RÓTULO DINÁMICO IRAM 4508 */}
                 {(() => {
