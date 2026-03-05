@@ -721,29 +721,16 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
         }));
     };
 
-    // 🆕 NUEVO: Auto-generar circuitInventoryForCAD cuando cambian los circuitos asignados
-    useEffect(() => {
-        // 🔧 FIX: Usar configRef para leer el config más actualizado y evitar stale closure.
-        // Las dependencias del effect siguen siendo los valores de React para que se dispare
-        // correctamente, pero dentro usamos el ref para operar sobre datos frescos.
-        const currentConfig = configRef.current;
-        if (!currentConfig.circuitInventory?.circuits) return;
+    // ✅ El circuitInventoryForCAD ya no usa useEffect.
+    // Cada mutación del Paso 3 llama a applyChange(), que genera el CAD inventory
+    // de forma atómica junto con el cambio de estado, evitando cualquier condición de carrera.
 
-        // Generar inventario extendido para CAD
-        const cadInventory = generateCircuitInventoryForCAD(currentConfig);
-
-        // Solo actualizar si cambió (evitar loops infinitos)
-        const currentInventory = currentConfig.circuitInventoryForCAD || [];
-        const hasChanged = JSON.stringify(cadInventory) !== JSON.stringify(currentInventory);
-
-        if (hasChanged) {
-            console.log('🎨 [CAD] Inventario actualizado:', cadInventory.length, 'circuitos');
-            onChangeRef.current({
-                ...currentConfig,
-                circuitInventoryForCAD: cadInventory
-            });
-        }
-    }, [config.circuitInventory?.assignedCircuits, config.panels]);
+    // 🔧 FIX: Helper que siempre incluye circuitInventoryForCAD actualizado en un único onChange.
+    // Usar este helper en lugar de onChange() directo para todas las mutaciones del Paso 3.
+    const applyChange = (newConfig: ProjectConfig) => {
+        const cadInventory = generateCircuitInventoryForCAD(newConfig);
+        onChange({ ...newConfig, circuitInventoryForCAD: cadInventory });
+    };
 
     // Helper: Asignar circuito a tablero
     const assignCircuitToPanel = (circuitId: string, panelId: string) => {
@@ -763,7 +750,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
         const assignedCount = updatedCircuits.filter(c => c.isAssigned).length;
         const orphanCount = updatedCircuits.length - assignedCount;
 
-        onChange({
+        applyChange({
             ...config,
             circuitInventory: {
                 circuits: updatedCircuits,
@@ -858,7 +845,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
             return c;
         });
 
-        onChange({
+        applyChange({
             ...config,
             circuitInventory: {
                 ...config.circuitInventory,
@@ -881,7 +868,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
             return c;
         });
 
-        onChange({
+        applyChange({
             ...config,
             circuitInventory: {
                 ...config.circuitInventory,
@@ -904,7 +891,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
             return c;
         });
 
-        onChange({
+        applyChange({
             ...config,
             circuitInventory: {
                 ...config.circuitInventory,
@@ -918,7 +905,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
         const newPanels = (config.panels || []).map(p =>
             p.id === id ? { ...p, ...updates } : p
         );
-        onChange({ ...config, panels: newPanels });
+        applyChange({ ...config, panels: newPanels });
     };
 
     // Helper: Crear nuevo Tablero Seccional
@@ -947,7 +934,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
             }
         };
 
-        onChange({ ...config, panels: [...(config.panels || []), newPanel] });
+        applyChange({ ...config, panels: [...(config.panels || []), newPanel] });
     };
 
     // Helper: Validar que no se creen ciclos en la jerarquía
@@ -1012,7 +999,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
             const orphanCount = updatedCircuits.length - assignedCount;
 
             // PASO 5: Aplicar cambios
-            onChange({
+            applyChange({
                 ...config,
                 panels: updatedPanels,
                 circuitInventory: {
@@ -1198,7 +1185,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
                                         <div className="flex items-start justify-between mb-2">
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="font-bold text-sm text-slate-800">{circuit.id}</div>
+                                                    <div className="font-bold text-sm text-slate-800">{circuit.type}</div>
 
                                                     {/* 🆕 Selector de Fase - Solo en proyectos 380V */}
                                                     {config.voltage === '380V' && (
@@ -1508,7 +1495,7 @@ export default function ProjectWizardStep3({ config, onChange, onBack, onCalcula
                                                             className="flex items-center justify-between p-2 bg-slate-50 rounded text-xs hover:bg-slate-100 transition-colors group"
                                                         >
                                                             <div className="flex items-center gap-2 flex-1">
-                                                                <span className="font-bold text-slate-700">{circuit.id}</span>
+                                                                <span className="font-bold text-slate-700">{circuit.type}</span>
 
                                                                 {/* 🆕 Selector de Fase - Solo en proyectos 380V */}
                                                                 {config.voltage === '380V' && (

@@ -1171,7 +1171,7 @@ export default function WizardStep2_Ambientes({ config, onChange, environments, 
                                         const textColor = type === 'ACU' ? 'text-purple-700' : type === 'TUE' ? 'text-pink-700' : type === 'IUE' ? 'text-indigo-700' : 'text-gray-700';
                                         return (
                                             <th key={circuit} className={`p-2 text-center border ${bgColor} font-bold ${textColor} text-[10px]`}>
-                                                {icon} {circuit}
+                                                {icon} {circuit.split('-')[0]}
                                             </th>
                                         );
                                     })}

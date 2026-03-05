@@ -4351,7 +4351,7 @@ export function generateCircuitInventory(
         );
 
         circuits.push({
-          id: `${load.type}-${env.name}-${index + 1}`,
+          id: `${load.type}-${env.id}-${index + 1}`,
           type: load.type,
           description: `${load.name} en ${env.name}`,
           bocas: load.bocas || 1,

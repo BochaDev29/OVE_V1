@@ -81,9 +81,9 @@ export function PanelOutputSection({
                                     <div>
                                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">Circuitos Protegidos</div>
                                         <div className="flex flex-wrap gap-2 ml-4">
-                                            {assignedCircuits.map(c => (
-                                                <div key={c.id} className="bg-white border border-slate-200 rounded px-2 py-1 flex items-center gap-2 shadow-sm text-xs">
-                                                    <span className="font-bold text-slate-700">{c.id}</span>
+                                            {assignedCircuits.map((c, i) => (
+                                                <div key={`${c.id}-${i}`} className="bg-white border border-slate-200 rounded px-2 py-1 flex items-center gap-2 shadow-sm text-xs">
+                                                    <span className="font-bold text-slate-700">{c.type}</span>
                                                     <span className="text-slate-400">|</span>
                                                     <span className="font-mono text-blue-700">{c.cable}</span>
                                                     <span className="text-slate-400">|</span>
@@ -153,9 +153,9 @@ export function PanelOutputSection({
                                             {/* Circuitos bajo esta protección */}
                                             {circuits.length > 0 ? (
                                                 <div className="flex flex-wrap gap-2 ml-4">
-                                                    {circuits.map(c => (
-                                                        <div key={c.id} className="bg-white border border-slate-200 rounded px-2 py-1 flex items-center gap-2 shadow-sm text-xs">
-                                                            <span className="font-bold text-slate-700">{c.id}</span>
+                                                    {circuits.map((c, i) => (
+                                                        <div key={`${c.id}-${i}`} className="bg-white border border-slate-200 rounded px-2 py-1 flex items-center gap-2 shadow-sm text-xs">
+                                                            <span className="font-bold text-slate-700">{c.type}</span>
                                                             <span className="text-slate-400">|</span>
                                                             <span className="font-mono text-blue-700">{c.cable}</span>
                                                             <span className="text-slate-400">|</span>
@@ -201,9 +201,9 @@ export function PanelOutputSection({
                                             <span className="text-xs font-bold text-amber-900">⚠️ Sin Protección Asignada</span>
                                         </div>
                                         <div className="flex flex-wrap gap-2 ml-4">
-                                            {unassignedCircuits.map(c => (
-                                                <div key={c.id} className="bg-white border border-amber-200 rounded px-2 py-1 flex items-center gap-2 shadow-sm text-xs">
-                                                    <span className="font-bold text-slate-700">{c.id}</span>
+                                            {unassignedCircuits.map((c, i) => (
+                                                <div key={`${c.id}-${i}`} className="bg-white border border-amber-200 rounded px-2 py-1 flex items-center gap-2 shadow-sm text-xs">
+                                                    <span className="font-bold text-slate-700">{c.type}</span>
                                                     <span className="text-slate-400">|</span>
                                                     <span className="font-mono text-blue-700">{c.cable}</span>
                                                     <span className="text-slate-400">|</span>
